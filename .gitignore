@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Data / SQLite
+*.db
+*.sqlite
+results.json
+enriched_results.json
+local_storage.json
+queries_*.txt
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum LeadStatus {
+  FRESH
+  ENRICHED
+  READY
+  FINISH
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String
+  leads         Lead[]
+  rejectedLeads Int      @default(0)
+  createdAt     DateTime @default(now())
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  name         String
+  wa           String     @unique
+  category     String
+  province     String     @default("")
+  city         String     @default("")
+  address      String     @default("")
+  rating       Float      @default(0)
+  website      String     @default("N/A")
+  reviews      Json       @default("[]")
+  status       LeadStatus @default(FRESH)
+  brandData    Json?
+  aiAnalysis   Json?
+  painPoints   String?
+  websiteDraft Json?
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([status, category])
+  @@index([userId])
+}
