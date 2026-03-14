@@ -1,0 +1,1958 @@
+{
+  "styleModels": {
+    "version": "1.0.0",
+    "totalModels": 20,
+    "lastUpdated": "2024-01-15",
+    "models": [
+      {
+        "id": "clean-minimal",
+        "name": "Clean Minimal",
+        "icon": "🤍",
+        "description": "Desain bersih dengan fokus pada whitespace, tipografi jelas, dan elemen minimal. Cocok untuk brand yang mengutamakan kesederhanaan dan profesionalisme.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Light",
+          "contrast": "Medium",
+          "playfulness": "Low",
+          "formality": "High"
+        },
+        "colorPalette": {
+          "primary": "#2C3E50",
+          "secondary": "#34495E",
+          "accent": "#3498DB",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F8F9FA",
+          "text": "#2C3E50",
+          "textLight": "#7F8C8D",
+          "border": "#E0E0E0",
+          "success": "#27AE60",
+          "warning": "#F39C12",
+          "error": "#E74C3C"
+        },
+        "typography": {
+          "headingFont": "Inter, sans-serif",
+          "bodyFont": "Lato, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "8px",
+          "size": "medium",
+          "padding": "12px 24px",
+          "fontWeight": "600",
+          "style": "solid",
+          "hoverEffect": "shadow-lift",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "8px",
+          "shadow": "0 2px 8px rgba(0,0,0,0.08)",
+          "shadowHover": "0 8px 24px rgba(0,0,0,0.12)",
+          "border": "1px solid #E0E0E0",
+          "padding": "24px",
+          "hoverEffect": "lift"
+        },
+        "navbarStyles": {
+          "position": "sticky",
+          "type": "standard",
+          "height": "70px",
+          "background": "#FFFFFF",
+          "backgroundScroll": "#FFFFFF",
+          "shadow": "0 2px 10px rgba(0,0,0,0.05)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in-up",
+          "hoverEffects": "subtle",
+          "loadingAnimation": "spinner",
+          "duration": "0.3s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Portfolio",
+          "Agency",
+          "SaaS",
+          "Consulting",
+          "Professional Services",
+          "Tech Startup"
+        ],
+        "bestFor": [
+          "Website yang mengutamakan kecepatan loading",
+          "Brand dengan identitas minimal",
+          "Audiens profesional",
+          "Konten-heavy website"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Low",
+          "animationImpact": "Minimal"
+        }
+      },
+      {
+        "id": "bold-modern",
+        "name": "Bold Modern",
+        "icon": "🔥",
+        "description": "Desain berani dengan kontras tinggi, tipografi besar, dan elemen visual yang menonjol. Cocok untuk brand yang ingin membuat pernyataan kuat.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Heavy",
+          "contrast": "High",
+          "playfulness": "Medium",
+          "formality": "Medium"
+        },
+        "colorPalette": {
+          "primary": "#000000",
+          "secondary": "#1A1A1A",
+          "accent": "#FF3D00",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F5F5F5",
+          "text": "#000000",
+          "textLight": "#666666",
+          "border": "#000000",
+          "success": "#00C853",
+          "warning": "#FFD600",
+          "error": "#D50000"
+        },
+        "typography": {
+          "headingFont": "Montserrat, sans-serif",
+          "bodyFont": "Poppins, sans-serif",
+          "headingWeight": "800",
+          "bodyWeight": "400",
+          "baseSize": "18px",
+          "scaleRatio": "1.333",
+          "lineHeight": "1.5",
+          "letterSpacing": "-0.02em"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "6px",
+          "size": "large",
+          "padding": "16px 32px",
+          "fontWeight": "700",
+          "style": "solid",
+          "hoverEffect": "scale-up",
+          "transition": "0.2s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "6px",
+          "shadow": "0 4px 12px rgba(0,0,0,0.15)",
+          "shadowHover": "0 12px 32px rgba(0,0,0,0.2)",
+          "border": "none",
+          "padding": "32px",
+          "hoverEffect": "scale"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "standard",
+          "height": "80px",
+          "background": "#000000",
+          "backgroundScroll": "#000000",
+          "shadow": "none",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "slide",
+          "scrollAnimation": "slide-up",
+          "hoverEffects": "bold",
+          "loadingAnimation": "progress-bar",
+          "duration": "0.4s",
+          "easing": "cubic-bezier(0.4, 0, 0.2, 1)"
+        },
+        "targetIndustries": [
+          "Startup",
+          "Tech Company",
+          "App Landing Page",
+          "Digital Agency",
+          "Gaming",
+          "Entertainment"
+        ],
+        "bestFor": [
+          "Landing page dengan konversi tinggi",
+          "Brand yang ingin tampil berani",
+          "Audiens muda dan tech-savvy",
+          "Product launch"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "7:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "Medium",
+          "animationImpact": "Moderate"
+        }
+      },
+      {
+        "id": "premium-elegant",
+        "name": "Premium Elegant",
+        "icon": "👑",
+        "description": "Desain mewah dengan warna gelap, aksen emas, dan tipografi serif yang elegan. Cocok untuk brand luxury dan high-end.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Medium",
+          "contrast": "High",
+          "playfulness": "Low",
+          "formality": "Very High"
+        },
+        "colorPalette": {
+          "primary": "#1A1A1A",
+          "secondary": "#2D2D2D",
+          "accent": "#D4AF37",
+          "background": "#0A0A0A",
+          "backgroundAlt": "#141414",
+          "text": "#FFFFFF",
+          "textLight": "#B0B0B0",
+          "border": "#D4AF37",
+          "success": "#27AE60",
+          "warning": "#D4AF37",
+          "error": "#C0392B"
+        },
+        "typography": {
+          "headingFont": "Playfair Display, serif",
+          "bodyFont": "Lato, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "300",
+          "baseSize": "16px",
+          "scaleRatio": "1.414",
+          "lineHeight": "1.8",
+          "letterSpacing": "0.05em"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "4px",
+          "size": "medium",
+          "padding": "14px 28px",
+          "fontWeight": "600",
+          "style": "outline",
+          "hoverEffect": "fill",
+          "transition": "0.4s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "4px",
+          "shadow": "0 4px 20px rgba(0,0,0,0.3)",
+          "shadowHover": "0 8px 30px rgba(0,0,0,0.4)",
+          "border": "1px solid rgba(212,175,55,0.3)",
+          "padding": "32px",
+          "hoverEffect": "border-glow"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "minimal",
+          "height": "90px",
+          "background": "rgba(10,10,10,0.95)",
+          "backgroundScroll": "rgba(10,10,10,0.98)",
+          "shadow": "none",
+          "logoPosition": "center",
+          "menuPosition": "split"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in",
+          "hoverEffects": "elegant",
+          "loadingAnimation": "logo-reveal",
+          "duration": "0.6s",
+          "easing": "ease-in-out"
+        },
+        "targetIndustries": [
+          "Luxury Brand",
+          "Hotel & Resort",
+          "Fine Dining",
+          "Fashion",
+          "Jewelry",
+          "Real Estate Premium"
+        ],
+        "bestFor": [
+          "Brand luxury dan high-end",
+          "Audiens dengan daya beli tinggi",
+          "Website yang mengutamakan prestige",
+          "Product showcase premium"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "7:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "Medium",
+          "animationImpact": "Moderate"
+        }
+      },
+      {
+        "id": "playful-creative",
+        "name": "Playful Creative",
+        "icon": "🎈",
+        "description": "Desain ceria dengan warna-warna cerah, bentuk rounded, dan animasi yang fun. Cocok untuk brand kreatif dan audiens muda.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Medium",
+          "contrast": "Medium",
+          "playfulness": "Very High",
+          "formality": "Low"
+        },
+        "colorPalette": {
+          "primary": "#FF6B6B",
+          "secondary": "#4ECDC4",
+          "accent": "#FFE66D",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F7FFF7",
+          "text": "#292F36",
+          "textLight": "#6B7280",
+          "border": "#FF6B6B",
+          "success": "#95E1D3",
+          "warning": "#FFE66D",
+          "error": "#FF6B6B"
+        },
+        "typography": {
+          "headingFont": "Poppins, sans-serif",
+          "bodyFont": "Nunito, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "pill",
+          "borderRadius": "50px",
+          "size": "medium",
+          "padding": "14px 32px",
+          "fontWeight": "700",
+          "style": "solid",
+          "hoverEffect": "bounce",
+          "transition": "0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+        },
+        "cardStyles": {
+          "borderRadius": "20px",
+          "shadow": "0 8px 24px rgba(255,107,107,0.2)",
+          "shadowHover": "0 12px 32px rgba(255,107,107,0.3)",
+          "border": "3px solid #FF6B6B",
+          "padding": "24px",
+          "hoverEffect": "wiggle"
+        },
+        "navbarStyles": {
+          "position": "sticky",
+          "type": "playful",
+          "height": "70px",
+          "background": "#FFFFFF",
+          "backgroundScroll": "#FFFFFF",
+          "shadow": "0 4px 20px rgba(255,107,107,0.15)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "bounce",
+          "scrollAnimation": "bounce-in",
+          "hoverEffects": "playful",
+          "loadingAnimation": "bouncing-dots",
+          "duration": "0.5s",
+          "easing": "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+        },
+        "targetIndustries": [
+          "Kids Brand",
+          "Entertainment",
+          "Creative Agency",
+          "Education",
+          "Toys & Games",
+          "Food & Beverage Fun"
+        ],
+        "bestFor": [
+          "Brand dengan personality fun",
+          "Audiens anak-anak atau muda",
+          "Website yang ingin tampil berbeda",
+          "Creative portfolio"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "Medium",
+          "animationImpact": "Moderate"
+        }
+      },
+      {
+        "id": "corporate-professional",
+        "name": "Corporate Professional",
+        "icon": "💼",
+        "description": "Desain profesional dengan warna konservatif, layout terstruktur, dan elemen yang trustworthy. Cocok untuk bisnis B2B dan korporat.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Medium",
+          "contrast": "Medium",
+          "playfulness": "Very Low",
+          "formality": "Very High"
+        },
+        "colorPalette": {
+          "primary": "#1E3A5F",
+          "secondary": "#2C5282",
+          "accent": "#4299E1",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F7FAFC",
+          "text": "#1A202C",
+          "textLight": "#718096",
+          "border": "#E2E8F0",
+          "success": "#38A169",
+          "warning": "#D69E2E",
+          "error": "#E53E3E"
+        },
+        "typography": {
+          "headingFont": "Roboto, sans-serif",
+          "bodyFont": "Open Sans, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "6px",
+          "size": "medium",
+          "padding": "12px 24px",
+          "fontWeight": "600",
+          "style": "solid",
+          "hoverEffect": "darken",
+          "transition": "0.2s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "6px",
+          "shadow": "0 1px 3px rgba(0,0,0,0.1)",
+          "shadowHover": "0 4px 6px rgba(0,0,0,0.1)",
+          "border": "1px solid #E2E8F0",
+          "padding": "24px",
+          "hoverEffect": "border-highlight"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "multi-level",
+          "height": "70px",
+          "background": "#FFFFFF",
+          "backgroundScroll": "#FFFFFF",
+          "shadow": "0 2px 4px rgba(0,0,0,0.1)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in",
+          "hoverEffects": "minimal",
+          "loadingAnimation": "spinner",
+          "duration": "0.2s",
+          "easing": "ease"
+        },
+        "targetIndustries": [
+          "B2B Services",
+          "Finance",
+          "Insurance",
+          "Legal",
+          "Consulting",
+          "Enterprise Software"
+        ],
+        "bestFor": [
+          "Website korporat dan enterprise",
+          "Audiens profesional dan decision maker",
+          "Brand yang mengutamakan trust",
+          "Long-term business relationships"
+        ],
+        "accessibility": {
+          "wcagLevel": "AAA",
+          "contrastRatio": "7:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Low",
+          "animationImpact": "Minimal"
+        }
+      },
+      {
+        "id": "tech-futuristic",
+        "name": "Tech Futuristic",
+        "icon": "🚀",
+        "description": "Desain futuristik dengan dark mode, neon accents, dan efek glow. Cocok untuk brand tech, crypto, dan gaming.",
+        "characteristics": {
+          "complexity": "High",
+          "visualWeight": "Heavy",
+          "contrast": "Very High",
+          "playfulness": "Medium",
+          "formality": "Low"
+        },
+        "colorPalette": {
+          "primary": "#00F0FF",
+          "secondary": "#BD00FF",
+          "accent": "#FF0080",
+          "background": "#0A0A0F",
+          "backgroundAlt": "#12121A",
+          "text": "#FFFFFF",
+          "textLight": "#A0A0B0",
+          "border": "#00F0FF",
+          "success": "#00FF88",
+          "warning": "#FFDD00",
+          "error": "#FF0055"
+        },
+        "typography": {
+          "headingFont": "Orbitron, sans-serif",
+          "bodyFont": "Rajdhani, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.333",
+          "lineHeight": "1.5",
+          "letterSpacing": "0.05em"
+        },
+        "buttonStyles": {
+          "shape": "angled",
+          "borderRadius": "0px",
+          "size": "large",
+          "padding": "16px 32px",
+          "fontWeight": "700",
+          "style": "gradient",
+          "hoverEffect": "glow",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "0px",
+          "shadow": "0 0 20px rgba(0,240,255,0.3)",
+          "shadowHover": "0 0 40px rgba(0,240,255,0.5)",
+          "border": "2px solid #00F0FF",
+          "padding": "24px",
+          "hoverEffect": "glow-intensify"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "tech",
+          "height": "80px",
+          "background": "rgba(10,10,15,0.95)",
+          "backgroundScroll": "rgba(10,10,15,0.98)",
+          "shadow": "0 0 20px rgba(0,240,255,0.2)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "glitch",
+          "scrollAnimation": "fade-in-glow",
+          "hoverEffects": "neon",
+          "loadingAnimation": "cyber-spinner",
+          "duration": "0.4s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Crypto & Blockchain",
+          "AI & Machine Learning",
+          "Gaming",
+          "VR/AR",
+          "Cybersecurity",
+          "Tech Startup"
+        ],
+        "bestFor": [
+          "Brand tech dan innovation",
+          "Audiens tech-savvy dan gamer",
+          "Product launch futuristik",
+          "Web3 dan crypto projects"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "7:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "High",
+          "animationImpact": "High"
+        }
+      },
+      {
+        "id": "organic-natural",
+        "name": "Organic Natural",
+        "icon": "🌿",
+        "description": "Desain natural dengan earth tones, tekstur organik, dan elemen yang menenangkan. Cocok untuk brand eco-friendly dan wellness.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Light",
+          "contrast": "Low",
+          "playfulness": "Low",
+          "formality": "Medium"
+        },
+        "colorPalette": {
+          "primary": "#5D8A66",
+          "secondary": "#8B7355",
+          "accent": "#D4A574",
+          "background": "#FDFBF7",
+          "backgroundAlt": "#F5F0E6",
+          "text": "#3D3D3D",
+          "textLight": "#6B6B6B",
+          "border": "#D4C4B0",
+          "success": "#7CB342",
+          "warning": "#FFA726",
+          "error": "#EF5350"
+        },
+        "typography": {
+          "headingFont": "Merriweather, serif",
+          "bodyFont": "Lora, serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "17px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.8",
+          "letterSpacing": "0.02em"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "12px",
+          "size": "medium",
+          "padding": "14px 28px",
+          "fontWeight": "600",
+          "style": "solid",
+          "hoverEffect": "earth-tone-shift",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "12px",
+          "shadow": "0 4px 16px rgba(93,138,102,0.15)",
+          "shadowHover": "0 8px 24px rgba(93,138,102,0.2)",
+          "border": "none",
+          "padding": "28px",
+          "hoverEffect": "natural-lift"
+        },
+        "navbarStyles": {
+          "position": "sticky",
+          "type": "minimal",
+          "height": "70px",
+          "background": "#FDFBF7",
+          "backgroundScroll": "#FDFBF7",
+          "shadow": "none",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in-up",
+          "hoverEffects": "gentle",
+          "loadingAnimation": "leaf-rotate",
+          "duration": "0.4s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Eco-Friendly Brand",
+          "Wellness & Spa",
+          "Organic Food",
+          "Sustainable Fashion",
+          "Yoga & Meditation",
+          "Natural Products"
+        ],
+        "bestFor": [
+          "Brand dengan nilai sustainability",
+          "Audiens health-conscious",
+          "Product natural dan organic",
+          "Lifestyle wellness"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Low",
+          "animationImpact": "Minimal"
+        }
+      },
+      {
+        "id": "retro-vintage",
+        "name": "Retro Vintage",
+        "icon": "📻",
+        "description": "Desain nostalgia dengan warna muted, tekstur grain, dan elemen klasik. Cocok untuk brand dengan cerita heritage dan vintage.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Medium",
+          "contrast": "Medium",
+          "playfulness": "Medium",
+          "formality": "Medium"
+        },
+        "colorPalette": {
+          "primary": "#C94C22",
+          "secondary": "#1B4965",
+          "accent": "#E8D5B5",
+          "background": "#F4E9D8",
+          "backgroundAlt": "#E8D5B5",
+          "text": "#2C2C2C",
+          "textLight": "#5A5A5A",
+          "border": "#C94C22",
+          "success": "#6B8E23",
+          "warning": "#DAA520",
+          "error": "#B22222"
+        },
+        "typography": {
+          "headingFont": "Playfair Display, serif",
+          "bodyFont": "Georgia, serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.333",
+          "lineHeight": "1.7",
+          "letterSpacing": "0.03em"
+        },
+        "buttonStyles": {
+          "shape": "rectangle",
+          "borderRadius": "4px",
+          "size": "medium",
+          "padding": "12px 24px",
+          "fontWeight": "700",
+          "style": "outline",
+          "hoverEffect": "fill-vintage",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "4px",
+          "shadow": "4px 4px 0px rgba(0,0,0,0.2)",
+          "shadowHover": "6px 6px 0px rgba(0,0,0,0.2)",
+          "border": "3px solid #C94C22",
+          "padding": "24px",
+          "hoverEffect": "shift"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "classic",
+          "height": "80px",
+          "background": "#F4E9D8",
+          "backgroundScroll": "#F4E9D8",
+          "shadow": "none",
+          "border": "2px solid #C94C22",
+          "logoPosition": "center",
+          "menuPosition": "split"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in",
+          "hoverEffects": "vintage",
+          "loadingAnimation": "film-reel",
+          "duration": "0.4s",
+          "easing": "ease"
+        },
+        "targetIndustries": [
+          "Cafe & Restaurant",
+          "Barbershop",
+          "Music & Vinyl",
+          "Vintage Fashion",
+          "Craft Brewery",
+          "Heritage Brand"
+        ],
+        "bestFor": [
+          "Brand dengan cerita heritage",
+          "Audiens yang appreciates nostalgia",
+          "Product artisan dan craft",
+          "Lifestyle vintage"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "Medium",
+          "animationImpact": "Low"
+        }
+      },
+      {
+        "id": "glass-modern",
+        "name": "Glass Modern",
+        "icon": "🪟",
+        "description": "Desain modern dengan efek glassmorphism, blur, dan transparansi. Cocok untuk dashboard, app, dan website modern.",
+        "characteristics": {
+          "complexity": "High",
+          "visualWeight": "Medium",
+          "contrast": "Medium",
+          "playfulness": "Medium",
+          "formality": "Medium"
+        },
+        "colorPalette": {
+          "primary": "#6366F1",
+          "secondary": "#8B5CF6",
+          "accent": "#EC4899",
+          "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          "backgroundAlt": "rgba(255,255,255,0.1)",
+          "text": "#FFFFFF",
+          "textLight": "rgba(255,255,255,0.7)",
+          "border": "rgba(255,255,255,0.2)",
+          "success": "#10B981",
+          "warning": "#F59E0B",
+          "error": "#EF4444"
+        },
+        "typography": {
+          "headingFont": "Inter, sans-serif",
+          "bodyFont": "SF Pro Display, sans-serif",
+          "headingWeight": "600",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "12px",
+          "size": "medium",
+          "padding": "14px 28px",
+          "fontWeight": "600",
+          "style": "glass",
+          "hoverEffect": "blur-increase",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "16px",
+          "shadow": "0 8px 32px rgba(0,0,0,0.1)",
+          "shadowHover": "0 12px 40px rgba(0,0,0,0.15)",
+          "border": "1px solid rgba(255,255,255,0.2)",
+          "padding": "24px",
+          "backdropFilter": "blur(10px)",
+          "hoverEffect": "glass-lift"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "glass",
+          "height": "70px",
+          "background": "rgba(255,255,255,0.1)",
+          "backgroundScroll": "rgba(255,255,255,0.15)",
+          "shadow": "none",
+          "border": "1px solid rgba(255,255,255,0.2)",
+          "backdropFilter": "blur(10px)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in-blur",
+          "hoverEffects": "glass",
+          "loadingAnimation": "glass-spinner",
+          "duration": "0.4s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Dashboard & Admin Panel",
+          "SaaS Application",
+          "Fintech",
+          "Modern Web App",
+          "Crypto Platform",
+          "Analytics Tool"
+        ],
+        "bestFor": [
+          "Application dashboard modern",
+          "Audiens tech-savvy",
+          "Data-heavy interface",
+          "Premium web experience"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "High",
+          "animationImpact": "Moderate"
+        }
+      },
+      {
+        "id": "neumorphism-soft",
+        "name": "Neumorphism Soft",
+        "icon": "⚪",
+        "description": "Desain soft UI dengan efek emboss, shadow lembut, dan monochrome. Cocok untuk mobile app dan interface modern.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Light",
+          "contrast": "Low",
+          "playfulness": "Low",
+          "formality": "Medium"
+        },
+        "colorPalette": {
+          "primary": "#E0E5EC",
+          "secondary": "#D1D9E6",
+          "accent": "#6D5DFC",
+          "background": "#E0E5EC",
+          "backgroundAlt": "#E0E5EC",
+          "text": "#4A5568",
+          "textLight": "#A0AEC0",
+          "border": "none",
+          "success": "#48BB78",
+          "warning": "#ECC94B",
+          "error": "#F56565"
+        },
+        "typography": {
+          "headingFont": "Nunito, sans-serif",
+          "bodyFont": "Open Sans, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "12px",
+          "size": "medium",
+          "padding": "14px 28px",
+          "fontWeight": "600",
+          "style": "neumorph",
+          "hoverEffect": "press",
+          "transition": "0.2s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "20px",
+          "shadow": "9px 9px 16px rgb(163,177,198,0.6), -9px -9px 16px rgba(255,255,255,0.5)",
+          "shadowHover": "inset 6px 6px 10px rgb(163,177,198,0.7), inset -6px -6px 10px rgba(255,255,255,0.8)",
+          "border": "none",
+          "padding": "24px",
+          "hoverEffect": "inset"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "neumorph",
+          "height": "70px",
+          "background": "#E0E5EC",
+          "backgroundScroll": "#E0E5EC",
+          "shadow": "5px 5px 10px rgb(163,177,198,0.6), -5px -5px 10px rgba(255,255,255,0.5)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in",
+          "hoverEffects": "soft-press",
+          "loadingAnimation": "soft-spinner",
+          "duration": "0.3s",
+          "easing": "ease"
+        },
+        "targetIndustries": [
+          "Mobile Application",
+          "Settings Panel",
+          "Control Dashboard",
+          "IoT Interface",
+          "Smart Home",
+          "Music Player"
+        ],
+        "bestFor": [
+          "Interface dengan banyak controls",
+          "Audiens yang suka soft aesthetic",
+          "Mobile-first design",
+          "Touch-friendly interface"
+        ],
+        "accessibility": {
+          "wcagLevel": "A",
+          "contrastRatio": "3:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Medium",
+          "animationImpact": "Low"
+        }
+      },
+      {
+        "id": "brutalist-raw",
+        "name": "Brutalist Raw",
+        "icon": "🏗️",
+        "description": "Desain brutal dengan elemen raw, kontras ekstrem, dan typography bold. Cocok untuk brand yang ingin membuat statement.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Very Heavy",
+          "contrast": "Very High",
+          "playfulness": "Low",
+          "formality": "Very Low"
+        },
+        "colorPalette": {
+          "primary": "#000000",
+          "secondary": "#FFFFFF",
+          "accent": "#FF0000",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F0F0F0",
+          "text": "#000000",
+          "textLight": "#666666",
+          "border": "#000000",
+          "success": "#00FF00",
+          "warning": "#FFFF00",
+          "error": "#FF0000"
+        },
+        "typography": {
+          "headingFont": "Helvetica Neue, sans-serif",
+          "bodyFont": "Arial, sans-serif",
+          "headingWeight": "900",
+          "bodyWeight": "400",
+          "baseSize": "18px",
+          "scaleRatio": "1.5",
+          "lineHeight": "1.3",
+          "letterSpacing": "-0.03em"
+        },
+        "buttonStyles": {
+          "shape": "rectangle",
+          "borderRadius": "0px",
+          "size": "large",
+          "padding": "16px 32px",
+          "fontWeight": "900",
+          "style": "solid",
+          "hoverEffect": "invert",
+          "transition": "0s"
+        },
+        "cardStyles": {
+          "borderRadius": "0px",
+          "shadow": "none",
+          "shadowHover": "none",
+          "border": "4px solid #000000",
+          "padding": "24px",
+          "hoverEffect": "border-thicken"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "brutal",
+          "height": "80px",
+          "background": "#000000",
+          "backgroundScroll": "#000000",
+          "shadow": "none",
+          "border": "4px solid #FFFFFF",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "instant",
+          "scrollAnimation": "none",
+          "hoverEffects": "hard",
+          "loadingAnimation": "block-loader",
+          "duration": "0s",
+          "easing": "linear"
+        },
+        "targetIndustries": [
+          "Art Gallery",
+          "Fashion Avant-Garde",
+          "Design Studio",
+          "Music & Events",
+          "Streetwear",
+          "Alternative Brand"
+        ],
+        "bestFor": [
+          "Brand yang ingin tampil berbeda",
+          "Audiens artistic dan alternative",
+          "Statement-making website",
+          "Creative portfolio bold"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "21:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Very Fast",
+          "renderComplexity": "Very Low",
+          "animationImpact": "None"
+        }
+      },
+      {
+        "id": "gradient-vibrant",
+        "name": "Gradient Vibrant",
+        "icon": "🌈",
+        "description": "Desain colorful dengan gradient multi-warna, elemen vibrant, dan energi tinggi. Cocok untuk brand creative dan youth.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Heavy",
+          "contrast": "High",
+          "playfulness": "High",
+          "formality": "Low"
+        },
+        "colorPalette": {
+          "primary": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          "secondary": "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+          "accent": "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F8F9FF",
+          "text": "#2D3748",
+          "textLight": "#718096",
+          "border": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          "success": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+          "warning": "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+          "error": "linear-gradient(135deg, #eb3349 0%, #f45c43 100%)"
+        },
+        "typography": {
+          "headingFont": "Poppins, sans-serif",
+          "bodyFont": "Inter, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.333",
+          "lineHeight": "1.5",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "50px",
+          "size": "large",
+          "padding": "16px 40px",
+          "fontWeight": "700",
+          "style": "gradient",
+          "hoverEffect": "gradient-shift",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "20px",
+          "shadow": "0 10px 40px rgba(102,126,234,0.3)",
+          "shadowHover": "0 20px 60px rgba(102,126,234,0.4)",
+          "border": "3px solid transparent",
+          "borderImage": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          "padding": "28px",
+          "hoverEffect": "gradient-glow"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "gradient",
+          "height": "80px",
+          "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          "backgroundScroll": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          "shadow": "0 4px 20px rgba(102,126,234,0.4)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "gradient-slide",
+          "scrollAnimation": "fade-in-color",
+          "hoverEffects": "color-shift",
+          "loadingAnimation": "gradient-spinner",
+          "duration": "0.5s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Social Media Platform",
+          "Creative Agency",
+          "Youth Brand",
+          "Music & Entertainment",
+          "Fitness & Sports",
+          "Lifestyle App"
+        ],
+        "bestFor": [
+          "Brand dengan energi tinggi",
+          "Audiens muda dan active",
+          "Social dan community platform",
+          "Creative dan entertainment"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "Medium",
+          "animationImpact": "Moderate"
+        }
+      },
+      {
+        "id": "monochrome-classic",
+        "name": "Monochrome Classic",
+        "icon": "⚫",
+        "description": "Desain timeless dengan satu warna dominan dan variasi tone. Cocok untuk brand yang mengutamakan elegance dan simplicity.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Medium",
+          "contrast": "High",
+          "playfulness": "Very Low",
+          "formality": "High"
+        },
+        "colorPalette": {
+          "primary": "#1A1A1A",
+          "secondary": "#333333",
+          "accent": "#666666",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F5F5F5",
+          "text": "#1A1A1A",
+          "textLight": "#888888",
+          "border": "#DDDDDD",
+          "success": "#2D5016",
+          "warning": "#7D6608",
+          "error": "#641E16"
+        },
+        "typography": {
+          "headingFont": "Helvetica Neue, sans-serif",
+          "bodyFont": "Georgia, serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.7",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "6px",
+          "size": "medium",
+          "padding": "12px 24px",
+          "fontWeight": "600",
+          "style": "solid",
+          "hoverEffect": "tone-shift",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "6px",
+          "shadow": "0 2px 8px rgba(0,0,0,0.1)",
+          "shadowHover": "0 4px 16px rgba(0,0,0,0.15)",
+          "border": "1px solid #DDDDDD",
+          "padding": "24px",
+          "hoverEffect": "tone-lift"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "minimal",
+          "height": "70px",
+          "background": "#FFFFFF",
+          "backgroundScroll": "#FFFFFF",
+          "shadow": "0 2px 4px rgba(0,0,0,0.05)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in",
+          "hoverEffects": "subtle",
+          "loadingAnimation": "minimal-spinner",
+          "duration": "0.3s",
+          "easing": "ease"
+        },
+        "targetIndustries": [
+          "Photography Portfolio",
+          "Architecture Firm",
+          "Minimal Brand",
+          "Art Gallery",
+          "Fashion Minimalist",
+          "Design Studio"
+        ],
+        "bestFor": [
+          "Brand dengan aesthetic minimal",
+          "Audiens yang appreciates simplicity",
+          "Portfolio dan showcase",
+          "Timeless design preference"
+        ],
+        "accessibility": {
+          "wcagLevel": "AAA",
+          "contrastRatio": "21:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Very Fast",
+          "renderComplexity": "Very Low",
+          "animationImpact": "Minimal"
+        }
+      },
+      {
+        "id": "warm-friendly",
+        "name": "Warm Friendly",
+        "icon": "☀️",
+        "description": "Desain hangat dengan warna oranye/kuning, rounded corners, dan feel yang welcoming. Cocok untuk brand service dan community.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Medium",
+          "contrast": "Medium",
+          "playfulness": "High",
+          "formality": "Low"
+        },
+        "colorPalette": {
+          "primary": "#FF8C42",
+          "secondary": "#FFB347",
+          "accent": "#FFD93D",
+          "background": "#FFF9F0",
+          "backgroundAlt": "#FFF0D9",
+          "text": "#4A4A4A",
+          "textLight": "#7A7A7A",
+          "border": "#FFD93D",
+          "success": "#6BCB77",
+          "warning": "#FFB347",
+          "error": "#FF6B6B"
+        },
+        "typography": {
+          "headingFont": "Nunito, sans-serif",
+          "bodyFont": "Open Sans, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "pill",
+          "borderRadius": "50px",
+          "size": "medium",
+          "padding": "14px 32px",
+          "fontWeight": "700",
+          "style": "solid",
+          "hoverEffect": "warm-glow",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "16px",
+          "shadow": "0 8px 24px rgba(255,140,66,0.2)",
+          "shadowHover": "0 12px 32px rgba(255,140,66,0.3)",
+          "border": "none",
+          "padding": "24px",
+          "hoverEffect": "warm-lift"
+        },
+        "navbarStyles": {
+          "position": "sticky",
+          "type": "friendly",
+          "height": "70px",
+          "background": "#FFF9F0",
+          "backgroundScroll": "#FFF9F0",
+          "shadow": "0 4px 16px rgba(255,140,66,0.15)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in-up",
+          "hoverEffects": "warm",
+          "loadingAnimation": "sun-rotate",
+          "duration": "0.4s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Community Platform",
+          "Education",
+          "Food Delivery",
+          "Family Services",
+          "Hospitality",
+          "Non-Profit"
+        ],
+        "bestFor": [
+          "Brand dengan personality friendly",
+          "Audiens family-oriented",
+          "Service-based business",
+          "Community building"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Low",
+          "animationImpact": "Low"
+        }
+      },
+      {
+        "id": "cool-professional",
+        "name": "Cool Professional",
+        "icon": "❄️",
+        "description": "Desain profesional dengan warna biru/cyan, clean lines, dan trustworthy feel. Cocok untuk healthcare, education, dan corporate.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Medium",
+          "contrast": "Medium",
+          "playfulness": "Low",
+          "formality": "High"
+        },
+        "colorPalette": {
+          "primary": "#0077B6",
+          "secondary": "#00B4D8",
+          "accent": "#90E0EF",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#F0F8FF",
+          "text": "#1D3557",
+          "textLight": "#5A7D9A",
+          "border": "#B8D4E3",
+          "success": "#2E8B57",
+          "warning": "#FFA500",
+          "error": "#DC143C"
+        },
+        "typography": {
+          "headingFont": "Roboto, sans-serif",
+          "bodyFont": "Source Sans Pro, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "8px",
+          "size": "medium",
+          "padding": "12px 24px",
+          "fontWeight": "600",
+          "style": "solid",
+          "hoverEffect": "cool-darken",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "8px",
+          "shadow": "0 4px 12px rgba(0,119,182,0.15)",
+          "shadowHover": "0 8px 24px rgba(0,119,182,0.2)",
+          "border": "1px solid #B8D4E3",
+          "padding": "24px",
+          "hoverEffect": "cool-lift"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "professional",
+          "height": "70px",
+          "background": "#FFFFFF",
+          "backgroundScroll": "#FFFFFF",
+          "shadow": "0 2px 8px rgba(0,119,182,0.1)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in-up",
+          "hoverEffects": "professional",
+          "loadingAnimation": "cool-spinner",
+          "duration": "0.3s",
+          "easing": "ease"
+        },
+        "targetIndustries": [
+          "Healthcare",
+          "Education",
+          "Legal Services",
+          "Insurance",
+          "Financial Services",
+          "Government"
+        ],
+        "bestFor": [
+          "Brand yang mengutamakan trust",
+          "Audiens professional",
+          "Service yang membutuhkan credibility",
+          "Institutional website"
+        ],
+        "accessibility": {
+          "wcagLevel": "AAA",
+          "contrastRatio": "7:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Low",
+          "animationImpact": "Minimal"
+        }
+      },
+      {
+        "id": "dark-luxe",
+        "name": "Dark Luxe",
+        "icon": "🌙",
+        "description": "Desain luxury dengan hitam pekat, aksen metalik, dan premium feel. Cocok untuk brand high-end dan nightlife.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Heavy",
+          "contrast": "Very High",
+          "playfulness": "Low",
+          "formality": "Very High"
+        },
+        "colorPalette": {
+          "primary": "#C9A961",
+          "secondary": "#D4AF37",
+          "accent": "#E5C56E",
+          "background": "#0A0A0A",
+          "backgroundAlt": "#141414",
+          "text": "#FFFFFF",
+          "textLight": "#A0A0A0",
+          "border": "#C9A961",
+          "success": "#2ECC71",
+          "warning": "#F1C40F",
+          "error": "#E74C3C"
+        },
+        "typography": {
+          "headingFont": "Cormorant Garamond, serif",
+          "bodyFont": "Montserrat, sans-serif",
+          "headingWeight": "600",
+          "bodyWeight": "300",
+          "baseSize": "16px",
+          "scaleRatio": "1.414",
+          "lineHeight": "1.8",
+          "letterSpacing": "0.05em"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "4px",
+          "size": "medium",
+          "padding": "14px 32px",
+          "fontWeight": "600",
+          "style": "metallic",
+          "hoverEffect": "metallic-shine",
+          "transition": "0.4s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "4px",
+          "shadow": "0 8px 32px rgba(0,0,0,0.5)",
+          "shadowHover": "0 12px 48px rgba(201,169,97,0.3)",
+          "border": "1px solid rgba(201,169,97,0.3)",
+          "padding": "32px",
+          "hoverEffect": "gold-glow"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "luxury",
+          "height": "90px",
+          "background": "rgba(10,10,10,0.98)",
+          "backgroundScroll": "rgba(10,10,10,0.98)",
+          "shadow": "none",
+          "border": "1px solid rgba(201,169,97,0.2)",
+          "logoPosition": "center",
+          "menuPosition": "split"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in-elegant",
+          "hoverEffects": "luxury",
+          "loadingAnimation": "gold-spinner",
+          "duration": "0.6s",
+          "easing": "ease-in-out"
+        },
+        "targetIndustries": [
+          "Luxury Fashion",
+          "High-End Restaurant",
+          "Premium Hotel",
+          "Nightclub & Bar",
+          "Luxury Real Estate",
+          "Premium Automotive"
+        ],
+        "bestFor": [
+          "Brand luxury dan premium",
+          "Audiens high-net-worth",
+          "Exclusive products & services",
+          "Nightlife dan entertainment premium"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "7:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "Medium",
+          "animationImpact": "Moderate"
+        }
+      },
+      {
+        "id": "pastel-soft",
+        "name": "Pastel Soft",
+        "icon": "🌸",
+        "description": "Desain lembut dengan warna pastel, rounded besar, dan gentle aesthetic. Cocok untuk beauty, baby, dan lifestyle brand.",
+        "characteristics": {
+          "complexity": "Low",
+          "visualWeight": "Light",
+          "contrast": "Low",
+          "playfulness": "Medium",
+          "formality": "Low"
+        },
+        "colorPalette": {
+          "primary": "#FFB5E8",
+          "secondary": "#B5DEFF",
+          "accent": "#DCD3FF",
+          "background": "#FFFBFF",
+          "backgroundAlt": "#F8F9FF",
+          "text": "#5A5A7A",
+          "textLight": "#9A9AB0",
+          "border": "#E8E8F0",
+          "success": "#B8E8B8",
+          "warning": "#FFE8B8",
+          "error": "#FFB8B8"
+        },
+        "typography": {
+          "headingFont": "Quicksand, sans-serif",
+          "bodyFont": "Nunito, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.7",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "pill",
+          "borderRadius": "50px",
+          "size": "medium",
+          "padding": "14px 32px",
+          "fontWeight": "600",
+          "style": "solid",
+          "hoverEffect": "pastel-shift",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "24px",
+          "shadow": "0 8px 24px rgba(255,181,232,0.2)",
+          "shadowHover": "0 12px 32px rgba(255,181,232,0.3)",
+          "border": "none",
+          "padding": "24px",
+          "hoverEffect": "soft-lift"
+        },
+        "navbarStyles": {
+          "position": "sticky",
+          "type": "soft",
+          "height": "70px",
+          "background": "#FFFBFF",
+          "backgroundScroll": "#FFFBFF",
+          "shadow": "0 4px 16px rgba(255,181,232,0.15)",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "fade",
+          "scrollAnimation": "fade-in-soft",
+          "hoverEffects": "gentle",
+          "loadingAnimation": "flower-rotate",
+          "duration": "0.4s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Beauty & Cosmetics",
+          "Baby Products",
+          "Wedding Services",
+          "Lifestyle Blog",
+          "Wellness & Self-Care",
+          "Fashion Feminine"
+        ],
+        "bestFor": [
+          "Brand dengan aesthetic feminine",
+          "Audiens beauty dan lifestyle",
+          "Product soft dan gentle",
+          "Wedding dan celebration"
+        ],
+        "accessibility": {
+          "wcagLevel": "A",
+          "contrastRatio": "3:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Low",
+          "animationImpact": "Low"
+        }
+      },
+      {
+        "id": "geometric-sharp",
+        "name": "Geometric Sharp",
+        "icon": "📐",
+        "description": "Desain dengan sudut tajam, pola geometris, dan struktur yang presisi. Cocok untuk architecture, design, dan tech brand.",
+        "characteristics": {
+          "complexity": "Medium",
+          "visualWeight": "Medium",
+          "contrast": "High",
+          "playfulness": "Low",
+          "formality": "High"
+        },
+        "colorPalette": {
+          "primary": "#2C3E50",
+          "secondary": "#E74C3C",
+          "accent": "#3498DB",
+          "background": "#FFFFFF",
+          "backgroundAlt": "#ECF0F1",
+          "text": "#2C3E50",
+          "textLight": "#7F8C8D",
+          "border": "#2C3E50",
+          "success": "#27AE60",
+          "warning": "#F39C12",
+          "error": "#E74C3C"
+        },
+        "typography": {
+          "headingFont": "Exo 2, sans-serif",
+          "bodyFont": "Roboto, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.333",
+          "lineHeight": "1.5",
+          "letterSpacing": "0.02em"
+        },
+        "buttonStyles": {
+          "shape": "angled",
+          "borderRadius": "0px",
+          "size": "medium",
+          "padding": "14px 28px",
+          "fontWeight": "700",
+          "style": "solid",
+          "hoverEffect": "angle-shift",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "0px",
+          "shadow": "0 4px 12px rgba(44,62,80,0.15)",
+          "shadowHover": "0 8px 24px rgba(44,62,80,0.2)",
+          "border": "2px solid #2C3E50",
+          "padding": "24px",
+          "hoverEffect": "geometric-shift"
+        },
+        "navbarStyles": {
+          "position": "fixed",
+          "type": "geometric",
+          "height": "70px",
+          "background": "#FFFFFF",
+          "backgroundScroll": "#FFFFFF",
+          "shadow": "none",
+          "border": "2px solid #2C3E50",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "slide",
+          "scrollAnimation": "slide-in-sharp",
+          "hoverEffects": "geometric",
+          "loadingAnimation": "polygon-loader",
+          "duration": "0.3s",
+          "easing": "cubic-bezier(0.4, 0, 0.2, 1)"
+        },
+        "targetIndustries": [
+          "Architecture Firm",
+          "Design Studio",
+          "Engineering",
+          "Tech Company",
+          "Construction",
+          "Urban Planning"
+        ],
+        "bestFor": [
+          "Brand dengan precision dan structure",
+          "Audiens technical dan professional",
+          "Design dan architecture showcase",
+          "Engineering dan construction"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "7:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Medium",
+          "animationImpact": "Low"
+        }
+      },
+      {
+        "id": "handdrawn-artistic",
+        "name": "Handdrawn Artistic",
+        "icon": "✏️",
+        "description": "Desain artistic dengan texture tangan, font unik, dan irregular elements. Cocok untuk artist, craft, dan creative brand.",
+        "characteristics": {
+          "complexity": "High",
+          "visualWeight": "Medium",
+          "contrast": "Medium",
+          "playfulness": "Very High",
+          "formality": "Very Low"
+        },
+        "colorPalette": {
+          "primary": "#E67E22",
+          "secondary": "#27AE60",
+          "accent": "#8E44AD",
+          "background": "#FEF9E7",
+          "backgroundAlt": "#FCF3CF",
+          "text": "#2C3E50",
+          "textLight": "#5D6D7E",
+          "border": "#E67E22",
+          "success": "#27AE60",
+          "warning": "#F39C12",
+          "error": "#C0392B"
+        },
+        "typography": {
+          "headingFont": "Amatic SC, cursive",
+          "bodyFont": "Patrick Hand, cursive",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "18px",
+          "scaleRatio": "1.333",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "irregular",
+          "borderRadius": "255px 15px 225px 15px / 15px 225px 15px 255px",
+          "size": "medium",
+          "padding": "14px 28px",
+          "fontWeight": "700",
+          "style": "handdrawn",
+          "hoverEffect": "wiggle",
+          "transition": "0.3s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "255px 15px 225px 15px / 15px 225px 15px 255px",
+          "shadow": "4px 4px 0px rgba(230,126,34,0.5)",
+          "shadowHover": "6px 6px 0px rgba(230,126,34,0.5)",
+          "border": "3px solid #E67E22",
+          "padding": "24px",
+          "hoverEffect": "hand-shift"
+        },
+        "navbarStyles": {
+          "position": "sticky",
+          "type": "artistic",
+          "height": "80px",
+          "background": "#FEF9E7",
+          "backgroundScroll": "#FEF9E7",
+          "shadow": "none",
+          "border": "3px solid #E67E22",
+          "logoPosition": "center",
+          "menuPosition": "split"
+        },
+        "animationSettings": {
+          "pageTransition": "sketch",
+          "scrollAnimation": "draw-in",
+          "hoverEffects": "handdrawn",
+          "loadingAnimation": "pencil-draw",
+          "duration": "0.5s",
+          "easing": "ease-out"
+        },
+        "targetIndustries": [
+          "Artist Portfolio",
+          "Craft & DIY",
+          "Illustration",
+          "Children's Brand",
+          "Creative Workshop",
+          "Handmade Products"
+        ],
+        "bestFor": [
+          "Brand artistic dan creative",
+          "Audiens yang appreciates handmade",
+          "Portfolio artist dan illustrator",
+          "Craft dan DIY community"
+        ],
+        "accessibility": {
+          "wcagLevel": "A",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Medium",
+          "renderComplexity": "High",
+          "animationImpact": "Moderate"
+        }
+      },
+      {
+        "id": "auto-adaptive",
+        "name": "Auto Adaptive",
+        "icon": "🔄",
+        "description": "Desain yang otomatis menyesuaikan preferensi user, sistem, dan device. Cocok untuk general purpose dan multi-use website.",
+        "characteristics": {
+          "complexity": "High",
+          "visualWeight": "Adaptive",
+          "contrast": "Adaptive",
+          "playfulness": "Adaptive",
+          "formality": "Adaptive"
+        },
+        "colorPalette": {
+          "primary": "system",
+          "secondary": "system",
+          "accent": "system",
+          "background": "system",
+          "backgroundAlt": "system",
+          "text": "system",
+          "textLight": "system",
+          "border": "system",
+          "success": "system",
+          "warning": "system",
+          "error": "system"
+        },
+        "typography": {
+          "headingFont": "system-ui, -apple-system, sans-serif",
+          "bodyFont": "system-ui, -apple-system, sans-serif",
+          "headingWeight": "700",
+          "bodyWeight": "400",
+          "baseSize": "16px",
+          "scaleRatio": "1.25",
+          "lineHeight": "1.6",
+          "letterSpacing": "normal"
+        },
+        "buttonStyles": {
+          "shape": "rounded",
+          "borderRadius": "8px",
+          "size": "medium",
+          "padding": "12px 24px",
+          "fontWeight": "600",
+          "style": "system",
+          "hoverEffect": "system",
+          "transition": "0.2s ease"
+        },
+        "cardStyles": {
+          "borderRadius": "8px",
+          "shadow": "system",
+          "shadowHover": "system",
+          "border": "system",
+          "padding": "24px",
+          "hoverEffect": "system"
+        },
+        "navbarStyles": {
+          "position": "sticky",
+          "type": "adaptive",
+          "height": "70px",
+          "background": "system",
+          "backgroundScroll": "system",
+          "shadow": "system",
+          "logoPosition": "left",
+          "menuPosition": "right"
+        },
+        "animationSettings": {
+          "pageTransition": "system",
+          "scrollAnimation": "system",
+          "hoverEffects": "system",
+          "loadingAnimation": "system",
+          "duration": "0.3s",
+          "easing": "ease"
+        },
+        "targetIndustries": [
+          "General Purpose",
+          "Multi-Brand Platform",
+          "SaaS Multi-Tenant",
+          "White Label Solution",
+          "Enterprise Platform",
+          "CMS Theme"
+        ],
+        "bestFor": [
+          "Website dengan diverse audience",
+          "Platform multi-brand",
+          "Solution yang perlu flexibility",
+          "General purpose website"
+        ],
+        "accessibility": {
+          "wcagLevel": "AA",
+          "contrastRatio": "4.5:1",
+          "focusVisible": true,
+          "keyboardNavigable": true
+        },
+        "performance": {
+          "loadTime": "Fast",
+          "renderComplexity": "Medium",
+          "animationImpact": "Low"
+        }
+      }
+    ]
+  }
+}

@@ -41,13 +41,21 @@ export async function getLeads(filters?: {
     category?: string;
     province?: string;
     search?: string;
+    page?: number;
+    pageSize?: number;
 }) {
     const session = await getSession();
     if (!session) return [];
 
     const where: any = { userId: session.userId };
 
-    if (filters?.status) where.status = filters.status;
+    if (filters?.status) {
+        where.status = filters.status;
+    } else {
+        // DEFAULT: Hide ENRICHED from main leads view
+        where.status = { not: 'ENRICHED' };
+    }
+
     if (filters?.category) where.category = filters.category;
     if (filters?.province) where.province = filters.province;
     if (filters?.search) {
@@ -57,10 +65,45 @@ export async function getLeads(filters?: {
         ];
     }
 
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || 10;
+    const skip = (page - 1) * pageSize;
+
     return prisma.lead.findMany({
         where,
         orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
     });
+}
+
+export async function getLeadsCount(filters?: {
+    status?: LeadStatus;
+    category?: string;
+    province?: string;
+    search?: string;
+}) {
+    const session = await getSession();
+    if (!session) return 0;
+
+    const where: any = { userId: session.userId };
+
+    if (filters?.status) {
+        where.status = filters.status;
+    } else {
+        where.status = { not: 'ENRICHED' };
+    }
+
+    if (filters?.category) where.category = filters.category;
+    if (filters?.province) where.province = filters.province;
+    if (filters?.search) {
+        where.OR = [
+            { name: { contains: filters.search, mode: 'insensitive' } },
+            { address: { contains: filters.search, mode: 'insensitive' } },
+        ];
+    }
+
+    return prisma.lead.count({ where });
 }
 
 export async function getLeadStats() {
@@ -104,11 +147,17 @@ export async function cleanupOldLeads() {
 }
 
 // --- Helpers ---
-function isValidWhatsApp(phone: string): boolean {
+const cleanResponse = (str: string) => str.replace(/```json|```/g, "").trim();
+
+function isMobileNumber(phone: string): boolean {
     if (!phone || phone === 'N/A') return false;
-    // Regex for Indonesian Mobile Numbers: 08..., 628..., +628...
-    const waRegex = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
-    return waRegex.test(phone.replace(/\s+/g, '').replace(/-/g, ''));
+    const cleanPhone = phone.replace(/\s+/g, '').replace(/-/g, '');
+    const waRegex = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
+    return waRegex.test(cleanPhone);
+}
+
+function isValidWhatsApp(phone: string): boolean {
+    return isMobileNumber(phone);
 }
 
 // --- Scraper ---
@@ -203,7 +252,8 @@ export async function runScraper(
                 const name = item.title || 'N/A';
                 const website = item.website || 'N/A';
                 
-                if (!isValidWhatsApp(wa)) {
+                if (!isMobileNumber(wa)) {
+                    console.log(`[Skip] No valid WA for: ${name}`);
                     aiRejectedCount++;
                     continue;
                 }
@@ -352,18 +402,81 @@ export async function deleteLeads(ids: string[]) {
 // --- AI Enrichment ---
 
 const TONE_MAP: Record<string, string> = {
-    "Dental Clinic": "Gunakan gaya bahasa profesional, terpercaya, dan bersih. Fokus pada keamanan, higienitas, dan keahlian medis.",
-    "Law Firm": "Gunakan gaya bahasa formal, autoritatif, dan prestisius. Fokus pada keadilan, kepercayaan, dan rekam jejak.",
-    "Auto Detailing Service": "Gunakan gaya bahasa maskulin, premium, dan agresif. Fokus pada performa, kualitas, dan eksklusivitas.",
-    "Wedding Organizer": "Gunakan gaya bahasa romantis, elegan, dan hangat. Fokus pada momen berharga, keindahan, dan memorable experience.",
     "Interior Design": "Gunakan gaya bahasa kreatif, modern, dan sophisticated. Fokus pada estetika, fungsionalitas, dan transformasi ruang.",
 };
 
-async function callKieAI(businessName: string, reviews: string[], category: string) {
+const SENIOR_WEB_ARCHITECT_PROMPT = `
+You are a Senior Web Architect and Art Director specializing in high-conversion websites for UMKM (SMBs).
+Your goal is to transform business leads into a precise, ready-to-build project brief.
+
+BUSINESS CONTEXT:
+Business Name: [Business Name]
+Category: [Category]
+Pain Points: [Pain Points]
+
+DESIGN ASSETS (Reference):
+[Style Models JSON]
+
+TASK:
+1. Analyze customer pain points and provide 3 CORE RESOLUTIONS that solve these problems through a website.
+2. VISUAL MATCHMAKING: Select 1 styleModel (Hero, Content, Trend) from the provided JSON that most logically addresses the pain points. Explain your choice.
+3. RESOLVING IDEA: Write 1-3 sentences of a technical solution statement that speaks directly to the client's needs.
+4. ASSETS: Suggest Unsplash keywords for high-impact visual assets.
+5. MASTER WEBSITE PROMPT: Generate a super-detailed technical instruction (English) including Tailwind/CSS directives, HTML structure, and visual vibe based on the selected style.
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON object with the following structure:
+{
+  "branding": { "title": "...", "tagline": "...", "description": "..." },
+  "painPoints": ["Point 1", "Point 2", "Point 3"],
+  "resolutions": ["Resolution 1", "Resolution 2", "Resolution 3"],
+  "selectedStyle": { "id": "...", "reason": "...", "layout": "..." },
+  "resolvingIdea": "...",
+  "suggestedAssets": ["Asset 1 (Keywords)", "Asset 2 (Keywords)"],
+  "masterWebsitePrompt": "...",
+  "summary": "..."
+}
+`;
+
+function cleanAIResponse(text: string): string {
+    const jsonRegex = /{[\s\S]*}/;
+    const match = text.match(jsonRegex);
+    if (match) {
+        return match[0].trim();
+    }
+    return text.trim();
+}
+
+
+export async function getStyleModels() {
+    const filePath = path.join(process.cwd(), 'data', '20 STYLE MODELS.json');
+    if (!fs.existsSync(filePath)) return null;
+    try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        return data.styleModels.models;
+    } catch (e) {
+        console.error('Failed to load style models:', e);
+        return null;
+    }
+}
+
+async function callKieAI(businessName: string, reviews: string[], category: string, painPointsFromUI?: string) {
     const apiKey = process.env.KIE_AI_API_KEY;
     const endpoint = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
     const reviewsText = reviews.join(' | ');
     const toneInstruction = TONE_MAP[category] || "Gunakan gaya bahasa yang sesuai dengan jenis bisnis ini, profesional namun ramah.";
+    
+    const styleModels = await getStyleModels();
+    
+    let prompt = SENIOR_WEB_ARCHITECT_PROMPT
+        .replace("[Business Name]", businessName)
+        .replace("[Category]", category)
+        .replace("[Pain Points]", painPointsFromUI || "Analyzed from reviews below")
+        .replace("[Style Models JSON]", JSON.stringify(styleModels || [], null, 2));
+
+    if (!painPointsFromUI) {
+        prompt += `\n\nDATA REVIEW TO ANALYZE:\n${reviewsText}`;
+    }
 
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -376,21 +489,7 @@ async function callKieAI(businessName: string, reviews: string[], category: stri
                 role: "user",
                 content: [{
                     type: "text",
-                    text: `ANALISA PROSPEK BISNIS: "${businessName}"
-DATA REVIEW: ${reviewsText}
-KATEGORI: ${category}
-INSTRUKSI TONE: ${toneInstruction}
-
-TUGAS:
-1. Analisa ulasan pelanggan ini dan berikan 3 Pain Points utama pemilik bisnis yang bisa diselesaikan dengan website/branding.
-2. Fokus pada masalah operasional, visual, atau kurangnya informasi digital yang merugikan bisnis.
-
-Output WAJIB JSON murni dengan struktur:
-{
-  "branding": { "title": "...", "tagline": "...", "description": "..." },
-  "painPoints": ["Poin 1", "Poin 2", "Poin 3"],
-  "summary": "..."
-}`
+                    text: prompt
                 }]
             }],
             stream: true,
@@ -429,7 +528,7 @@ Output WAJIB JSON murni dengan struktur:
     }
 
     if (fullContent) {
-        const cleaned = fullContent.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleaned = cleanAIResponse(fullContent);
         return JSON.parse(cleaned);
     }
 
@@ -466,6 +565,12 @@ export async function enrichLead(leadId: string) {
                     brandData: aiResult.branding || aiResult,
                     aiAnalysis: aiResult,
                     painPoints: painPointsStr,
+                    resolutions: aiResult.resolutions || [],
+                    suggestedAssets: aiResult.suggestedAssets || [],
+                    masterWebsitePrompt: aiResult.masterWebsitePrompt || '',
+                    resolvingIdea: aiResult.resolvingIdea || '',
+                    selectedStyle: aiResult.selectedStyle?.id || null,
+                    selectedLayout: aiResult.selectedStyle?.layout || null,
                     reviews: [], // COMPRESSION: Remove raw reviews after processing
                     status: 'ENRICHED',
                 }
@@ -532,10 +637,247 @@ export async function getCities(province: string) {
 
 export async function getDistricts(province: string, city: string) {
     const provinceSlug = province.toLowerCase().replace(/ /g, '-');
-    const districtsPath = path.join(process.cwd(), 'data', 'districts', `${provinceSlug}.json`);
+    const districtsDir = path.join(process.cwd(), 'data', 'districts');
+    const districtsPath = path.join(districtsDir, `${provinceSlug}.json`);
     
-    if (!fs.existsSync(districtsPath)) return [];
+    console.log(`[getDistricts] Fetching for ${province} -> ${city}`);
     
-    const provinceData = JSON.parse(fs.readFileSync(districtsPath, 'utf8'));
-    return provinceData[city] || [];
+    // 1. Try Local Cache
+    if (fs.existsSync(districtsPath)) {
+        try {
+            const provinceData = JSON.parse(fs.readFileSync(districtsPath, 'utf8'));
+            if (provinceData[city]) {
+                console.log(`[getDistricts] Found ${provinceData[city].length} districts in cache for ${city}`);
+                return provinceData[city];
+            }
+        } catch (e) {
+            console.error(`[getDistricts] Error reading cache ${districtsPath}:`, e);
+        }
+    }
+
+    // 2. Fallback to API
+    console.log(`[getDistricts] Cache miss or missing city. Fetching from External API...`);
+    try {
+        const baseUrl = "https://www.emsifa.com/api-wilayah-indonesia/api";
+        
+        // Find Province ID
+        const provRes = await fetch(`${baseUrl}/provinces.json`);
+        const provinces = await provRes.json();
+        const prov = provinces.find((p: any) => p.name.toLowerCase() === province.toLowerCase());
+        
+        if (!prov) throw new Error(`Province ${province} not found in API`);
+
+        // Find Regency ID
+        const regRes = await fetch(`${baseUrl}/regencies/${prov.id}.json`);
+        const regencies = await regRes.json();
+        const cityLower = city.toLowerCase();
+        const reg = regencies.find((r: any) => 
+            r.name.toLowerCase() === cityLower || 
+            r.name.toLowerCase().includes(cityLower)
+        );
+
+        if (!reg) throw new Error(`City ${city} not found in province ${province}`);
+
+        // Fetch Districts
+        const distRes = await fetch(`${baseUrl}/districts/${reg.id}.json`);
+        const districtsData = await distRes.json();
+        const districts = districtsData.map((d: any) => d.name);
+
+        // 3. Auto-Caching
+        let provinceData: any = {};
+        if (fs.existsSync(districtsPath)) {
+            provinceData = JSON.parse(fs.readFileSync(districtsPath, 'utf8'));
+        }
+        
+        provinceData[city] = districts;
+        
+        if (!fs.existsSync(districtsDir)) {
+            fs.mkdirSync(districtsDir, { recursive: true });
+        }
+        
+        fs.writeFileSync(districtsPath, JSON.stringify(provinceData, null, 2), 'utf8');
+        console.log(`[getDistricts] Fetched and cached ${districts.length} districts for ${city}`);
+        
+        return districts;
+    } catch (error) {
+        console.error(`[getDistricts] External API Fallback Failed:`, error);
+        // Last resort: static list
+        try {
+            const { DISTRICTS_BY_CITY } = await import('@/lib/districts');
+            return DISTRICTS_BY_CITY[city] || [];
+        } catch (e) {
+            return [];
+        }
+    }
+}
+
+export async function getRegionalAdvice(province: string, city: string, category: string) {
+    const apiKey = process.env.KIE_AI_API_KEY;
+    const endpoint = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                messages: [{
+                    role: "user",
+                    content: [{
+                        type: "text",
+                        text: `Tugas: Berikan saran wilayah (kecamatan/area) yang paling potensial untuk bisnis kategori "${category}" di "${city}, ${province}".
+
+Instruksi:
+1. Analisa demografi atau karakteristik ekonomi wilayah tersebut jika memungkinkan.
+2. Rekomendasikan minimal 3 kecamatan atau area spesifik.
+3. Berikan alasan singkat mengapa area tersebut potensial (misal: pusat keramaian, banyak pemukiman elit, area sekolah, dll).
+4. Gunakan gaya bahasa yang profesional dan informatif.
+
+Output WAJIB JSON murni dengan struktur:
+{
+  "recommendations": [
+    { "area": "...", "reason": "..." }
+  ],
+  "summary": "..."
+}`
+                    }]
+                }],
+                stream: false,
+                response_format: { type: "json_object" }
+            }),
+        });
+
+        if (!response.ok) throw new Error(`Kie.ai error: ${response.statusText}`);
+        
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        
+        if (content) {
+            return JSON.parse(content.replace(/```json/g, '').replace(/```/g, '').trim());
+        }
+        return null;
+    } catch (error) {
+        console.error("[getRegionalAdvice Error]:", error);
+        return { error: "Gagal mendapatkan saran AI." };
+    }
+}
+export async function getTop3Styles(category: string) {
+    const models = await getStyleModels();
+    const archetypesPath = path.join(process.cwd(), 'data', 'archetypes.json');
+    if (!models || !fs.existsSync(archetypesPath)) return [];
+
+    const archetypes = JSON.parse(fs.readFileSync(archetypesPath, 'utf8'));
+    const categoryLower = category.toLowerCase();
+    
+    // Find matching keywords for the category
+    let keywords: string[] = [];
+    for (const [key, val] of Object.entries(archetypes)) {
+        if (categoryLower.includes(key.toLowerCase()) || key.toLowerCase().includes(categoryLower)) {
+            keywords = val as string[];
+            break;
+        }
+    }
+
+    if (keywords.length === 0) return [];
+
+    const results = models.map((m: any) => {
+        let score = 0;
+        const textToSearch = `${m.name} ${m.description} ${m.bestFor?.join(' ')} ${m.targetIndustries?.join(' ')}`.toLowerCase();
+        
+        keywords.forEach(kw => {
+            if (textToSearch.includes(kw.toLowerCase())) {
+                score += 10;
+            }
+        });
+
+        return { id: m.id, score };
+    });
+
+    return results
+        .filter((r: any) => r.score > 0)
+        .sort((a: any, b: any) => b.score - a.score)
+        .slice(0, 3)
+        .map((r: any) => r.id);
+}
+
+export async function getRecommendedStyles(category: string) {
+    return getTop3Styles(category);
+}
+
+export async function tweakLeadStyle(leadId: string, styleId: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return { success: false, message: 'Lead not found' };
+
+    try {
+        const models = await getStyleModels();
+        const selectedModel = models?.find((m: any) => m.id === styleId);
+        if (!selectedModel) return { success: false, message: 'Style not found' };
+
+        const apiKey = process.env.KIE_AI_API_KEY;
+        const endpoint = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
+        
+        const prompt = `RE-GENERATE WEBSITE PROMPT for business "${lead.name}" (Category: "${lead.category}").
+        
+        PAIN POINTS: ${lead.painPoints}
+        SELECTED STYLE: ${selectedModel.name} (${selectedModel.description})
+        ARCHETYPE PARAMETERS: ${selectedModel.characteristics ? JSON.stringify(selectedModel.characteristics) : 'Standard Premium'}
+        STYLING DETAILS: ${JSON.stringify({
+            colorPalette: selectedModel.colorPalette,
+            typography: selectedModel.typography,
+            buttonStyles: selectedModel.buttonStyles,
+            cardStyles: selectedModel.cardStyles,
+        })}
+        
+        TASK: Create a new detailed MASTER WEBSITE PROMPT (English) strictly following this new style and archetype. Include technical Tailwind/CSS instructions and HTML structure info.
+        
+        Output JSON: {"masterWebsitePrompt": "..."}`;
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+                response_format: { type: "json_object" }
+            }),
+        });
+
+        if (!response.ok) throw new Error('AI Re-generation failed');
+        const aiData = await response.json();
+        const contentRaw = aiData.choices[0].message.content;
+        
+        let content: any;
+        try {
+            content = JSON.parse(cleanResponse(contentRaw));
+        } catch (parseError) {
+            console.error('[Tweak JSON Parse Error]:', parseError, 'Raw:', contentRaw);
+            // Fallback: use a basic prompt if AI fails to give valid JSON
+            content = {
+                masterWebsitePrompt: `[Fallback] Create a premium website for ${lead.name} using ${selectedModel.name} style. Focus on technical excellence and high conversion.`
+            };
+        }
+
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: {
+                selectedStyle: styleId,
+                masterWebsitePrompt: content.masterWebsitePrompt,
+            }
+        });
+
+        revalidatePath('/dashboard/leads');
+        revalidatePath('/dashboard/enriched');
+        
+        return { success: true, masterWebsitePrompt: content.masterWebsitePrompt };
+    } catch (error: any) {
+        console.error('Tweak Error:', error);
+        return { success: false, message: error.message || 'Tweak failed' };
+    }
 }

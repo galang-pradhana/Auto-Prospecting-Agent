@@ -1,0 +1,24 @@
+{
+  "Depok": [
+    "Beji", 
+    "Bojongsari", 
+    "Cilodong", 
+    "Cimanggis", 
+    "Cinere", 
+    "Cipayung", 
+    "Limo", 
+    "Pancoran Mas", 
+    "Sawangan", 
+    "Sukmajaya", 
+    "Tapos"
+  ],
+  "Bandung": [
+    "Andir", "Astana Anyar", "Antapani", "Arcamanik", "Babakan Ciparay", "Bandung Kidul", "Bandung Kulon", "Bandung Wetan", "Batununggal", "Bojongloa Kaler", "Bojongloa Kidul", "Buahbatu", "Cibeunying Kaler", "Cibeunying Kidul", "Cibiru", "Cicendo", "Cidadap", "Cinambo", "Coblong", "Gedebage", "Kiaracondong", "Lengkong", "Mandalajati", "Panyileukan", "Rancasari", "Regol", "Sukajadi", "Sukasari", "Sumur Bandung", "Ujung Berung"
+  ],
+  "Bekasi": [
+    "Bantar Gebang", "Bekasi Barat", "Bekasi Selatan", "Bekasi Timur", "Bekasi Utara", "Jati Sampurna", "Jatiasih", "Medan Satria", "Mustika Jaya", "Pondok Gede", "Pondok Melati", "Rawalumbu"
+  ],
+  "Bogor": [
+    "Bogor Barat", "Bogor Selatan", "Bogor Tengah", "Bogor Timur", "Bogor Utara", "Tanah Sareal"
+  ]
+}

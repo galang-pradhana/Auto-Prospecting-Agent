@@ -1,0 +1,8 @@
+{
+  "Laundry": ["Clean", "Minimal", "Fresh"],
+  "Cleaning": ["Clean", "Minimal", "Fresh"],
+  "Cafe": ["Warm", "Elegant", "Retro"],
+  "Restaurant": ["Warm", "Elegant", "Retro"],
+  "Resto": ["Warm", "Elegant", "Retro"],
+  "Pet Shop": ["Playful", "Vibrant", "Vivid"]
+}

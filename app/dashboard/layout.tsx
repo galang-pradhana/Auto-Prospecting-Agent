@@ -7,7 +7,8 @@ import {
     LayoutTemplate,
     Settings,
     CreditCard,
-    LogOut
+    LogOut,
+    Sparkles
 } from 'lucide-react';
 import { getKieCredit } from '@/lib/actions';
 import { getCurrentUser, logoutUser } from '@/lib/auth';
@@ -27,6 +28,7 @@ export default async function DashboardLayout({
         { label: 'Home', icon: Home, href: '/dashboard' },
         { label: 'Scraper', icon: Search, href: '/dashboard/scraper' },
         { label: 'Leads', icon: Users, href: '/dashboard/leads' },
+        { label: 'Enriched', icon: Sparkles, href: '/dashboard/enriched' },
         { label: 'Templates', icon: LayoutTemplate, href: '/dashboard/templates' },
         { label: 'Settings', icon: Settings, href: '/dashboard/settings' },
     ];

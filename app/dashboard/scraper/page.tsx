@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { 
     runScraper, batchEnrichLeads, deleteLeads,
-    getProvinces, getCities, getDistricts, cleanupOldLeads
+    getProvinces, getCities, getDistricts, cleanupOldLeads,
+    getRegionalAdvice
 } from '@/lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -57,9 +58,12 @@ function SearchCombobox({ value, onChange, options, placeholder }: {
     const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
 
     if (!options || options.length === 0) {
+        const isDistricts = placeholder.toLowerCase().includes('district');
+        const isFetching = placeholder.toLowerCase().includes('fetching');
         return (
-            <div className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-6 py-4 text-zinc-500 text-sm italic">
-                Loading regions...
+            <div className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-6 py-4 text-zinc-500 text-sm italic flex items-center gap-2">
+                {isFetching && <Loader2 size={14} className="animate-spin text-accent-gold" />}
+                {isDistricts ? (isFetching ? placeholder : "No districts found") : "Loading regions..."}
             </div>
         );
     }
@@ -140,7 +144,10 @@ export default function ScraperPage() {
     const [previewLeads, setPreviewLeads] = useState<any[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [enriching, setEnriching] = useState(false);
+    const [fetchingDistricts, setFetchingDistricts] = useState(false);
     const [stats, setStats] = useState({ new: 0, duplicate: 0, fresh: 0, aiRejected: 0 });
+    const [advice, setAdvice] = useState<any>(null);
+    const [loadingAdvice, setLoadingAdvice] = useState(false);
 
     useEffect(() => {
         const loadProvinces = async () => {
@@ -166,8 +173,18 @@ export default function ScraperPage() {
     useEffect(() => {
         const loadDistricts = async () => {
             if (!selectedProvince || !selectedCity) return;
-            const list = await getDistricts(selectedProvince, selectedCity);
-            setDistricts(list);
+            console.log(`[ScraperPage] Fetching districts for: ${selectedProvince} -> ${selectedCity}`);
+            setFetchingDistricts(true);
+            try {
+                const list = await getDistricts(selectedProvince, selectedCity);
+                console.log(`[ScraperPage] Received ${list?.length || 0} districts`);
+                setDistricts(list || []);
+            } catch (error) {
+                console.error("[ScraperPage] Failed to fetch districts:", error);
+                setDistricts([]);
+            } finally {
+                setFetchingDistricts(false);
+            }
         };
         loadDistricts();
     }, [selectedProvince, selectedCity]);
@@ -275,6 +292,22 @@ export default function ScraperPage() {
         }
     };
 
+    const handleGetAdvice = async () => {
+        if (!selectedProvince || !selectedCity) {
+            alert("Pilih Provinsi dan Kota terlebih dahulu!");
+            return;
+        }
+        setLoadingAdvice(true);
+        try {
+            const res = await getRegionalAdvice(selectedProvince, selectedCity, selectedCategory);
+            setAdvice(res);
+        } catch (e) {
+            alert("Gagal mengambil saran AI.");
+        } finally {
+            setLoadingAdvice(false);
+        }
+    };
+
     const toggleSelect = (id: string) => {
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
@@ -334,8 +367,8 @@ export default function ScraperPage() {
                         <SearchCombobox 
                             value={selectedDistrict} 
                             onChange={setSelectedDistrict} 
-                            options={districts} 
-                            placeholder={selectedCity ? "All Districts" : "Select City First"} 
+                            options={fetchingDistricts ? [] : districts} 
+                            placeholder={fetchingDistricts ? "Fetching from cloud..." : (selectedCity ? "All Districts" : "Select City First")} 
                         />
                     </div>
 
@@ -460,6 +493,23 @@ export default function ScraperPage() {
                                 </p>
                             </div>
 
+                            <button 
+                                onClick={handleGetAdvice}
+                                disabled={loadingAdvice || !selectedCity}
+                                className="w-full p-6 bg-accent-gold/10 border border-accent-gold/20 rounded-3xl text-left hover:bg-accent-gold/20 transition-all group"
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-black text-accent-gold uppercase tracking-widest">AI Strategist</span>
+                                    {loadingAdvice ? (
+                                        <Loader2 size={16} className="animate-spin text-accent-gold" />
+                                    ) : (
+                                        <Sparkles size={16} className="text-accent-gold group-hover:scale-110 transition-transform" />
+                                    )}
+                                </div>
+                                <p className="text-sm font-bold text-white">AI Regional Advice</p>
+                                <p className="text-[10px] text-white/40 mt-1">Saran area potensial untuk {selectedCategory}.</p>
+                            </button>
+
                             <button className="w-full p-6 border border-white/5 bg-zinc-900 rounded-3xl text-left opacity-50 cursor-not-allowed">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-black text-white/40 uppercase tracking-widest">Archive</span>
@@ -470,6 +520,50 @@ export default function ScraperPage() {
                             </button>
                         </div>
                     </div>
+
+                    <AnimatePresence>
+                        {advice && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="glass p-8 rounded-[40px] border-white/10 bg-zinc-950/80 backdrop-blur-3xl shadow-3xl relative overflow-hidden"
+                            >
+                                <button 
+                                    onClick={() => setAdvice(null)}
+                                    className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all"
+                                >
+                                    <X size={18} />
+                                </button>
+                                
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-10 h-10 rounded-2xl bg-accent-gold flex items-center justify-center text-black">
+                                        <Sparkles size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-white uppercase tracking-widest">AI Analysis</h4>
+                                        <p className="text-[10px] font-bold text-accent-gold/60">{selectedCity}, {selectedProvince}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {advice.recommendations?.map((rec: any, i: number) => (
+                                        <div key={i} className="p-4 bg-white/5 border border-white/5 rounded-2xl">
+                                            <p className="text-xs font-black text-accent-gold uppercase mb-1 tracking-tighter">{rec.area}</p>
+                                            <p className="text-[11px] text-white/60 leading-relaxed">{rec.reason}</p>
+                                        </div>
+                                    ))}
+                                    {advice.summary && (
+                                        <div className="pt-4 border-t border-white/5 mt-4">
+                                            <p className="text-[11px] text-white/40 italic leading-relaxed">
+                                                "{advice.summary}"
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     <div className="glass p-8 rounded-[40px] border-white/5 bg-zinc-900/20">
                         <div className="flex items-center gap-2 mb-4">

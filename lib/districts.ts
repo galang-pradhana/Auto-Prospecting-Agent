@@ -55,5 +55,8 @@ export const DISTRICTS_BY_CITY: Record<string, string[]> = {
         "Kota", 
         "Mojoroto", 
         "Pesantren"
+    ],
+    "Depok": [
+        "Beji", "Bojongsari", "Cilodong", "Cimanggis", "Cinere", "Cipayung", "Limo", "Pancoran Mas", "Sawangan", "Sukmajaya", "Tapos"
     ]
 };
