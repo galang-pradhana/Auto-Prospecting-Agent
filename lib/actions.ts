@@ -881,3 +881,86 @@ export async function tweakLeadStyle(leadId: string, styleId: string) {
         return { success: false, message: error.message || 'Tweak failed' };
     }
 }
+
+export async function saveForgeCode(leadId: string, htmlCode: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) return { success: false, message: 'Lead not found' };
+
+        // Simple slug generation if missing
+        let slug = lead.slug;
+        if (!slug) {
+            slug = lead.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            // Check uniqueness and append if needed
+            const existing = await prisma.lead.findUnique({ where: { slug } });
+            if (existing) {
+                slug = `${slug}-${Math.floor(Math.random() * 1000)}`;
+            }
+        }
+
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: {
+                htmlCode,
+                status: 'LIVE',
+                slug
+            }
+        });
+
+        revalidatePath('/dashboard/enriched');
+        revalidatePath('/dashboard/leads');
+        return { success: true, slug };
+    } catch (error: any) {
+        console.error('Save Forge Error:', error);
+        return { success: false, message: error.message || 'Failed to save code' };
+    }
+}
+
+export async function generateForgeCode(leadId: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return { success: false, message: 'Lead not found' };
+    if (!lead.masterWebsitePrompt) return { success: false, message: 'No master prompt found. Please enrich the lead first.' };
+
+    const apiKey = process.env.KIE_AI_API_KEY;
+    const endpoint = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                messages: [{
+                    role: "user",
+                    content: [{
+                        type: "text",
+                        text: `${lead.masterWebsitePrompt}\n\nIMPORTANT: Return ONLY the full HTML code including <head> with Tailwind CDN and any necessary scripts. Do not include markdown blocks. Output MUST be valid HTML.`
+                    }]
+                }],
+                stream: false,
+            }),
+        });
+
+        if (!response.ok) throw new Error(`AI generation failed: ${response.statusText}`);
+        
+        const data = await response.json();
+        let htmlContent = data.choices?.[0]?.message?.content || '';
+        
+        // Strip markdown if AI included it despite instructions
+        htmlContent = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
+
+        return { success: true, html: htmlContent };
+    } catch (error: any) {
+        console.error('Generate Forge Error:', error);
+        return { success: false, message: error.message || 'Generation failed' };
+    }
+}
+

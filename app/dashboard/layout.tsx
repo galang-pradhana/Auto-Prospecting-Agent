@@ -2,13 +2,14 @@ import React from 'react';
 import Link from 'next/link';
 import {
     Home,
-    Search,
-    Users,
-    LayoutTemplate,
     Settings,
     CreditCard,
     LogOut,
-    Sparkles
+    Sparkles,
+    Flame,
+    Database,
+    Cpu,
+    Globe
 } from 'lucide-react';
 import { getKieCredit } from '@/lib/actions';
 import { getCurrentUser, logoutUser } from '@/lib/auth';
@@ -26,10 +27,10 @@ export default async function DashboardLayout({
 
     const navItems = [
         { label: 'Home', icon: Home, href: '/dashboard' },
-        { label: 'Scraper', icon: Search, href: '/dashboard/scraper' },
-        { label: 'Leads', icon: Users, href: '/dashboard/leads' },
-        { label: 'Enriched', icon: Sparkles, href: '/dashboard/enriched' },
-        { label: 'Templates', icon: LayoutTemplate, href: '/dashboard/templates' },
+        { label: 'Scraper', icon: Flame, href: '/dashboard/scraper' },
+        { label: 'Leads', icon: Database, href: '/dashboard/leads' },
+        { label: 'Enriched', icon: Cpu, href: '/dashboard/enriched' },
+        { label: 'Live Sites', icon: Globe, href: '/dashboard/live' },
         { label: 'Settings', icon: Settings, href: '/dashboard/settings' },
     ];
 

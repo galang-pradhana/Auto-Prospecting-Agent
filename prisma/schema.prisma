@@ -20,6 +20,7 @@ model User {
 
 model Lead {
   id                  String     @id @default(cuid())
+  slug                String?    @unique // Untuk URL: prospecting-agent-group.com/slug-klien
   name                String
   wa                  String     @unique
   category            String
@@ -43,6 +44,7 @@ model Lead {
   resolvingIdea       String?
   selectedStyle       String?
   selectedLayout      String?
+  htmlCode            String?    @db.Text
   user                User       @relation(fields: [userId], references: [id])
 
   @@index([status, category])
@@ -54,4 +56,5 @@ enum LeadStatus {
   ENRICHED
   READY
   FINISH
+  LIVE
 }

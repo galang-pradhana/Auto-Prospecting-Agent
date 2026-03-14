@@ -10,6 +10,8 @@ import {
 import { batchEnrichLeads, deleteLeads, getRecommendedStyles, tweakLeadStyle, getStyleModels, getLeads, getLeadsCount } from '@/lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect } from 'react';
+import TheForgeModal from './TheForgeModal';
+import { Hammer, ExternalLink } from 'lucide-react';
 
 function isValidWhatsApp(phone: string): boolean {
     if (!phone || phone === 'N/A') return false;
@@ -29,7 +31,9 @@ interface Lead {
     rating: number;
     website: string;
     reviews: any; // Added
-    status: 'FRESH' | 'ENRICHED' | 'READY' | 'FINISH';
+    status: 'FRESH' | 'ENRICHED' | 'READY' | 'FINISH' | 'LIVE';
+    htmlCode?: string | null;
+    slug?: string | null;
     brandData: any;
     painPoints?: string;
     resolutions?: any; // Changed to any for Json compatibility
@@ -52,6 +56,7 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }>
     ENRICHED: { bg: 'bg-amber-500/15', text: 'text-amber-400', label: 'ENRICHED' },
     READY: { bg: 'bg-green-500/15', text: 'text-green-400', label: 'READY' },
     FINISH: { bg: 'bg-blue-500/15', text: 'text-blue-400', label: 'FINISH' },
+    LIVE: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'LIVE' },
 };
 
 const CATEGORIES = [
@@ -88,6 +93,10 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
     const [allStyles, setAllStyles] = useState<any[]>([]);
     const [recommendedStyleIds, setRecommendedStyleIds] = useState<string[]>([]);
     const [isRegenerating, setIsRegenerating] = useState(false);
+
+    // Forge State
+    const [forgeModalOpen, setForgeModalOpen] = useState(false);
+    const [forgeLead, setForgeLead] = useState<Lead | null>(null);
 
     // Fetch leads when filters or page change
     useEffect(() => {
@@ -427,6 +436,33 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                                                     </button>
                                                                 </div>
                                                             )}
+
+                                                            {(lead.status === 'ENRICHED' || lead.status === 'LIVE') && (
+                                                                <div className="flex gap-2">
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setForgeLead(lead);
+                                                                            setForgeModalOpen(true);
+                                                                        }}
+                                                                        className="flex-1 py-4 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-2xl flex items-center justify-center gap-3 transition-all group/forge"
+                                                                    >
+                                                                        <Hammer size={16} className="text-orange-500 group-hover:scale-110 transition-transform" />
+                                                                        <span className="text-xs font-black text-orange-400 uppercase tracking-widest">Forge Website</span>
+                                                                    </button>
+
+                                                                    {lead.status === 'LIVE' && lead.slug && (
+                                                                        <a 
+                                                                            href={`https://prospecting-agent-group.com/${lead.slug}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="w-14 h-14 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center transition-all group/live"
+                                                                            title="View Live Website"
+                                                                        >
+                                                                            <ExternalLink size={18} className="text-white/40 group-hover:text-blue-400 transition-colors" />
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
 
@@ -724,6 +760,18 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Forge Modal */}
+            {forgeLead && (
+                <TheForgeModal 
+                    isOpen={forgeModalOpen}
+                    onClose={() => {
+                        setForgeModalOpen(false);
+                        setForgeLead(null);
+                    }}
+                    lead={forgeLead}
+                />
+            )}
         </div>
     );
 }

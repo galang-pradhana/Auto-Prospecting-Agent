@@ -2,7 +2,7 @@ import { getLeads } from '@/lib/actions';
 import LeadsClient from '@/components/LeadsClient';
 
 export default async function LeadsPage() {
-    const leads = await getLeads();
+    const leads = await getLeads({ status: 'FRESH' });
 
     // Serialize Prisma dates to plain objects for client component
     const serializedLeads = leads.map(lead => ({
