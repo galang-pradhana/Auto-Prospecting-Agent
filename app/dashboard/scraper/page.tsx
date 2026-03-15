@@ -10,7 +10,7 @@ import {
 import { 
     runScraper, batchEnrichLeads, deleteLeads,
     getProvinces, getCities, getDistricts, cleanupOldLeads,
-    getRegionalAdvice
+    getRegionalAdvice, checkScraperHealth, repairScraperPermissions
 } from '@/lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -149,6 +149,10 @@ export default function ScraperPage() {
     const [advice, setAdvice] = useState<any>(null);
     const [loadingAdvice, setLoadingAdvice] = useState(false);
 
+    // Health State
+    const [health, setHealth] = useState<any>(null);
+    const [repairing, setRepairing] = useState(false);
+
     useEffect(() => {
         const loadProvinces = async () => {
             const list = await getProvinces();
@@ -189,6 +193,17 @@ export default function ScraperPage() {
         loadDistricts();
     }, [selectedProvince, selectedCity]);
 
+    // Health Polling
+    useEffect(() => {
+        const updateHealth = async () => {
+            const h = await checkScraperHealth();
+            setHealth(h);
+        };
+        updateHealth();
+        const interval = setInterval(updateHealth, 5000);
+        return () => clearInterval(interval);
+    }, []);
+
     // AUTO-TOGGLE: Disable expansion if district is selected
     useEffect(() => {
         if (selectedDistrict) setIncludeDistricts(false);
@@ -217,21 +232,26 @@ export default function ScraperPage() {
     }, []);
 
     const handleScrape = async () => {
+        if (health && !health.browserReady) {
+            alert(health.message);
+            return;
+        }
+
         setLoading(true);
         try {
             // Refined surgical keyword
-            const keyword = selectedDistrict 
+            const keyword = selectedDistrict
                 ? `${selectedCategory} in ${selectedDistrict}, ${selectedCity}, ${selectedProvince}`
                 : `${selectedCategory} in ${selectedCity}, ${selectedProvince}`;
 
             const result = await runScraper(
-                keyword, 
-                10, 
-                0, 
-                5, 
-                false, 
+                keyword,
+                10,
+                0,
+                5,
+                false,
                 25000, // radius meter
-                false, 
+                false,
                 selectedCategory,
                 selectedCity,
                 selectedProvince,
@@ -247,6 +267,21 @@ export default function ScraperPage() {
             alert(`Scraper Error: ${error.message}`);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleRepair = async () => {
+        setRepairing(true);
+        try {
+            const res = await repairScraperPermissions();
+            alert(res.message);
+            // Re-trigger health check
+            const h = await checkScraperHealth();
+            setHealth(h);
+        } catch (e) {
+            alert("Repair failed");
+        } finally {
+            setRepairing(false);
         }
     };
 
@@ -312,6 +347,46 @@ export default function ScraperPage() {
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
+    // Health Indicator Helper
+    const renderHealthIndicator = () => {
+        if (!health) return null;
+
+        const isOk = health.binaryExists && health.isExecutable && health.browserReady;
+        const needsPerms = health.binaryExists && !health.isExecutable;
+
+        return (
+            <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex items-center justify-between px-6 py-4 rounded-3xl border mb-8 ${
+                    isOk ? 'bg-green-500/5 border-green-500/10 text-green-400' : 
+                    needsPerms ? 'bg-amber-500/5 border-amber-500/10 text-amber-400' : 
+                    'bg-red-500/5 border-red-500/10 text-red-400'
+                }`}
+            >
+                <div className="flex items-center gap-3">
+                    {isOk ? <CheckCircle2 size={18} /> : 
+                     needsPerms ? <AlertTriangle size={18} /> : 
+                     <X size={18} />}
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">System Readiness</p>
+                        <p className="text-sm font-bold">{health.message}</p>
+                    </div>
+                </div>
+
+                {needsPerms && (
+                    <button 
+                        onClick={handleRepair}
+                        disabled={repairing}
+                        className="px-4 py-2 bg-amber-500 text-black text-[10px] font-black uppercase rounded-xl hover:bg-white transition-all disabled:opacity-50"
+                    >
+                        {repairing ? <Loader2 size={12} className="animate-spin" /> : "Fix Permissions"}
+                    </button>
+                )}
+            </motion.div>
+        );
+    };
+
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-32">
             <div className="flex justify-between items-end">
@@ -340,27 +415,29 @@ export default function ScraperPage() {
                 </div>
             </div>
 
-            <div className="glass p-8 rounded-[40px] border-white/5 relative z-30 shadow-2xl bg-zinc-950/40">
-                <form className="relative z-10 flex flex-col md:flex-row items-end gap-6" onSubmit={(e) => { e.preventDefault(); handleScrape(); }}>
-                    <div className="flex-1 w-full space-y-3">
+            {renderHealthIndicator()}
+
+            <div className="glass p-4 md:p-8 rounded-[32px] md:rounded-[40px] border-white/5 relative z-30 shadow-2xl bg-zinc-950/40">
+                <form className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 items-end gap-4 md:gap-6" onSubmit={(e) => { e.preventDefault(); handleScrape(); }}>
+                    <div className="md:col-span-1 lg:col-span-1 space-y-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">
                             <Building2 size={14} /> Category
                         </label>
                         <SearchCombobox value={selectedCategory} onChange={setSelectedCategory} options={CATEGORIES} placeholder="Category" />
                     </div>
-                    <div className="flex-1 w-full space-y-3">
+                    <div className="md:col-span-1 lg:col-span-1 space-y-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">
                             <Landmark size={14} /> Province
                         </label>
                         <SearchCombobox value={selectedProvince} onChange={setSelectedProvince} options={provinces} placeholder="Province" />
                     </div>
-                    <div className="flex-1 w-full space-y-3">
+                    <div className="md:col-span-1 lg:col-span-1 space-y-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">
                             <MapPin size={14} /> City
                         </label>
                         <SearchCombobox value={selectedCity} onChange={setSelectedCity} options={cities} placeholder="City" />
                     </div>
-                    <div className={`flex-1 w-full space-y-3 transition-all ${!selectedCity ? 'opacity-30' : 'opacity-100'}`}>
+                    <div className={`md:col-span-1 lg:col-span-1 space-y-3 transition-all ${!selectedCity ? 'opacity-30' : 'opacity-100'}`}>
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">
                             <Navigation size={14} /> District
                         </label>
@@ -368,17 +445,17 @@ export default function ScraperPage() {
                             value={selectedDistrict} 
                             onChange={setSelectedDistrict} 
                             options={fetchingDistricts ? [] : districts} 
-                            placeholder={fetchingDistricts ? "Fetching from cloud..." : (selectedCity ? "All Districts" : "Select City First")} 
+                            placeholder={fetchingDistricts ? "Fetching..." : (selectedCity ? "All Districts" : "Select City")} 
                         />
                     </div>
 
                     <div 
-                        className={`h-[60px] flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-2xl px-6 group hover:border-zinc-600 transition-all cursor-pointer ${selectedDistrict ? 'opacity-40 grayscale cursor-not-allowed' : ''}`} 
+                        className={`md:col-span-1 lg:col-span-1 h-[60px] flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-2xl px-6 group hover:border-zinc-600 transition-all cursor-pointer ${selectedDistrict ? 'opacity-40 grayscale cursor-not-allowed' : ''}`} 
                         onClick={() => !selectedDistrict && setIncludeDistricts(!includeDistricts)}
                     >
                         <div className="flex-1">
-                            <p className="text-[9px] font-black text-accent-gold uppercase tracking-widest">Expansion Mode</p>
-                            <p className="text-[11px] text-white/60 font-bold truncate">Include Districts</p>
+                            <p className="text-[9px] font-black text-accent-gold uppercase tracking-widest">Expansion</p>
+                            <p className="text-[11px] text-white/60 font-bold truncate">Districts</p>
                         </div>
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${includeDistricts ? 'bg-accent-gold text-black rotate-12' : 'bg-white/5 text-white/20'}`}>
                             <MapPin size={18} />
@@ -387,11 +464,11 @@ export default function ScraperPage() {
 
                     <button
                         type="submit"
-                        disabled={loading}
-                        className="h-[60px] px-10 bg-white text-black font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-accent-gold transition-all shadow-2xl disabled:opacity-50 text-sm uppercase tracking-tighter"
+                        disabled={loading || (health && !health.browserReady)}
+                        className="md:col-span-1 lg:col-span-1 h-[60px] w-full bg-white text-black font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-accent-gold transition-all shadow-2xl disabled:opacity-50 text-sm uppercase tracking-tighter"
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
-                        Ignite Engine
+                        Launch
                     </button>
                 </form>
             </div>
@@ -590,21 +667,24 @@ export default function ScraperPage() {
                         initial={{ y: 100, x: '-50%', opacity: 0 }}
                         animate={{ y: 0, x: '-50%', opacity: 1 }}
                         exit={{ y: 100, x: '-50%', opacity: 0 }}
-                        className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 p-2 rounded-[32px] shadow-2xl"
+                        className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-50 flex flex-col md:flex-row items-stretch md:items-center gap-0 md:gap-2 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 p-2 rounded-[24px] md:rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-[90%] md:w-auto"
                     >
-                        <div className="px-6 py-4 border-r border-white/5">
+                        <div className="px-6 py-3 md:py-4 flex items-center justify-center md:justify-start gap-3 border-b md:border-b-0 md:border-r border-white/5">
                             <span className="text-sm font-black text-accent-gold">{selectedIds.length}</span>
+                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-none">Candidates<br className="hidden md:block" /> {selectedIds.length === 1 ? 'Selected' : 'Selected'}</span>
                         </div>
-                        <div className="flex gap-2 p-1">
-                            <button onClick={handleBatchEnrich} disabled={enriching} className="h-14 px-8 bg-accent-gold text-black font-black rounded-2xl flex items-center gap-3 hover:bg-white transition-all text-xs uppercase tracking-tighter">
+                        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 p-1">
+                            <button onClick={handleBatchEnrich} disabled={enriching} className="h-12 md:h-14 px-6 md:px-8 bg-accent-gold text-black font-black rounded-xl md:rounded-2xl flex items-center justify-center gap-3 hover:bg-white transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 text-[10px] md:text-xs uppercase tracking-tighter flex-1 md:flex-none">
                                 {enriching ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Enrich AI
                             </button>
-                            <button onClick={handleBulkDelete} className="h-14 px-8 bg-zinc-800 text-red-400 font-bold rounded-2xl flex items-center gap-3 hover:bg-red-500/10 transition-all text-xs uppercase tracking-tighter">
-                                <Trash2 size={16} /> Delete
-                            </button>
-                            <button onClick={() => setSelectedIds([])} className="h-14 w-14 bg-white/5 text-white/40 rounded-2xl flex items-center justify-center">
-                                <X size={16} />
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={handleBulkDelete} className="flex-1 md:flex-none h-12 md:h-14 px-6 md:px-8 bg-zinc-800 text-red-400 font-bold rounded-xl md:rounded-2xl flex items-center justify-center gap-3 hover:bg-red-500/10 transition-all text-[10px] md:text-xs uppercase tracking-tighter shrink-0">
+                                    <Trash2 size={16} /> Delete
+                                </button>
+                                <button onClick={() => setSelectedIds([])} className="h-12 w-12 md:h-14 md:w-14 bg-white/5 text-white/40 hover:text-white rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0">
+                                    <X size={16} />
+                                </button>
+                            </div>
                         </div>
                     </motion.div>
                 )}

@@ -14,41 +14,67 @@ model User {
   password      String
   name          String
   rejectedLeads Int      @default(0)
+  kieAiApiKey   String?
+  byocMode      Boolean  @default(false)
   createdAt     DateTime @default(now())
   leads         Lead[]
 }
 
 model Lead {
-  id                  String     @id @default(cuid())
-  slug                String?    @unique // Untuk URL: prospecting-agent-group.com/slug-klien
+  id                  String        @id @default(cuid())
   name                String
-  wa                  String     @unique
+  wa                  String        @unique
   category            String
-  province            String     @default("")
-  city                String     @default("")
-  address             String     @default("")
-  rating              Float      @default(0)
-  website             String     @default("N/A")
-  reviews             Json       @default("[]")
-  status              LeadStatus @default(FRESH)
+  province            String        @default("")
+  city                String        @default("")
+  address             String        @default("")
+  rating              Float         @default(0)
+  website             String        @default("N/A")
+  reviews             Json          @default("[]")
+  status              LeadStatus    @default(FRESH)
   brandData           Json?
   aiAnalysis          Json?
   painPoints          String?
   websiteDraft        Json?
   userId              String
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
   masterWebsitePrompt String?
   resolutions         Json?
   suggestedAssets     Json?
   resolvingIdea       String?
-  selectedStyle       String?
   selectedLayout      String?
-  htmlCode            String?    @db.Text
-  user                User       @relation(fields: [userId], references: [id])
+  selectedStyle       String?
+  htmlCode            String?
+  slug                String?       @unique
+  logs                ActivityLog[]
+  user                User          @relation(fields: [userId], references: [id])
 
   @@index([status, category])
   @@index([userId])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  leadId      String
+  action      String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([action])
+}
+
+model WaTemplate {
+  id        String   @id @default(cuid())
+  title     String
+  category  String?  // Optional category filter
+  content   String   // The text with variables like {{name}} and {{idea}}
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum LeadStatus {

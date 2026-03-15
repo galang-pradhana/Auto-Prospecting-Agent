@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { LeadStatus } from '@prisma/client';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
@@ -49,14 +49,16 @@ export async function getLeads(filters?: {
 
     const where: any = { userId: session.userId };
 
-    if (filters?.status) {
+    if (filters?.status && (filters.status as any) !== 'ALL STATUS') {
         where.status = filters.status;
     } else {
         // DEFAULT: Hide ENRICHED from main leads view
         where.status = { not: 'ENRICHED' };
     }
 
-    if (filters?.category) where.category = filters.category;
+    if (filters?.category && filters.category !== 'All' && filters.category !== 'ALL CATEGORIES') {
+        where.category = { contains: filters.category, mode: 'insensitive' };
+    }
     if (filters?.province) where.province = filters.province;
     if (filters?.search) {
         where.OR = [
@@ -68,6 +70,8 @@ export async function getLeads(filters?: {
     const page = filters?.page || 1;
     const pageSize = filters?.pageSize || 10;
     const skip = (page - 1) * pageSize;
+
+    revalidatePath('/dashboard/leads');
 
     return prisma.lead.findMany({
         where,
@@ -88,13 +92,15 @@ export async function getLeadsCount(filters?: {
 
     const where: any = { userId: session.userId };
 
-    if (filters?.status) {
+    if (filters?.status && (filters.status as any) !== 'ALL STATUS') {
         where.status = filters.status;
     } else {
         where.status = { not: 'ENRICHED' };
     }
 
-    if (filters?.category) where.category = filters.category;
+    if (filters?.category && filters.category !== 'All' && filters.category !== 'ALL CATEGORIES') {
+        where.category = { contains: filters.category, mode: 'insensitive' };
+    }
     if (filters?.province) where.province = filters.province;
     if (filters?.search) {
         where.OR = [
@@ -103,6 +109,7 @@ export async function getLeadsCount(filters?: {
         ];
     }
 
+    revalidatePath('/dashboard/leads');
     return prisma.lead.count({ where });
 }
 
@@ -146,8 +153,48 @@ export async function cleanupOldLeads() {
     }
 }
 
+// --- Activity Logging ---
+
+export async function logActivity(leadId: string, action: string, description?: string, metadata?: any) {
+    try {
+        await prisma.activityLog.create({
+            data: {
+                leadId,
+                action,
+                description,
+                metadata: metadata || {},
+            }
+        });
+    } catch (error) {
+        console.error(`[Logging Error] Lead ${leadId} action ${action}:`, error);
+    }
+}
+
 // --- Helpers ---
-const cleanResponse = (str: string) => str.replace(/```json|```/g, "").trim();
+const cleanResponse = (str: string) => {
+    let cleaned = str.replace(/```json|```/g, "").trim();
+    // Fix Bad Control Characters (Surgical Fix)
+    return cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, (char) => {
+        if (char === '\n') return '\\n';
+        if (char === '\r') return '\\r';
+        if (char === '\t') return '\\t';
+        return ' ';
+    });
+};
+export async function getActivityLogs(leadId: string) {
+    const session = await getSession();
+    if (!session) return [];
+
+    try {
+        return await prisma.activityLog.findMany({
+            where: { leadId },
+            orderBy: { createdAt: 'desc' }
+        });
+    } catch (error) {
+        console.error('Fetch logs error:', error);
+        return [];
+    }
+}
 
 function isMobileNumber(phone: string): boolean {
     if (!phone || phone === 'N/A') return false;
@@ -160,10 +207,100 @@ function isValidWhatsApp(phone: string): boolean {
     return isMobileNumber(phone);
 }
 
+function isRecentLead(reviews: any[]): boolean {
+    if (!reviews || reviews.length === 0) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const thirtySixMonthsAgo = new Date(today);
+    thirtySixMonthsAgo.setMonth(thirtySixMonthsAgo.getMonth() - 36);
+
+    const reviewDates = reviews
+        .map(r => r.When ? new Date(r.When) : null)
+        .filter((d): d is Date => d !== null && !isNaN(d.getTime()));
+
+    if (reviewDates.length === 0) return false;
+
+    const latestReviewDate = new Date(Math.max(...reviewDates.map(d => d.getTime())));
+    latestReviewDate.setHours(0, 0, 0, 0);
+    
+    return latestReviewDate >= thirtySixMonthsAgo;
+}
+
+// --- Scraper Health & Diagnostics ---
+
+export async function checkScraperHealth() {
+    const binaryPath = path.join(process.cwd(), 'google-maps-scraper');
+    const health = {
+        binaryExists: false,
+        isExecutable: false,
+        browserReady: false,
+        message: 'Checking...'
+    };
+
+    // 1. Check Binary existence
+    if (!fs.existsSync(binaryPath)) {
+        health.message = "Binary missing. Please build or relocate it to the project root.";
+        return health;
+    }
+    health.binaryExists = true;
+
+    // 2. Check Permissions
+    try {
+        fs.accessSync(binaryPath, fs.constants.X_OK);
+        health.isExecutable = true;
+    } catch (err) {
+        health.message = "Binary found but not executable. Click 'Fix Permissions'.";
+        return health;
+    }
+
+    // 3. Check Browser readiness (run help as a dry-run)
+    try {
+        // We use -h to trigger a quick help output. 
+        // If browsers are missing, it usually crashes with a specific Playwright error.
+        execSync(`"${binaryPath}" -h`, { stdio: 'ignore' });
+        health.browserReady = true;
+        health.message = "Ready to Ignite.";
+    } catch (err: any) {
+        const errorMsg = err.stderr?.toString() || err.message || '';
+        if (errorMsg.includes('Executable doesn\'t exist')) {
+            health.browserReady = false;
+            health.message = "Browsers missing. Run npx playwright install.";
+        } else {
+            // If it exits with 0 or 2 (standard help exit codes for some CLI apps), we consider it ready
+            // Most scrapers exit with 0 for -h
+            health.browserReady = true;
+            health.message = "Ready to Ignite.";
+        }
+    }
+
+    return health;
+}
+
+export async function repairScraperPermissions() {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    const binaryPath = path.join(process.cwd(), 'google-maps-scraper');
+    try {
+        execSync(`chmod +x "${binaryPath}"`);
+        return { success: true, message: 'Permissions fixed successfully.' };
+    } catch (err: any) {
+        console.error("[Repair Error]:", err);
+        return { success: false, message: `Failed to fix permissions: ${err.message}` };
+    }
+}
+
 // --- Scraper ---
 
 // --- Scraper Helper ---
-async function executeScraperProcess(binaryPath: string, queryFilePath: string, radius: number): Promise<{ code: number | null; stdoutData: string }> {
+async function executeScraperProcess(
+    binaryPath: string, 
+    queryFilePath: string, 
+    radius: number, 
+    onLead: (lead: any) => Promise<void>
+): Promise<{ code: number | null }> {
     return new Promise((resolve, reject) => {
         const scraperProcess = spawn(binaryPath, [
             '-input', queryFilePath,
@@ -174,11 +311,35 @@ async function executeScraperProcess(binaryPath: string, queryFilePath: string, 
             '-lang', 'id'
         ]);
 
-        let stdoutData = '';
-        scraperProcess.stdout.on('data', (data) => {
-            const chunk = data.toString();
-            stdoutData += chunk;
-            console.log(`[Go-Engine Output]: ${chunk.trim()}`);
+        // Add 5-minute kill timer
+        const killTimer = setTimeout(() => {
+            console.error(`[Scraper] Process timed out after 5 mins. Killing.`);
+            scraperProcess.kill('SIGKILL');
+        }, 5 * 60 * 1000);
+
+        let buffer = '';
+        scraperProcess.stdout.on('data', async (data) => {
+            buffer += data.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // Keep the last partial line in buffer
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                // Only attempt JSON.parse if the line starts with { and ends with }
+                if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                    try {
+                        const item = JSON.parse(trimmed);
+                        await onLead(item);
+                    } catch (err) {
+                        console.error("[Scraper] Malformed JSON ignored:", trimmed);
+                    }
+                } else {
+                    // It's a system log or progress bar
+                    console.log(`[Scraper System]: ${trimmed}`);
+                }
+            }
         });
 
         scraperProcess.stderr.on('data', (data) => {
@@ -187,11 +348,13 @@ async function executeScraperProcess(binaryPath: string, queryFilePath: string, 
         });
 
         scraperProcess.on('error', (err) => {
+            clearTimeout(killTimer);
             reject(err);
         });
 
         scraperProcess.on('close', (code) => {
-            resolve({ code, stdoutData });
+            clearTimeout(killTimer);
+            resolve({ code });
         });
     });
 }
@@ -213,13 +376,21 @@ export async function runScraper(
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
 
+    const binaryPath = path.join(process.cwd(), 'google-maps-scraper');
+    
+    // Pre-flight check for execution rights
+    try {
+        fs.accessSync(binaryPath, fs.constants.X_OK);
+    } catch (err) {
+        console.error(`[Internal Error]: Scraper binary not executable at ${binaryPath}. Run chmod +x..`);
+        return { success: false, message: `[Internal Error]: Scraper binary not executable. Run chmod +x.` };
+    }
+
     const queryFilePath = path.join(process.cwd(), `queries_${Date.now()}.txt`);
-    console.log(`[Go-Engine]: Preparing dynamic input. Target: "${district || city}"`);
+    console.log(`[Go-Engine]: Starting stream-batch ingestion. Target: "${district || city}"`);
 
     try {
         let queries = [keyword];
-        const binaryPath = 'google-maps-scraper';
-
         if (district && city && province) {
             queries = [`"${category}" in "${district}, ${city}, ${province}"`];
         } else if (includeDistricts && city && province) {
@@ -232,95 +403,102 @@ export async function runScraper(
         }
 
         fs.writeFileSync(queryFilePath, queries.join('\n'), 'utf8');
-        const { code, stdoutData } = await executeScraperProcess(binaryPath, queryFilePath, radius);
 
-        if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
-
-        if (code !== 0) {
-            return { success: false, message: `Go engine exited with code ${code}` };
-        }
-
-        const jsonLines = stdoutData.split('\n').filter((l) => l.trim());
-        let newCount = 0;
-        let updateCount = 0;
+        let leadsBuffer: any[] = [];
+        const BATCH_SIZE = 50;
+        let totalProcessed = 0;
+        let totalInserted = 0;
         let aiRejectedCount = 0;
 
-        for (const line of jsonLines) {
+        const flushBuffer = async () => {
+            if (leadsBuffer.length === 0) return;
             try {
-                const item = JSON.parse(line);
-                const wa = item.phone || 'N/A';
-                const name = item.title || 'N/A';
-                const website = item.website || 'N/A';
+                // Batch create and return created records
+                const createdLeads = await (prisma.lead as any).createManyAndReturn({
+                    data: leadsBuffer,
+                    skipDuplicates: true
+                });
                 
-                if (!isMobileNumber(wa)) {
-                    console.log(`[Skip] No valid WA for: ${name}`);
-                    aiRejectedCount++;
-                    continue;
+                totalInserted += createdLeads.length;
+                console.log(`[Database] Batch insert of ${leadsBuffer.length} leads successful. New: ${createdLeads.length}`);
+                
+                if (createdLeads.length > 0) {
+                    const logData = createdLeads.map((lead: any) => ({
+                        leadId: lead.id,
+                        action: 'SCRAPE',
+                        description: 'Lead ingested from source',
+                        metadata: { source: "Go-Engine" }
+                    }));
+                    await prisma.activityLog.createMany({ data: logData });
                 }
-
-                if (website !== 'N/A' && website.trim() !== '') {
-                    const professionalSuffixes = ['gov', 'edu', 'org', 'mil'];
-                    if (professionalSuffixes.some(s => website.toLowerCase().endsWith(`.${s}`))) {
-                        aiRejectedCount++;
-                        continue;
-                    }
-
-                    if (await shouldSkipLead(name, website)) {
-                        aiRejectedCount++;
-                        await prisma.user.update({
-                            where: { id: session.userId },
-                            data: { rejectedLeads: { increment: 1 } }
-                        }).catch(() => {});
-                        continue;
-                    }
-                }
-
-                const existing = await prisma.lead.findUnique({ where: { wa } });
-                if (existing) {
-                    if (!['ENRICHED', 'READY', 'FINISH'].includes(existing.status)) {
-                        await prisma.lead.update({
-                            where: { wa },
-                            data: {
-                                rating: item.review_rating || existing.rating,
-                                category: item.category || category || existing.category,
-                                address: item.address || existing.address,
-                                reviews: item.user_reviews || existing.reviews,
-                            }
-                        });
-                    }
-                    updateCount++;
-                } else {
-                    await prisma.lead.create({
-                        data: {
-                            name, wa,
-                            category: item.category || category || 'N/A',
-                            province: province || '', city: city || '',
-                            address: item.address || 'N/A',
-                            rating: item.review_rating || 0,
-                            website: item.website || 'N/A',
-                            reviews: item.user_reviews || [],
-                            status: 'FRESH',
-                            userId: session.userId,
-                        }
-                    });
-                    newCount++;
-                }
+                
+                leadsBuffer = [];
             } catch (err) {
-                console.error("[Parser Error]:", err);
+                console.error("[Batch Error]:", err);
+                leadsBuffer = [];
             }
-        }
+        };
+
+        const onLeadHandled = async (item: any) => {
+            totalProcessed++;
+            const wa = item.phone || 'N/A';
+            const name = item.title || 'N/A';
+            const website = item.website || 'N/A';
+            const rating = item.review_rating || 0;
+            const reviews = item.user_reviews || [];
+
+            // SURGICAL FILTERS
+            if (!isMobileNumber(wa) || rating < 4.0 || !isRecentLead(reviews)) {
+                aiRejectedCount++;
+                return;
+            }
+
+            // Professional Suffix Skip
+            if (website !== 'N/A' && website.trim() !== '') {
+                const professionalSuffixes = ['gov', 'edu', 'org', 'mil'];
+                if (professionalSuffixes.some(s => website.toLowerCase().endsWith(`.${s}`))) {
+                    aiRejectedCount++;
+                    return;
+                }
+            }
+
+            // Lead data for Prisma
+            leadsBuffer.push({
+                name, wa,
+                category: item.category || category || 'N/A',
+                province: province || '', city: city || '',
+                address: item.address || 'N/A',
+                rating: item.review_rating || 0,
+                website: item.website || 'N/A',
+                reviews: item.user_reviews || [],
+                status: 'FRESH',
+                userId: session.userId,
+            });
+
+            if (leadsBuffer.length >= BATCH_SIZE) {
+                await flushBuffer();
+            }
+        };
+
+        const { code } = await executeScraperProcess(binaryPath, queryFilePath, radius, onLeadHandled);
+
+        // Final flush
+        await flushBuffer();
+
+        if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
 
         revalidatePath('/dashboard/leads');
         revalidatePath('/dashboard/scraper');
 
         return { 
             success: true, 
-            message: `Extracted ${newCount} new leads.`,
-            stats: { new: newCount, duplicate: updateCount, aiRejected: aiRejectedCount }
+            message: `Scraper finished. Processed ${totalProcessed}, Added ${totalInserted} new leads.`,
+            stats: { new: totalInserted, aiRejected: aiRejectedCount, processed: totalProcessed }
         };
 
     } catch (err: any) {
         if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
+        console.error("[Scraper Main Error]:", err);
         return { success: false, message: err.message || 'Scraper failed' };
     }
 }
@@ -436,28 +614,62 @@ Return ONLY a valid JSON object with the following structure:
   "masterWebsitePrompt": "...",
   "summary": "..."
 }
+
+IMPORTANT: You MUST return a valid JSON object. Ensure all newlines within string values are escaped as '\\n'.
 `;
 
 function cleanAIResponse(text: string): string {
-    const jsonRegex = /{[\s\S]*}/;
-    const match = text.match(jsonRegex);
-    if (match) {
-        return match[0].trim();
-    }
-    return text.trim();
+    // 1. Remove Markdown backticks if present
+    let raw = text.replace(/```json|```/g, "").trim();
+    
+    // 2. Fix Bad Control Characters (Surgical Fix)
+    // This regex finds unescaped newlines, tabs, and other control chars inside the string
+    return raw.replace(/[\u0000-\u001F\u007F-\u009F]/g, (char) => {
+        if (char === '\n') return '\\n';
+        if (char === '\r') return '\\r';
+        if (char === '\t') return '\\t';
+        return ' ';
+    });
 }
 
 
+// --- Style Metadata Cache ---
+let styleModelsCache: any = null;
+
 export async function getStyleModels() {
+    if (styleModelsCache) return styleModelsCache;
+
     const filePath = path.join(process.cwd(), 'data', '20 STYLE MODELS.json');
     if (!fs.existsSync(filePath)) return null;
     try {
-        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        return data.styleModels.models;
+        const fileContent = await fsPromises.readFile(filePath, 'utf8');
+        const data = JSON.parse(fileContent);
+        styleModelsCache = data.styleModels.models;
+        return styleModelsCache;
     } catch (e) {
         console.error('Failed to load style models:', e);
         return null;
     }
+}
+
+export async function getStyleDNA(styleId: string) {
+    const models = await getStyleModels();
+    if (!models) return null;
+
+    let model = models.find((m: any) => m.id === styleId);
+    
+    // Fallback to clean-minimal if not found
+    if (!model) {
+        model = models.find((m: any) => m.id === 'clean-minimal');
+    }
+
+    if (!model) return null;
+
+    return {
+        colorPalette: model.colorPalette,
+        typography: model.typography,
+        characteristics: model.characteristics
+    };
 }
 
 async function callKieAI(businessName: string, reviews: string[], category: string, painPointsFromUI?: string) {
@@ -528,8 +740,14 @@ async function callKieAI(businessName: string, reviews: string[], category: stri
     }
 
     if (fullContent) {
-        const cleaned = cleanAIResponse(fullContent);
-        return JSON.parse(cleaned);
+        const sanitized = cleanAIResponse(fullContent);
+        try {
+            const parsed = JSON.parse(sanitized);
+            return parsed;
+        } catch (parseError) {
+            console.error('[Surgical Error] JSON Parse failed after sanitization:', parseError, 'Raw Content:', fullContent);
+            return null;
+        }
     }
 
     return null;
@@ -552,7 +770,13 @@ export async function enrichLead(leadId: string) {
             ? (lead.reviews as any[]).map(r => (typeof r === 'object' && r?.Description) ? r.Description : String(r)).filter(Boolean)
             : [];
 
+        const creditBefore = await getKieCredit();
         const aiResult = await callKieAI(lead.name, reviews, lead.category);
+        const creditAfter = await getKieCredit();
+
+        const beforeVal = parseFloat(creditBefore) || 0;
+        const afterVal = parseFloat(creditAfter) || 0;
+        const cost = Math.max(0, beforeVal - afterVal).toFixed(4);
 
         if (aiResult) {
             const painPointsStr = Array.isArray(aiResult.painPoints) 
@@ -575,6 +799,14 @@ export async function enrichLead(leadId: string) {
                     status: 'ENRICHED',
                 }
             });
+
+            // Log ENRICH
+            await logActivity(leadId, 'ENRICH', `Enriched using Gemini-3-Flash`, { 
+                model: "Gemini-3-Flash",
+                style: aiResult.selectedStyle?.id || 'standard',
+                credits_used: cost
+            });
+
             revalidatePath('/dashboard/leads');
             return { success: true, message: `${lead.name} enriched (JSON compressed)` };
         }
@@ -837,6 +1069,7 @@ export async function tweakLeadStyle(leadId: string, styleId: string) {
         
         Output JSON: {"masterWebsitePrompt": "..."}`;
 
+        const creditBefore = await getKieCredit();
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -851,11 +1084,17 @@ export async function tweakLeadStyle(leadId: string, styleId: string) {
 
         if (!response.ok) throw new Error('AI Re-generation failed');
         const aiData = await response.json();
-        const contentRaw = aiData.choices[0].message.content;
+        const creditAfter = await getKieCredit();
+
+        const beforeVal = parseFloat(creditBefore) || 0;
+        const afterVal = parseFloat(creditAfter) || 0;
+        const cost = Math.max(0, beforeVal - afterVal).toFixed(4);
+        const contentRaw = aiData.choices?.[0]?.message?.content || '';
+        const sanitizedContent = cleanAIResponse(contentRaw);
         
         let content: any;
         try {
-            content = JSON.parse(cleanResponse(contentRaw));
+            content = JSON.parse(sanitizedContent);
         } catch (parseError) {
             console.error('[Tweak JSON Parse Error]:', parseError, 'Raw:', contentRaw);
             // Fallback: use a basic prompt if AI fails to give valid JSON
@@ -870,6 +1109,13 @@ export async function tweakLeadStyle(leadId: string, styleId: string) {
                 selectedStyle: styleId,
                 masterWebsitePrompt: content.masterWebsitePrompt,
             }
+        });
+
+        // Log TWEAK
+        await logActivity(leadId, 'TWEAK', `Style tweaked to ${selectedModel.name}`, { 
+            styleId,
+            credits_used: cost,
+            model: "Gemini-3-Flash"
         });
 
         revalidatePath('/dashboard/leads');
@@ -910,6 +1156,9 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
             }
         });
 
+        // Log LIVE
+        await logActivity(leadId, 'LIVE', `Website published to ${slug}`, { slug });
+
         revalidatePath('/dashboard/enriched');
         revalidatePath('/dashboard/leads');
         return { success: true, slug };
@@ -931,6 +1180,39 @@ export async function generateForgeCode(leadId: string) {
     const endpoint = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
 
     try {
+        const fullAddress = `${lead.address}, ${lead.city}, ${lead.province}`;
+        const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`;
+
+        const businessContext = `
+[STRICT BUSINESS DATA]
+- Brand Name: ${lead.name}
+- Category: ${lead.category}
+- Real Address: ${fullAddress}
+- WhatsApp Link: https://wa.me/${lead.wa}
+- Core Pain Points to Solve: ${lead.painPoints}
+- Winning Solution: ${lead.resolvingIdea}
+- Google Maps Embed: <iframe width="100%" height="400" frameborder="0" src="${mapUrl}" allowfullscreen></iframe>
+`;
+
+        // Premium UI Logic
+        const categoryLower = lead.category.toLowerCase();
+        const unsplashKeyword = categoryLower.replace(/\s+/g, '-');
+        const designTheme = ["photography", "design", "creative", "tech", "studio"].some(k => categoryLower.includes(k)) 
+            ? "Premium Dark / Aesthetic" 
+            : "Clean Professional / Minimalist";
+
+        const styleDNA = await getStyleDNA(lead.selectedStyle || 'clean-minimal');
+        const designSpecs = styleDNA ? `
+[DESIGN DNA SPECIFICATIONS]
+- Primary Color: ${styleDNA.colorPalette.primary}
+- Background: ${styleDNA.colorPalette.background}
+- Text Color: ${styleDNA.colorPalette.text}
+- Heading Font: ${styleDNA.typography.headingFont}
+- Body Font: ${styleDNA.typography.bodyFont}
+- Visual Weight: ${styleDNA.characteristics.visualWeight}
+` : '';
+
+        const creditBefore = await getKieCredit();
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -942,7 +1224,34 @@ export async function generateForgeCode(leadId: string) {
                     role: "user",
                     content: [{
                         type: "text",
-                        text: `${lead.masterWebsitePrompt}\n\nIMPORTANT: Return ONLY the full HTML code including <head> with Tailwind CDN and any necessary scripts. Do not include markdown blocks. Output MUST be valid HTML.`
+                        text: `MANDATORY: Every visible text element on the website (Navbar, Hero, Buttons, Service Cards, Footer) MUST be in high-quality Bahasa Indonesia. No English allowed on the frontend.
+
+${businessContext}
+
+${lead.masterWebsitePrompt}
+
+ARCHITECTURE:
+- Output must be a standalone index.html.
+- Embed all CSS (Tailwind CDN) and JS within the file.
+
+${designSpecs}
+
+PREMIUM VISUALS:
+- DESIGN COMPLIANCE: You MUST apply the provided [DESIGN DNA SPECIFICATIONS] using Tailwind CSS configuration. Use the Primary Color for buttons and accents, and ensure the Typography matches the fonts provided via Google Fonts CDN imports.
+- Theme: Apply the "${designTheme}" theme using sophisticated color palettes.
+- Layout: Use Bento Grid structures for services/features.
+- Effects: Apply Glassmorphism (backdrop-blur) on navbars and cards.
+- Typography: Use Inter or Poppins from Google Fonts.
+- Dynamic Images: Use Unsplash URLs based on the category (e.g., https://images.unsplash.com/photo-...?auto=format&fit=crop&q=80&w=1200&q=${unsplashKeyword}).
+
+OUTREACH OPTIMIZATION:
+- CTA buttons must be persuasive (e.g., "Konsultasi Gratis Sekarang" atau "Amankan Slot Anda") and link to the real WhatsApp URL.
+- Persistent WhatsApp FAB: You MUST include a Floating Action Button (FAB) in the bottom right corner.
+    - URL: https://wa.me/${lead.wa}?text=${encodeURIComponent("Halo, saya tertarik dengan penawaran website untuk " + lead.name)}
+    - Styling: Use WhatsApp Green (#25D366), absolute/fixed positioning, a subtle 'pulse' animation to draw attention, and the highest z-index.
+    - Label: Use Bahasa Indonesia like "Tanya Lewat WhatsApp" or "Konsultasi Sekarang".
+
+IMPORTANT: Return ONLY the full standalone HTML code. No markdown backticks. No explanations.`
                     }]
                 }],
                 stream: false,
@@ -951,16 +1260,329 @@ export async function generateForgeCode(leadId: string) {
 
         if (!response.ok) throw new Error(`AI generation failed: ${response.statusText}`);
         
-        const data = await response.json();
+        const rawResponse = await response.text();
+        const sanitizedResponse = rawResponse.replace(/[\u0000-\u001F\u007F-\u009F]/g, (char) => {
+            if (char === '\n') return '\\n';
+            if (char === '\r') return '\\r';
+            if (char === '\t') return '\\t';
+            return ' ';
+        });
+        
+        let data;
+        try {
+            data = JSON.parse(sanitizedResponse);
+        } catch(e) {
+            data = JSON.parse(rawResponse);
+        }
+
+        const creditAfter = await getKieCredit();
+
+        const beforeVal = parseFloat(creditBefore) || 0;
+        const afterVal = parseFloat(creditAfter) || 0;
+        const cost = Math.max(0, beforeVal - afterVal).toFixed(4);
+
         let htmlContent = data.choices?.[0]?.message?.content || '';
         
-        // Strip markdown if AI included it despite instructions
+        // Ensure clean HTML without markdown backticks
         htmlContent = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
+
+        // Log FORGE (since generateForgeCode is the primary AI action for build)
+        await logActivity(leadId, 'FORGE', `Website code generated via AI`, { 
+            credits_used: cost,
+            model: "Gemini-3-Flash"
+        });
 
         return { success: true, html: htmlContent };
     } catch (error: any) {
         console.error('Generate Forge Error:', error);
         return { success: false, message: error.message || 'Generation failed' };
     }
+}
+
+// --- WhatsApp Template Management ---
+
+export async function getWaTemplates() {
+    return prisma.waTemplate.findMany({
+        orderBy: [
+            { isDefault: 'desc' },
+            { createdAt: 'desc' }
+        ]
+    });
+}
+
+export async function saveWaTemplate(id: string | null, title: string, category: string, content: string, isDefault: boolean) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        if (isDefault) {
+            await prisma.waTemplate.updateMany({
+                where: { isDefault: true },
+                data: { isDefault: false }
+            });
+        }
+
+        if (id) {
+            await prisma.waTemplate.update({
+                where: { id },
+                data: { title, category: category || null, content, isDefault }
+            });
+        } else {
+            // First template is default automatically if there are no others
+            const count = await prisma.waTemplate.count();
+            const actualIsDefault = count === 0 ? true : isDefault;
+
+            await prisma.waTemplate.create({
+                data: { title, category: category || null, content, isDefault: actualIsDefault }
+            });
+        }
+
+        revalidatePath('/dashboard/settings/wa-templates');
+        revalidatePath('/dashboard/settings');
+        return { success: true };
+    } catch (error) {
+        console.error('Save WA Template error:', error);
+        return { success: false, message: 'Failed to save template' };
+    }
+}
+
+export async function setDefaultWaTemplate(id: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        await prisma.$transaction([
+            prisma.waTemplate.updateMany({
+                where: { isDefault: true },
+                data: { isDefault: false }
+            }),
+            prisma.waTemplate.update({
+                where: { id },
+                data: { isDefault: true }
+            })
+        ]);
+        revalidatePath('/dashboard/settings/wa-templates');
+        revalidatePath('/dashboard/settings');
+        return { success: true };
+    } catch (error) {
+        console.error('Set Default WA Template error:', error);
+        return { success: false, message: 'Failed to set default template' };
+    }
+}
+
+export async function deleteWaTemplate(id: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        await prisma.waTemplate.delete({ where: { id } });
+        
+        // If we deleted the default template, make the first one default
+        const remaining = await prisma.waTemplate.findFirst({
+            orderBy: { createdAt: 'desc' }
+        });
+        if (remaining) {
+            const hasDefault = await prisma.waTemplate.findFirst({ where: { isDefault: true } });
+            if (!hasDefault) {
+                await prisma.waTemplate.update({
+                    where: { id: remaining.id },
+                    data: { isDefault: true }
+                });
+            }
+        }
+
+        revalidatePath('/dashboard/settings/wa-templates');
+        revalidatePath('/dashboard/settings');
+        return { success: true };
+    } catch (error) {
+        console.error('Delete WA Template error:', error);
+        return { success: false, message: 'Failed to delete template' };
+    }
+}
+
+export async function generateWaTemplateDraft(category: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        const apiKey = process.env.KIE_AI_API_KEY;
+        const endpoint = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
+        
+        const prompt = `You are a Master Sales Copywriter. Generate a WhatsApp template for a business in the category: "${category}".
+        
+        Use these 6 elements in the message:
+        1. Header: Use Emojis and Bold Headlines.
+        2. Personalized Greeting: Must include {{name}} and a polite apology for the interruption.
+        3. Content Flow: Address the {{pain_points}} first, then offer {{idea}} as the solution.
+        4. Specific Offer: Use concrete numbers (e.g., 'Hemat Rp XXX' or 'Diskon X%').
+        5. Scarcity: Add urgency (e.g., 'Hanya untuk 3 orang pertama' or 'Berakhir jam 23.59').
+        6. Clear CTA: Use a direct instruction to click the link {{link}}.
+
+        Constraints:
+        - Language MUST be 100% Indonesian.
+        - Tone: Professional yet persuasive (Ramah & Solutif).
+        - Use variables as they are: {{name}}, {{pain_points}}, {{idea}}, {{link}}.
+        - Return ONLY the text of the message (no introduction, no explanation).`;
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+                stream: false
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const draft = data.choices?.[0]?.message?.content || '';
+            return { success: true, draft };
+        } else {
+            return { success: false, message: 'AI Generation failed' };
+        }
+    } catch (error) {
+        console.error('Generate WA Template Draft error:', error);
+        return { success: false, message: 'Server error' };
+    }
+}
+
+// --- Dynamic WA Link Generation ---
+
+export async function generateWaLink(leadId: string, templateId?: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) return { success: false, message: 'Lead not found' };
+
+        let template = null;
+        
+        if (templateId) {
+            template = await prisma.waTemplate.findUnique({ where: { id: templateId } });
+        }
+
+        if (!template) {
+            template = await prisma.waTemplate.findFirst({
+                where: { category: lead.category }
+            });
+        }
+
+        if (!template) {
+            template = await prisma.waTemplate.findFirst({
+                where: { isDefault: true }
+            });
+        }
+
+        let message = '';
+
+        if (template) {
+            message = template.content
+                .replace(/{{name}}/g, lead.name)
+                .replace(/{{category}}/g, lead.category)
+                .replace(/{{idea}}/g, lead.resolvingIdea || 'solusi digital')
+                .replace(/{{pain_points}}/g, lead.painPoints || 'kebutuhan bisnis')
+                .replace(/{{link}}/g, `${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-prospecting.vercel.app'}/${lead.slug || ''}`);
+        } else {
+            // AI Fallback (Gemini 3 Flash)
+            const apiKey = process.env.KIE_AI_API_KEY;
+            const endpoint = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
+            const prompt = `Generate a highly personalized "Hook Message" for a WhatsApp outreach. 
+            Business: ${lead.name}
+            Category: ${lead.category}
+            Proposed Solution: ${lead.resolvingIdea}
+            Website Draft: ${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-prospecting.vercel.app'}/${lead.slug || ''}
+            
+            Persona: Friendly, professional, and helpful (Ramah, Terpercaya, dan Solutif).
+            Language: Professional Bahasa Indonesia.
+            
+            Output: The message only (no quotes, no intro).`;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+                    stream: false
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                message = data.choices?.[0]?.message?.content || 'Halo!';
+            } else {
+                message = `Halo ${lead.name}, saya punya solusi digital untuk ${lead.category} Anda.`;
+            }
+        }
+
+        const waUrl = `https://wa.me/${lead.wa}?text=${encodeURIComponent(message)}`;
+        return { success: true, url: waUrl, message };
+    } catch (error) {
+        console.error('Generate WA Link error:', error);
+        return { success: false, message: 'Failed to generate link' };
+    }
+}
+
+// --- User Settings & AI Configuration ---
+
+export async function getUserSettings() {
+    const session = await getSession();
+    if (!session) return null;
+
+    return prisma.user.findUnique({
+        where: { id: session.userId },
+        select: {
+            kieAiApiKey: true,
+            byocMode: true,
+        }
+    });
+}
+
+export async function updateUserSettings(data: { kieAiApiKey?: string, byocMode?: boolean }) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        await prisma.user.update({
+            where: { id: session.userId },
+            data
+        });
+        revalidatePath('/dashboard/settings');
+        return { success: true };
+    } catch (error) {
+        console.error('Update User Settings error:', error);
+        return { success: false, message: 'Failed to update settings' };
+    }
+}
+
+export async function getEstimatedUsage() {
+    const session = await getSession();
+    if (!session) return 0;
+
+    const logs = await prisma.activityLog.findMany({
+        where: {
+            lead: { userId: session.userId },
+            action: { in: ['ENRICH', 'FORGE', 'TWEAK'] }
+        },
+        select: { metadata: true }
+    });
+
+    let totalUsage = 0;
+    logs.forEach(log => {
+        if (log.metadata && typeof log.metadata === 'object') {
+            const meta = log.metadata as any;
+            if (meta.credits_used) {
+                totalUsage += parseFloat(meta.credits_used) || 0;
+            }
+        }
+    });
+
+    return totalUsage.toFixed(4);
 }
 

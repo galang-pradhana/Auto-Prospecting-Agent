@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { Globe, ExternalLink, MapPin, Building2, Calendar, Layout } from 'lucide-react';
+import { Globe, ExternalLink, MapPin, Building2, Calendar, Layout, Download } from 'lucide-react';
 import Link from 'next/link';
+import DownloadButton from '@/components/DownloadButton';
+import SendWaButton from '@/components/SendWaButton';
 
 export default async function LiveSitesPage() {
     const session = await getSession();
@@ -15,6 +17,10 @@ export default async function LiveSitesPage() {
         orderBy: {
             updatedAt: 'desc'
         }
+    });
+
+    const templates = await prisma.waTemplate.findMany({
+        orderBy: { isDefault: 'desc' }
     });
 
     return (
@@ -65,6 +71,19 @@ export default async function LiveSitesPage() {
                                     <ExternalLink size={14} />
                                     Visit Site
                                 </Link>
+                                <SendWaButton 
+                                    leadId={lead.id} 
+                                    leadName={lead.name}
+                                    templates={templates}
+                                />
+                                {lead.htmlCode && (
+                                    <DownloadButton 
+                                        htmlCode={lead.htmlCode} 
+                                        fileName={lead.name}
+                                        className="w-12 h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-all group/dl"
+                                        iconSize={16}
+                                    />
+                                )}
                                 <Link 
                                     href={`/dashboard/enriched?leadId=${lead.id}`}
                                     className="w-12 h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-all group/edit"
