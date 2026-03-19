@@ -16,11 +16,15 @@ model User {
   rejectedLeads Int      @default(0)
   kieAiApiKey   String?
   byocMode      Boolean  @default(false)
+  aiEngine      String   @default("gemini-3-flash")
   createdAt     DateTime @default(now())
   leads         Lead[]
+  sandboxLeads  LeadSandbox[]
 }
 
 model Lead {
+  lastLog     String?  @db.Text
+  masterWebsitePrompt String?  @db.Text
   id                  String        @id @default(cuid())
   name                String
   wa                  String        @unique
@@ -30,8 +34,10 @@ model Lead {
   address             String        @default("")
   rating              Float         @default(0)
   website             String        @default("N/A")
+  mapsUrl             String?
   reviews             Json          @default("[]")
   status              LeadStatus    @default(FRESH)
+  isPro               Boolean       @default(false)
   brandData           Json?
   aiAnalysis          Json?
   painPoints          String?
@@ -39,13 +45,12 @@ model Lead {
   userId              String
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
-  masterWebsitePrompt String?
   resolutions         Json?
   suggestedAssets     Json?
   resolvingIdea       String?
   selectedLayout      String?
   selectedStyle       String?
-  htmlCode            String?
+  htmlCode            String?  @db.Text
   slug                String?       @unique
   logs                ActivityLog[]
   user                User          @relation(fields: [userId], references: [id])
@@ -67,6 +72,23 @@ model ActivityLog {
   @@index([action])
 }
 
+model LeadSandbox {
+  id        String   @id @default(cuid())
+  name      String?
+  wa        String?
+  category  String?
+  address   String?
+  city      String?
+  mapsUrl   String?
+  rawSource Json?
+  reason    String?
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
 model WaTemplate {
   id        String   @id @default(cuid())
   title     String
@@ -83,4 +105,11 @@ enum LeadStatus {
   READY
   FINISH
   LIVE
+}
+
+model SystemPrompt {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  content   String   @db.Text
+  updatedAt DateTime @updatedAt
 }

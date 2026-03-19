@@ -36,6 +36,7 @@
   ],
   "exclude": [
     "node_modules",
-    "google-maps-scraper"
+    "google-maps-scraper",
+    "google-maps-scraper-dir"
   ]
 }

@@ -1,4 +1,4 @@
-import { getLeads } from '@/lib/actions';
+import { getLeads } from '@/lib/actions/lead';
 import LeadsClient from '@/components/LeadsClient';
 
 export default async function LeadsPage() {

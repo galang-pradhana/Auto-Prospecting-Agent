@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import {
     Search, MapPin, Star, Globe, Loader2,
     Zap, CheckCircle2, Navigation, 
-    Building2, Map, Landmark, Trash2, CheckSquare, Square,
+    Building2, Map, Landmark,
     Sparkles, ChevronDown, X, RefreshCcw, ChevronsUpDown, Check, Circle, AlertTriangle
 } from 'lucide-react';
 import { 
-    runScraper, batchEnrichLeads, deleteLeads,
-    getProvinces, getCities, getDistricts, cleanupOldLeads,
-    getRegionalAdvice, checkScraperHealth, repairScraperPermissions
-} from '@/lib/actions';
+    runScraper, checkScraperHealth, repairScraperPermissions
+} from '@/lib/actions/scraper';
+import { getRegionalAdvice } from '@/lib/actions/ai';
+import { getProvinces, getCities, getDistricts } from '@/lib/actions/lead';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CATEGORIES = [
@@ -141,13 +141,10 @@ export default function ScraperPage() {
     const [selectedDistrict, setSelectedDistrict] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]);
     const [includeDistricts, setIncludeDistricts] = useState(false);
-    const [previewLeads, setPreviewLeads] = useState<any[]>([]);
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [enriching, setEnriching] = useState(false);
+    const [results, setResults] = useState<any[]>([]);
     const [fetchingDistricts, setFetchingDistricts] = useState(false);
+    const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
     const [stats, setStats] = useState({ new: 0, duplicate: 0, fresh: 0, aiRejected: 0 });
-    const [advice, setAdvice] = useState<any>(null);
-    const [loadingAdvice, setLoadingAdvice] = useState(false);
 
     // Health State
     const [health, setHealth] = useState<any>(null);
@@ -212,10 +209,14 @@ export default function ScraperPage() {
     useEffect(() => {
         const fetchLatest = async () => {
             try {
-                const res = await fetch('/api/leads?status=FRESH');
+                const res = await fetch('/api/scraper/results');
                 if (res.ok) {
-                    const latest = await res.json();
-                    setPreviewLeads(latest.slice(0, 15));
+                    const latest: any[] = await res.json();
+                    // Filter by session start time if active
+                    const filtered = sessionStartTime 
+                        ? latest.filter(l => new Date(l.createdAt).getTime() > sessionStartTime)
+                        : latest;
+                    setResults(filtered);
                 }
                 const statsRes = await fetch('/api/stats');
                 if (statsRes.ok) {
@@ -229,15 +230,18 @@ export default function ScraperPage() {
         fetchLatest();
         const interval = setInterval(fetchLatest, 3000);
         return () => clearInterval(interval);
-    }, []);
+    }, [sessionStartTime]);
 
     const handleScrape = async () => {
+        setResults([]);
+        setSessionStartTime(Date.now());
+        setLoading(true);
+
         if (health && !health.browserReady) {
             alert(health.message);
+            setLoading(false);
             return;
         }
-
-        setLoading(true);
         try {
             // Refined surgical keyword
             const keyword = selectedDistrict
@@ -262,7 +266,7 @@ export default function ScraperPage() {
             if (!(result as any).success) {
                 throw new Error((result as any).message || 'Scraper failed to start');
             }
-            alert('Surgical scraping initiated! Watch the live FRESH feed.');
+            alert('Surgical scraping initiated! Watch the live results below.');
         } catch (error: any) {
             alert(`Scraper Error: ${error.message}`);
         } finally {
@@ -285,67 +289,6 @@ export default function ScraperPage() {
         }
     };
 
-    const handleBulkDelete = async () => {
-        if (selectedIds.length === 0) return;
-        if (!confirm(`Hapus ${selectedIds.length} leads terpilih?`)) return;
-
-        try {
-            const res = await deleteLeads(selectedIds);
-            if (res.success) {
-                setPreviewLeads(prev => prev.filter(l => !selectedIds.includes(l.id)));
-                setSelectedIds([]);
-            }
-        } catch (e) {
-            alert("Gagal menghapus leads");
-        }
-    };
-
-    const handleBatchEnrich = async () => {
-        if (selectedIds.length === 0) return;
-        setEnriching(true);
-        try {
-            await batchEnrichLeads(selectedIds);
-            alert(`${selectedIds.length} leads enriched! Check Leads page.`);
-            setSelectedIds([]);
-        } catch (e) {
-            alert("Enrichment failed");
-        } finally {
-            setEnriching(false);
-        }
-    };
-
-    const handleCleanup = async () => {
-        if (!confirm('Hapus semua lead FRESH yang sudah lebih dari 14 hari?')) return;
-        setLoading(true);
-        try {
-            const res = await cleanupOldLeads();
-            alert(res.message);
-        } catch (e) {
-            alert("Cleanup failed");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGetAdvice = async () => {
-        if (!selectedProvince || !selectedCity) {
-            alert("Pilih Provinsi dan Kota terlebih dahulu!");
-            return;
-        }
-        setLoadingAdvice(true);
-        try {
-            const res = await getRegionalAdvice(selectedProvince, selectedCity, selectedCategory);
-            setAdvice(res);
-        } catch (e) {
-            alert("Gagal mengambil saran AI.");
-        } finally {
-            setLoadingAdvice(false);
-        }
-    };
-
-    const toggleSelect = (id: string) => {
-        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-    };
 
     // Health Indicator Helper
     const renderHealthIndicator = () => {
@@ -388,7 +331,7 @@ export default function ScraperPage() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 pb-32">
+        <div className="max-w-7xl mx-auto flex flex-col justify-start min-h-screen space-y-8 pb-32 pt-12">
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-4xl font-black mb-2 tracking-tighter flex items-center gap-3 text-white">
@@ -473,222 +416,105 @@ export default function ScraperPage() {
                 </form>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 flex flex-col bg-white/[0.02] border border-white/5 rounded-[40px] overflow-hidden shadow-2xl relative min-h-[600px]">
-                    <div className="p-8 border-b border-white/5 flex items-center justify-between bg-zinc-900/50 backdrop-blur-md sticky top-0 z-20">
-                        <h3 className="font-bold flex items-center gap-2 text-white">
-                            Live Fresh Stream {loading && <Loader2 size={16} className="animate-spin text-accent-gold ml-2" />}
+            <div className="w-full">
+                <div className="flex flex-col bg-white border border-zinc-200 rounded-[32px] overflow-hidden shadow-2xl relative min-h-[600px]">
+                    <div className="p-8 border-b border-zinc-100 flex items-center justify-between bg-white/90 backdrop-blur-xl sticky top-0 z-20">
+                        <h3 className="text-xl font-black flex items-center gap-2 text-zinc-900 tracking-tighter">
+                            Scrape Results {loading && <Loader2 size={16} className="animate-spin text-accent-gold ml-2" />}
                         </h3>
                         <div className="flex items-center gap-4">
-                            {selectedIds.length > 0 && (
-                                <span className="text-[10px] bg-accent-gold text-black px-2 py-0.5 rounded-full font-black animate-pulse">
-                                    {selectedIds.length} SELECTED
-                                </span>
-                            )}
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Operational Feed</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Live Analytics Feed</span>
                         </div>
                     </div>
 
-                    <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <AnimatePresence mode="popLayout">
-                            {previewLeads.length > 0 ? (
-                                previewLeads.map((lead) => (
-                                    <motion.div
-                                        layout
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        key={lead.id}
-                                        className={`glass p-6 rounded-[32px] border-white/5 hover:border-accent-gold/30 transition-all group relative ${selectedIds.includes(lead.id) ? 'border-accent-gold/40 bg-accent-gold/[0.03]' : ''}`}
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            <div onClick={() => toggleSelect(lead.id)} className="mt-1 cursor-pointer">
-                                                {selectedIds.includes(lead.id) ? <CheckSquare size={20} className="text-accent-gold" /> : <Square size={20} className="text-white/20 group-hover:text-white/40" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-white group-hover:text-accent-gold transition-colors text-sm truncate">{lead.name}</div>
-                                                <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1 mb-3 flex items-center gap-1">
-                                                    <Building2 size={10} className="text-accent-gold" /> {lead.category}
-                                                </div>
-                                                <div className="flex items-center gap-2 text-[11px] text-white/60 mb-4">
-                                                    <MapPin size={12} className="text-accent-gold shrink-0" />
-                                                    <span className="line-clamp-1">{lead.address}</span>
-                                                </div>
-
-                                                <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                                                    <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter flex items-center gap-1.5 ${lead.website === 'N/A' || !lead.website ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
-                                                        <Globe size={10} /> {lead.website === 'N/A' ? 'Missing' : 'Portal'}
+                    <div className="overflow-x-auto overflow-y-visible">
+                        <table className="w-full text-left border-collapse table-auto">
+                            <thead className="sticky top-0 z-20 bg-zinc-50 border-b border-zinc-200">
+                                <tr>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase text-zinc-500 tracking-widest pl-8">Target</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase text-zinc-500 tracking-widest">Business Name</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase text-zinc-500 tracking-widest">WhatsApp</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase text-zinc-500 tracking-widest">Category</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase text-zinc-500 tracking-widest">Address</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase text-zinc-500 tracking-widest pr-8 text-right">AI Insight</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-100">
+                                <AnimatePresence mode="popLayout">
+                                    {results.length > 0 ? (
+                                        results.map((lead) => (
+                                            <motion.tr
+                                                layout
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                key={lead.id}
+                                                className="group hover:bg-zinc-50/80 transition-colors text-zinc-900 pointer-events-none"
+                                            >
+                                                <td className="px-6 py-4 pl-8">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter border ${
+                                                            lead.destination === 'LEAD' 
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                                                                : 'bg-amber-50 text-amber-700 border-amber-100'
+                                                        }`}>
+                                                            {lead.destination || 'UNKNOWN'}
+                                                        </span>
                                                     </div>
-                                                    <div className="flex items-center gap-1 px-2 py-1 bg-white/5 rounded-full border border-white/5">
-                                                        <Star size={10} fill="currentColor" className="text-accent-gold" />
-                                                        <span className="text-[10px] font-black text-white">{lead.rating}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-sm text-zinc-900 truncate max-w-[180px]" title={lead.name}>
+                                                        {lead.name}
                                                     </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                ))
-                            ) : (
-                                <div className="col-span-full py-32 flex flex-col items-center justify-center text-white/10 italic">
-                                    <Search size={40} className="mb-4 animate-pulse" />
-                                    <p>Awaiting live database stream...</p>
-                                </div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    <div className="glass p-8 rounded-[40px] border-white/5 bg-zinc-950/40">
-                        <h3 className="text-lg font-black text-white mb-6 tracking-tighter flex items-center gap-2">
-                            <Zap size={20} className="text-accent-gold" /> 
-                            MAINTENANCE
-                        </h3>
-                        
-                        <div className="space-y-4">
-                            <button 
-                                onClick={handleCleanup}
-                                disabled={loading}
-                                className="w-full p-6 bg-white/5 border border-white/10 rounded-3xl text-left hover:bg-white/10 transition-all group"
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-black text-accent-gold uppercase tracking-widest">Stale Purge</span>
-                                    <Trash2 size={16} className="text-white/20 group-hover:text-red-400 transition-colors" />
-                                </div>
-                                <p className="text-sm font-bold text-white">Cleanup Old Leads</p>
-                                <p className="text-[10px] text-white/40 mt-1">Hapus lead FRESH yang sudah {'>'} 14 hari.</p>
-                            </button>
-
-                            <div className="p-6 bg-accent-gold/5 border border-accent-gold/10 rounded-3xl">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-8 h-8 rounded-full bg-accent-gold flex items-center justify-center text-black">
-                                        <Sparkles size={16} />
-                                    </div>
-                                    <span className="text-xs font-black text-white uppercase tracking-widest">Auto Compression</span>
-                                </div>
-                                <p className="text-[11px] text-white/60 leading-relaxed font-medium">
-                                    Data ulasan mentah otomatis dihapus setelah AI Enrichment untuk menghemat storage database.
-                                </p>
-                            </div>
-
-                            <button 
-                                onClick={handleGetAdvice}
-                                disabled={loadingAdvice || !selectedCity}
-                                className="w-full p-6 bg-accent-gold/10 border border-accent-gold/20 rounded-3xl text-left hover:bg-accent-gold/20 transition-all group"
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-black text-accent-gold uppercase tracking-widest">AI Strategist</span>
-                                    {loadingAdvice ? (
-                                        <Loader2 size={16} className="animate-spin text-accent-gold" />
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="font-mono text-[13px] text-zinc-600 font-semibold">
+                                                        {lead.wa}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-bold uppercase text-zinc-500 bg-zinc-100/50 px-2 py-1 rounded-md border border-zinc-200/50">
+                                                        {lead.category}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-xs text-zinc-500 max-w-[200px] truncate" title={lead.address}>
+                                                    {lead.address}
+                                                </td>
+                                                <td className="px-6 py-4 pr-8 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {lead.destination === 'LEAD' ? (
+                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-lg">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                <span className="text-[9px] font-black text-emerald-600 uppercase">High Potential</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 rounded-lg">
+                                                                <span className="text-[9px] font-black text-amber-600 uppercase">{lead.reason || "Analyzing..."}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </motion.tr>
+                                        ))
                                     ) : (
-                                        <Sparkles size={16} className="text-accent-gold group-hover:scale-110 transition-transform" />
+                                        <tr>
+                                            <td colSpan={6} className="py-32 text-center text-zinc-300">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="w-16 h-16 rounded-full bg-zinc-50 flex items-center justify-center">
+                                                        <Search size={32} className="text-zinc-200 animate-pulse" />
+                                                    </div>
+                                                    <p className="text-sm font-bold text-zinc-400">Waiting for live data transmission...</p>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     )}
-                                </div>
-                                <p className="text-sm font-bold text-white">AI Regional Advice</p>
-                                <p className="text-[10px] text-white/40 mt-1">Saran area potensial untuk {selectedCategory}.</p>
-                            </button>
-
-                            <button className="w-full p-6 border border-white/5 bg-zinc-900 rounded-3xl text-left opacity-50 cursor-not-allowed">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-black text-white/40 uppercase tracking-widest">Archive</span>
-                                    <Globe size={16} className="text-white/10" />
-                                </div>
-                                <p className="text-sm font-bold text-white/40">Google Sheets Ops</p>
-                                <p className="text-[10px] text-white/20 mt-1">Coming soon: Export FINISH leads.</p>
-                            </button>
-                        </div>
-                    </div>
-
-                    <AnimatePresence>
-                        {advice && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className="glass p-8 rounded-[40px] border-white/10 bg-zinc-950/80 backdrop-blur-3xl shadow-3xl relative overflow-hidden"
-                            >
-                                <button 
-                                    onClick={() => setAdvice(null)}
-                                    className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all"
-                                >
-                                    <X size={18} />
-                                </button>
-                                
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-10 h-10 rounded-2xl bg-accent-gold flex items-center justify-center text-black">
-                                        <Sparkles size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-white uppercase tracking-widest">AI Analysis</h4>
-                                        <p className="text-[10px] font-bold text-accent-gold/60">{selectedCity}, {selectedProvince}</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {advice.recommendations?.map((rec: any, i: number) => (
-                                        <div key={i} className="p-4 bg-white/5 border border-white/5 rounded-2xl">
-                                            <p className="text-xs font-black text-accent-gold uppercase mb-1 tracking-tighter">{rec.area}</p>
-                                            <p className="text-[11px] text-white/60 leading-relaxed">{rec.reason}</p>
-                                        </div>
-                                    ))}
-                                    {advice.summary && (
-                                        <div className="pt-4 border-t border-white/5 mt-4">
-                                            <p className="text-[11px] text-white/40 italic leading-relaxed">
-                                                "{advice.summary}"
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    <div className="glass p-8 rounded-[40px] border-white/5 bg-zinc-900/20">
-                        <div className="flex items-center gap-2 mb-4">
-                            <AlertTriangle size={14} className="text-amber-500" />
-                            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Retention Policy</span>
-                        </div>
-                        <ul className="space-y-3">
-                            <li className="text-[11px] text-white/40 flex items-start gap-2">
-                                <CheckCircle2 size={12} className="text-green-500/40 mt-0.5" />
-                                <span>FRESH Leads kept for 14 days max</span>
-                            </li>
-                            <li className="text-[11px] text-white/40 flex items-start gap-2">
-                                <CheckCircle2 size={12} className="text-green-500/40 mt-0.5" />
-                                <span>Enriched leads are compressed</span>
-                            </li>
-                        </ul>
+                                </AnimatePresence>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <AnimatePresence>
-                {selectedIds.length > 0 && (
-                    <motion.div
-                        initial={{ y: 100, x: '-50%', opacity: 0 }}
-                        animate={{ y: 0, x: '-50%', opacity: 1 }}
-                        exit={{ y: 100, x: '-50%', opacity: 0 }}
-                        className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-50 flex flex-col md:flex-row items-stretch md:items-center gap-0 md:gap-2 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 p-2 rounded-[24px] md:rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-[90%] md:w-auto"
-                    >
-                        <div className="px-6 py-3 md:py-4 flex items-center justify-center md:justify-start gap-3 border-b md:border-b-0 md:border-r border-white/5">
-                            <span className="text-sm font-black text-accent-gold">{selectedIds.length}</span>
-                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest leading-none">Candidates<br className="hidden md:block" /> {selectedIds.length === 1 ? 'Selected' : 'Selected'}</span>
-                        </div>
-                        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 p-1">
-                            <button onClick={handleBatchEnrich} disabled={enriching} className="h-12 md:h-14 px-6 md:px-8 bg-accent-gold text-black font-black rounded-xl md:rounded-2xl flex items-center justify-center gap-3 hover:bg-white transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 text-[10px] md:text-xs uppercase tracking-tighter flex-1 md:flex-none">
-                                {enriching ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Enrich AI
-                            </button>
-                            <div className="flex gap-2">
-                                <button onClick={handleBulkDelete} className="flex-1 md:flex-none h-12 md:h-14 px-6 md:px-8 bg-zinc-800 text-red-400 font-bold rounded-xl md:rounded-2xl flex items-center justify-center gap-3 hover:bg-red-500/10 transition-all text-[10px] md:text-xs uppercase tracking-tighter shrink-0">
-                                    <Trash2 size={16} /> Delete
-                                </button>
-                                <button onClick={() => setSelectedIds([])} className="h-12 w-12 md:h-14 md:w-14 bg-white/5 text-white/40 hover:text-white rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0">
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 }

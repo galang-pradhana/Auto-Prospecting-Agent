@@ -1,4 +1,4 @@
-import { getLeadStats } from '@/lib/actions';
+import { getLeadStats } from '@/lib/actions/lead';
 import { Zap, TrendingUp, Users, Target, Shield, Database } from 'lucide-react';
 
 export default async function DashboardHome() {
@@ -79,7 +79,7 @@ export default async function DashboardHome() {
                         <div className="text-5xl font-black text-accent-gold">{stats.fresh}</div>
                         <p className="text-white/40 text-sm">leads ready for AI enrichment</p>
                         <div className="flex items-center gap-2 text-[10px] text-white/20 uppercase tracking-widest">
-                            <Zap size={12} /> Powered by Kie.ai × Gemini 3 Flash
+                            <Zap size={12} /> Powered by Kie.ai BYOC × Gemini 3 Flash
                         </div>
                     </div>
                 </div>

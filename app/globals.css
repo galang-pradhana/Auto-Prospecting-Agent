@@ -26,4 +26,9 @@ body {
   .glass {
     @apply bg-white/5 backdrop-blur-lg border border-white/10;
   }
+  .hero-bg {
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+  }
 }

@@ -12,7 +12,7 @@ import {
     CheckCircle2,
     Zap
 } from 'lucide-react';
-import { getActivityLogs } from '@/lib/actions';
+import { getActivityLogs } from '@/lib/actions/lead';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ActivityLog {

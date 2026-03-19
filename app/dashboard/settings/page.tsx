@@ -5,18 +5,24 @@ import {
     Cpu, MessageSquare, Flame, Save, 
     X, Loader2, Info, CheckCircle2, 
     AlertTriangle, Shield, Settings2, 
-    Key, Database, Trash2, Plus, Zap, Wand2
+    Key, Database, Trash2, Plus, Zap, Wand2,
+    Brain, RotateCcw, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     getWaTemplates, saveWaTemplate, deleteWaTemplate, setDefaultWaTemplate,
     generateWaTemplateDraft,
-    getUserSettings, updateUserSettings, getEstimatedUsage,
-    checkScraperHealth, repairScraperPermissions
-} from '@/lib/actions';
+    getUserSettings, updateUserSettings
+} from '@/lib/actions/settings';
+import { checkScraperHealth, repairScraperPermissions } from '@/lib/actions/scraper';
+import { getKieCredit } from '@/lib/actions/ai';
+import {
+    getCurrentPromptStates, updateSystemPrompt, resetSystemPrompt,
+    type PromptName
+} from '@/lib/actions/prompt';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'ai' | 'wa' | 'health'>('ai');
+    const [activeTab, setActiveTab] = useState<'ai' | 'wa' | 'health' | 'logic'>('ai');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [generatingDraft, setGeneratingDraft] = useState(false);
@@ -24,6 +30,7 @@ export default function SettingsPage() {
     // --- AI Settings State ---
     const [apiKey, setApiKey] = useState('');
     const [byocMode, setByocMode] = useState(false);
+    const [aiEngine, setAiEngine] = useState('gemini-3-flash');
     const [estimatedUsage, setEstimatedUsage] = useState("0");
 
     // --- WA Templates State ---
@@ -38,6 +45,13 @@ export default function SettingsPage() {
     // --- System Health State ---
     const [health, setHealth] = useState<any>(null);
     const [repairing, setRepairing] = useState(false);
+
+    // --- AI Logic State ---
+    const [promptStates, setPromptStates] = useState<Record<string, { current: string; isOverride: boolean; default: string; label: string }>>({});
+    const [selectedPrompt, setSelectedPrompt] = useState<PromptName>('MASTER_FORGE_PROMPT');
+    const [promptContent, setPromptContent] = useState('');
+    const [savingPrompt, setSavingPrompt] = useState(false);
+    const [resettingPrompt, setResettingPrompt] = useState(false);
 
     // --- Toast / Feedback ---
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -55,20 +69,30 @@ export default function SettingsPage() {
 
     const loadAllData = async () => {
         setLoading(true);
-        const [settings, usage, waData, healthData] = await Promise.all([
+        const [settings, usage, waData, healthData, promptData] = await Promise.all([
             getUserSettings(),
-            getEstimatedUsage(),
+            getKieCredit(),
             getWaTemplates(),
-            checkScraperHealth()
+            checkScraperHealth(),
+            getCurrentPromptStates()
         ]);
 
         if (settings) {
             setApiKey(settings.kieAiApiKey || '');
             setByocMode(settings.byocMode);
+            setAiEngine(settings.aiEngine || 'gemini-3-flash');
         }
         setEstimatedUsage(usage.toString());
         setTemplates(waData);
         setHealth(healthData);
+        if (promptData) {
+            setPromptStates(promptData);
+            const first = Object.keys(promptData)[0] as PromptName;
+            if (first) {
+                setSelectedPrompt(first);
+                setPromptContent(promptData[first].current);
+            }
+        }
         setLoading(false);
     };
 
@@ -80,7 +104,7 @@ export default function SettingsPage() {
     // --- AI Configuration Actions ---
     const handleSaveAiSettings = async () => {
         setSaving(true);
-        const res = await updateUserSettings({ kieAiApiKey: apiKey, byocMode });
+        const res = await updateUserSettings({ kieAiApiKey: apiKey, byocMode, aiEngine });
         if (res.success) showToast("AI configurations updated");
         else showToast(res.message || "Failed to update", "error");
         setSaving(false);
@@ -157,6 +181,40 @@ export default function SettingsPage() {
         setRepairing(false);
     };
 
+    // --- AI Logic Actions ---
+    const handleSelectPrompt = (name: PromptName) => {
+        setSelectedPrompt(name);
+        setPromptContent(promptStates[name]?.current || '');
+    };
+
+    const handleUpdatePrompt = async () => {
+        setSavingPrompt(true);
+        const res = await updateSystemPrompt(selectedPrompt, promptContent);
+        if (res.success) {
+            showToast('AI Logic berhasil diperbarui!');
+            const freshData = await getCurrentPromptStates();
+            setPromptStates(freshData);
+        } else {
+            showToast(res.message || 'Gagal memperbarui', 'error');
+        }
+        setSavingPrompt(false);
+    };
+
+    const handleResetPrompt = async () => {
+        if (!confirm('Are you sure you want to revert this prompt to factory defaults? Your custom changes will be lost.')) return;
+        setResettingPrompt(true);
+        const res = await resetSystemPrompt(selectedPrompt);
+        if (res.success) {
+            showToast('Prompt reverted to defaults!');
+            const freshData = await getCurrentPromptStates();
+            setPromptStates(freshData);
+            setPromptContent(freshData[selectedPrompt]?.current || '');
+        } else {
+            showToast('Failed to reset prompt', 'error');
+        }
+        setResettingPrompt(false);
+    };
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-32 gap-4">
@@ -178,9 +236,10 @@ export default function SettingsPage() {
             </header>
 
             {/* Tabbed Navigation */}
-            <div className="flex p-1 bg-zinc-950 border border-white/5 rounded-2xl w-fit">
+            <div className="flex p-1 bg-zinc-950 border border-white/5 rounded-2xl w-fit flex-wrap">
                 {[
                     { id: 'ai', label: 'AI & API', icon: Cpu },
+                    { id: 'logic', label: 'AI Logic', icon: Brain },
                     { id: 'wa', label: 'WA Outreach', icon: MessageSquare },
                     { id: 'health', label: 'System Health', icon: Flame },
                 ].map((tab) => (
@@ -215,13 +274,37 @@ export default function SettingsPage() {
                                     <div className="space-y-6">
                                         <div>
                                             <h3 className="text-white font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                <Zap className="text-accent-gold" size={16} /> AI Engine Selection
+                                            </h3>
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-white/30 uppercase tracking-widest px-1">Selected Model Provider</label>
+                                                    <div className="relative group/select">
+                                                        <Cpu size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/select:text-accent-gold transition-colors" />
+                                                        <select
+                                                            value={aiEngine}
+                                                            onChange={(e) => setAiEngine(e.target.value)}
+                                                            className="w-full bg-zinc-900 border border-white/5 rounded-2xl pl-10 pr-12 py-4 appearance-none outline-none focus:border-accent-gold/40 transition-all text-sm font-black uppercase tracking-widest text-white cursor-pointer"
+                                                        >
+                                                            <option key="gemini-3-flash" value="gemini-3-flash" className="bg-zinc-950">Kie.ai: Gemini 3 Flash</option>
+                                                            <option key="o1" value="o1" className="bg-zinc-950">Kie.ai: O1</option>
+                                                            <option key="gpt-4o" value="gpt-4o" className="bg-zinc-950">Kie.ai: GPT-4o</option>
+                                                        </select>
+                                                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-6 border-t border-white/5">
+                                            <h3 className="text-white font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
                                                 <Key className="text-accent-gold" size={16} /> Kie.ai Integration
                                             </h3>
                                             <div className="space-y-4">
                                                 <div className="space-y-2">
                                                     <label className="text-[10px] font-black text-white/30 uppercase tracking-widest px-1">API Endpoint</label>
                                                     <div className="w-full bg-zinc-900 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white/40 font-mono">
-                                                        https://api.kie.ai/gemini-3-flash/v1/...
+                                                        https://api.kie.ai/{aiEngine}/v1/chat/completions
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">
@@ -307,7 +390,109 @@ export default function SettingsPage() {
                         </motion.div>
                     )}
 
-                    {/* Section 2: WA Template Engine */}
+                    {/* Section 2: AI Logic / Prompt Manager */}
+                    {activeTab === 'logic' && (
+                        <motion.div
+                            key="logic"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                        >
+                            <div className="glass p-8 rounded-[40px] border-white/5 bg-zinc-950/40 shadow-2xl space-y-8">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div>
+                                        <h3 className="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+                                            <Brain className="text-accent-gold" size={16} /> Prompt Engineering Console
+                                        </h3>
+                                        <p className="text-[10px] text-white/40 font-medium mt-1 italic">Override AI instructions directly. Changes apply immediately to Forge & Enrich processes.</p>
+                                    </div>
+                                    {promptStates[selectedPrompt]?.isOverride && (
+                                        <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full">
+                                            <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Custom Override Active</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Prompt Selector Dropdown */}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-white/30 uppercase tracking-widest px-1">Select Prompt Type</label>
+                                    <div className="relative group/select">
+                                        <Brain size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/select:text-accent-gold transition-colors" />
+                                        <select
+                                            value={selectedPrompt}
+                                            onChange={(e) => handleSelectPrompt(e.target.value as PromptName)}
+                                            className="w-full bg-zinc-900 border border-white/5 rounded-2xl pl-10 pr-12 py-4 appearance-none outline-none focus:border-accent-gold/40 transition-all text-sm font-black uppercase tracking-widest text-white cursor-pointer"
+                                        >
+                                            {Object.entries(promptStates).map(([key, val]) => (
+                                                <option key={key} value={key} className="bg-zinc-950">
+                                                    {val.label} {val.isOverride ? '(Custom)' : '(Default)'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                {/* Prompt Textarea */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center px-1">
+                                        <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Prompt Content</label>
+                                        <span className="text-[9px] text-white/20 font-mono">{promptContent.length} chars</span>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute top-0 left-0 w-full p-6 bg-accent-gold/5 border-b border-white/5 rounded-t-2xl z-10">
+                                            <div className="flex items-center gap-2">
+                                                <Shield className="text-accent-gold" size={12} />
+                                                <span className="text-[10px] font-black text-accent-gold uppercase tracking-widest">Logical Lock Active: Permanently Prepend instructions</span>
+                                            </div>
+                                            <p className="text-[10px] text-white/40 mt-1 font-mono italic">MANDATORY: Bahasa Indonesia & Cinematic Hero</p>
+                                        </div>
+                                        <textarea
+                                            rows={18}
+                                            value={promptContent}
+                                            onChange={(e) => setPromptContent(e.target.value)}
+                                            className="w-full bg-zinc-900 border border-white/5 rounded-2xl px-6 pt-24 pb-5 outline-none focus:border-accent-gold/40 focus:ring-1 focus:ring-accent-gold/20 transition-all text-[12px] font-mono leading-relaxed resize-none text-white/80 custom-scrollbar"
+                                            placeholder="System prompt content..."
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex flex-col md:flex-row gap-4 pt-4 border-t border-white/5">
+                                    <button
+                                        onClick={handleResetPrompt}
+                                        disabled={resettingPrompt || !promptStates[selectedPrompt]?.isOverride}
+                                        className="flex-1 py-4 bg-white/5 hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-red-400 transition-all flex items-center justify-center gap-2 disabled:opacity-20 disabled:cursor-not-allowed"
+                                    >
+                                        {resettingPrompt ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                                        Reset to Default
+                                    </button>
+                                    <button
+                                        onClick={handleUpdatePrompt}
+                                        disabled={savingPrompt}
+                                        className="flex-[2] py-4 bg-accent-gold hover:bg-white text-black rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-2xl shadow-accent-gold/10"
+                                    >
+                                        {savingPrompt ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                        Update Logic
+                                    </button>
+                                </div>
+
+                                {/* Info Box */}
+                                <div className="p-6 bg-blue-500/5 border border-blue-500/10 rounded-3xl flex gap-4">
+                                    <Info className="text-blue-400 shrink-0" size={20} />
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-black text-white uppercase tracking-widest">Cara Kerja</p>
+                                        <p className="text-[11px] text-white/50 leading-relaxed">
+                                            Prompt yang disimpan di sini akan meng-override instruksi default di <code className="text-accent-gold">lib/prompts.ts</code>. Jika Anda mereset, sistem akan kembali menggunakan instruksi bawaan. Ini langsung berlaku pada proses Enrichment dan Forge berikutnya.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Section 3: WA Template Engine */}
                     {activeTab === 'wa' && (
                         <motion.div
                             key="wa"
