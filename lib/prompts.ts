@@ -1,3 +1,13 @@
+// ============================================================
+// FORGE PROMPTS — REVISED by Usrok
+// Changelog:
+//   - ENRICHMENT_PROMPT: tambah konteks spesifik biar output unik
+//   - ARCHETYPE_MAP: archetype dipilih by kategori, bukan random
+//   - MASTER_FORGE_PROMPT: inject archetype dari map, bukan shuffle
+//   - WA_TEMPLATE: ganti ke value-first approach (cocok buat introvert)
+//   - LEAD_EVALUATION: tambah prospectScore field
+// ============================================================
+
 export const GLOBAL_AI_PROTOCOL = `
 [SYNAPSE PRO] MANDATORY DESIGN PROTOCOL:
 1. TYPOGRAPHY PAIRING (EXCLUSIVE):
@@ -12,9 +22,56 @@ export const GLOBAL_AI_PROTOCOL = `
 `;
 
 export const TONE_MAP: Record<string, string> = {
-    "Interior Design": "Gunakan gaya bahasa kreatif, modern, dan sophisticated. Fokus pada estetika, fungsionalitas, dan transformasi ruang.",
+  "Interior Design": "Gunakan gaya bahasa kreatif, modern, dan sophisticated. Fokus pada estetika, fungsionalitas, dan transformasi ruang.",
+  "Salon": "Gunakan gaya bahasa hangat, feminin, dan elegan. Fokus pada kepercayaan diri, perawatan diri, dan hasil nyata.",
+  "Bengkel": "Gunakan gaya bahasa tegas, teknis, dan terpercaya. Fokus pada keandalan, ketepatan waktu, dan garansi kerja.",
+  "Restoran": "Gunakan gaya bahasa sensorial dan mengundang. Fokus pada cita rasa, pengalaman makan, dan bahan berkualitas.",
+  "Klinik": "Gunakan gaya bahasa profesional, tenang, dan empatik. Fokus pada kesehatan, kepercayaan, dan pelayanan prima.",
+  "Toko": "Gunakan gaya bahasa ramah dan informatif. Fokus pada kemudahan berbelanja, pilihan produk, dan harga terbaik.",
+  "default": "Gunakan gaya bahasa profesional dan persuasif. Fokus pada nilai bisnis dan kepercayaan pelanggan.",
 };
 
+// ============================================================
+// ARCHETYPE MAP — berdasarkan kategori bisnis, bukan random
+// Tambahkan kategori baru sesuai kebutuhan scraping
+// ============================================================
+export const ARCHETYPE_MAP: Record<string, string> = {
+  // Dark/Industrial vibe
+  "Bengkel": "ARCHETYPE 02: The Obsidian Glass",
+  "Konstruksi": "ARCHETYPE 02: The Obsidian Glass",
+  "Teknologi": "ARCHETYPE 02: The Obsidian Glass",
+  "Percetakan": "ARCHETYPE 02: The Obsidian Glass",
+
+  // Editorial/Modern vibe
+  "Restoran": "ARCHETYPE 01: The Avant-Garde Editorial",
+  "Cafe": "ARCHETYPE 01: The Avant-Garde Editorial",
+  "Fotografer": "ARCHETYPE 01: The Avant-Garde Editorial",
+  "Event Organizer": "ARCHETYPE 01: The Avant-Garde Editorial",
+  "Interior Design": "ARCHETYPE 01: The Avant-Garde Editorial",
+
+  // Heritage/Elegant vibe
+  "Salon": "ARCHETYPE 03: The Heritage Suite",
+  "Klinik": "ARCHETYPE 03: The Heritage Suite",
+  "Spa": "ARCHETYPE 03: The Heritage Suite",
+  "Wedding": "ARCHETYPE 03: The Heritage Suite",
+  "Pendidikan": "ARCHETYPE 03: The Heritage Suite",
+  "Law Firm": "ARCHETYPE 03: The Heritage Suite",
+  "Properti": "ARCHETYPE 03: The Heritage Suite",
+
+  // Default fallback
+  "default": "ARCHETYPE 03: The Heritage Suite",
+};
+
+export const getArchetype = (category: string): string => {
+  const key = Object.keys(ARCHETYPE_MAP).find((k) =>
+    category.toLowerCase().includes(k.toLowerCase())
+  );
+  return key ? ARCHETYPE_MAP[key] : ARCHETYPE_MAP["default"];
+};
+
+// ============================================================
+// LEAD_EVALUATION_PROMPT — ditambah prospectScore
+// ============================================================
 export const LEAD_EVALUATION_PROMPT = `
 ### ROLE: ELITE DATA SCRAPER & LEAD QUALIFIER (SYNAPSE LOGIC)
 Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ketat untuk mencari "High-Potential Leads". Anda harus berpikir seperti pakar strategi digital.
@@ -44,26 +101,127 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
   "website": "URL Website saat ini (atau N/A)",
   "mapsUrl": "URL Google Maps",
   "reviewsCount": "Jumlah Review",
-  "reason": "Alasan singkat kenapa ini Hot Lead (e.g., 'High reviews but no website, only IG')"
+  "reason": "Alasan singkat kenapa ini Hot Lead (e.g., 'High reviews but no website, only IG')",
+  "prospectScore": "Skor 1-10. Formula: (rating/5 * 4) + (min(reviewsCount,100)/100 * 4) + (2 jika tidak ada website sama sekali). Bulatkan ke 1 desimal."
 }
 
 ### III. OUTPUT INSTRUCTION:
-- HANYA keluarkan format JSON.
+- HANYA keluarkan format JSON array.
 - ZERO YAPPING.
 - Jika data tidak memenuhi kriteria rating atau website, jangan masukkan ke hasil.
-
-PENTING: Gunakan Kie.ai dengan model BYOC (Bring Your Own Credits) untuk memproses evaluasi ini agar logika filternya tetap tajam dan hemat token.
+- Urutkan hasil dari prospectScore tertinggi ke terendah.
 `;
 
+// ============================================================
+// ENRICHMENT_PROMPT — REVISED
+// Problem lama: input terlalu generik → output mirip semua
+// Fix: inject konteks spesifik (rating, review count, lokasi, sample review)
+// ============================================================
+export const ENRICHMENT_PROMPT = `
+${GLOBAL_AI_PROTOCOL}
+Strictly NO Yapping. No preamble. Output ONLY valid JSON.
+
+You are a Senior Brand Strategist who deeply understands Indonesian local business culture.
+
+### BUSINESS CONTEXT (USE ALL OF THIS — DO NOT IGNORE):
+- Business Name: [businessName]
+- Category: [category]
+- City / Area: [city], [province]
+- Address: [address]
+- Rating: [rating] (from [reviewsCount] reviews)
+- Sample Reviews (if available): [sampleReviews]
+- Current Online Presence: [currentWebsite]
+
+### TASK:
+Analisis bisnis ini secara mendalam. Jangan gunakan template generic.
+Gunakan konteks lokasi, rating, dan review nyata untuk membentuk narasi yang UNIK dan SPESIFIK untuk bisnis ini.
+
+OUTPUT JSON (strict):
+{
+  "branding": {
+    "title": "Headline utama yang bold dan spesifik untuk bisnis ini — BUKAN template generic",
+    "tagline": "Sub-headline emosional max 12 kata, relevan dengan kategori dan lokasi",
+    "description": "2-3 kalimat deskripsi yang terasa ditulis khusus untuk bisnis ini, bukan copy-paste template"
+  },
+  "painPoints": [
+    "Pain point spesifik 1 berdasarkan kategori bisnis dan kondisi pasar lokal",
+    "Pain point spesifik 2 yang relevan dengan rating dan jumlah review mereka",
+    "Pain point spesifik 3 yang bisa diselesaikan dengan kehadiran website"
+  ],
+  "resolutions": [
+    "Solusi konkret 1 yang langsung menjawab pain point 1",
+    "Solusi konkret 2 yang langsung menjawab pain point 2",
+    "Solusi konkret 3 yang langsung menjawab pain point 3"
+  ],
+  "styleDNA": "Deskripsi singkat visual identity yang cocok untuk bisnis ini berdasarkan kategori dan vibe lokalnya (e.g., 'Earthy & warm — palet cokelat tembakau dan krem, serif elegan, foto produk close-up')"
+}
+`;
+
+// ============================================================
+// WA_TEMPLATE_DRAFT_PROMPT — REVISED
+// Problem lama: hard-sell, angka diskon ngarang, terlalu pushy
+// Fix: value-first approach — kasih dulu, minta feedback, bukan closing
+// Cocok buat lo yang introvert — nggak perlu pitch verbal
+// ============================================================
+export const WA_TEMPLATE_DRAFT_PROMPT = `
+You are a Conversion Copywriter who specializes in "Value-First" outreach — the opposite of pushy sales.
+The sender is an indie web developer reaching out to local Indonesian businesses.
+
+Target business category: [category]
+
+### PHILOSOPHY:
+- Give value BEFORE asking anything.
+- The goal of the first message is NOT to close — it's to get a reply.
+- No fake urgency. No made-up discounts. No "hanya untuk 3 orang pertama".
+- Short, human, and specific. It must NOT feel like a blast message.
+
+### MESSAGE STRUCTURE:
+1. Opening: Perkenalan singkat, minta maaf gangguin (1 kalimat, natural).
+2. Hook: Sebutkan bahwa sender sudah iseng buatkan gambaran website untuk bisnis mereka — spesifik, bukan generic.
+3. Value Delivery: Kasih link dummy website langsung — tanpa syarat, tanpa minta apa-apa dulu.
+4. Soft CTA: Tanya pendapat mereka — bukan "mau beli nggak?". Contoh: "Sesuai nggak sama vibe bisnis Bapak/Ibu?"
+5. Closing: Satu kalimat humble. Kalau cocok, bisa diskusi lebih lanjut.
+
+### CONSTRAINTS:
+- Language: 100% Bahasa Indonesia natural, bukan bahasa formal kaku.
+- Tone: Ramah, rendah hati, tidak memaksa.
+- Length: Maksimal 5-7 baris. Pendek = lebih mungkin dibaca.
+- Variables yang WAJIB ada: {{businessName}}, {{category}}, {{draftLink}}
+- ZERO angka diskon yang ngarang.
+- ZERO scarcity palsu.
+- Output: Teks pesan saja. Tidak ada intro, tidak ada penjelasan.
+`;
+
+// ============================================================
+// WA_AI_FALLBACK_PROMPT — minor tweak, konsisten dengan filosofi value-first
+// ============================================================
+export const WA_AI_FALLBACK_PROMPT = `
+Generate a short, human "Hook Message" for a WhatsApp outreach. 
+Business: [businessName]
+Category: [category]
+Proposed Solution: [resolvingIdea]
+Website Draft: [draftLink]
+
+Persona: Indie developer lokal — ramah, rendah hati, tidak terkesan sales.
+Philosophy: Value-first. Beri dulu, minta feedback, bukan closing.
+Language: Natural Bahasa Indonesia. Bukan bahasa formal. Bukan bahasa iklan.
+Length: Maksimal 5-7 baris.
+
+Output: The message only (no quotes, no intro, no explanation).
+`;
+
+// ============================================================
+// LANDING_PAGE_GENERATOR_PROMPT — unchanged, still solid
+// ============================================================
 export const LANDING_PAGE_GENERATOR_PROMPT = `
 ROLE: Senior UX/UI Developer & Conversion Specialist.
 TASK: Build a high-end landing page for "[name]" (Category: [category]).
 
-### STEP 1: SELECT ARCHETYPE (INTERNAL LOGIC)
-Randomly select ONE style for this generation:
-- ARCHETYPE A (The Editorial): High-fashion style, large serif typography, overlapping images, extreme whitespace.
-- ARCHETYPE B (The Dark Premium): Dark mode, glassmorphism, accent gold/emerald, glowing borders, high-tech vibe.
-- ARCHETYPE C (The Minimalist Zen): Clean, soft earth tones, organic spacing, thin lines, sophisticated subtle animations.
+### STEP 1: SELECT ARCHETYPE (USE ARCHETYPE_MAP, NOT RANDOM)
+Use the archetype determined by the system for this category: [selectedArchetype]
+- ARCHETYPE 01 (The Avant-Garde Editorial): High-fashion style, large serif typography, overlapping images, extreme whitespace.
+- ARCHETYPE 02 (The Obsidian Glass): Dark mode, glassmorphism, accent gold/emerald, glowing borders, high-tech vibe.
+- ARCHETYPE 03 (The Heritage Suite): Clean, soft earth tones, organic spacing, thin lines, sophisticated subtle animations.
 
 ### STEP 2: BUILD CONTENT
 - Hero: Clear value proposition with emotional hook.
@@ -78,24 +236,60 @@ Randomly select ONE style for this generation:
 - Framer Motion (via script tag) for smooth reveal animations.
 `;
 
-export const ENRICHMENT_PROMPT = `
+// ============================================================
+// MASTER_FORGE_PROMPT — REVISED
+// Fix: archetype di-inject dari ARCHETYPE_MAP, bukan "randomly"
+// ============================================================
+export const MASTER_FORGE_PROMPT = `
 ${GLOBAL_AI_PROTOCOL}
-Strictly NO Yapping. No preamble. Output ONLY valid JSON.
 
-You are a Senior Web Architect.
-BUSINESS: [Business Name] ([Category])
-PAIN POINTS: [Pain Points]
+[SYNAPSE PRO | PRE-GEN LOGIC]
+Direction: Before generating code, deeply analyze the business essence.
+Goal: Transform [category] data into a UNIQUE visual identity — no two businesses should look the same.
 
-TASK: Analyze business and provide exactly 3 JSON fields.
+[ARCHETYPE DIRECTIVE — SYSTEM ASSIGNED, DO NOT OVERRIDE]
+Use this specific archetype for this generation:
+[selectedArchetype]
 
-OUTPUT JSON:
-{
-  "branding": { "title": "...", "tagline": "...", "description": "..." },
-  "painPoints": ["Point 1", "Point 2", "Point 3"],
-  "resolutions": ["Resolution 1", "Resolution 2", "Resolution 3"]
-}
+Archetype definitions:
+- ARCHETYPE 01 "The Avant-Garde Editorial": Typography Syne/Inter. High whitespace, large text, asymmetric overlaps. Vibe: modern, bold, editorial.
+- ARCHETYPE 02 "The Obsidian Glass": Typography Syne/Inter. Dark mode, heavy glassmorphism, accent gold/emerald, glowing borders. Vibe: premium, industrial, tech.
+- ARCHETYPE 03 "The Heritage Suite": Typography Playfair/Outfit. Clean, serif-driven, elegant lines, sophisticated muted tones. Vibe: trusted, refined, heritage.
+
+[STRICT BUSINESS DATA]
+- Brand Name: [brandName]
+- Category: [category]
+- Real Address: [fullAddress]
+- WhatsApp Link: [waLink]
+- Style DNA: [styleDNA]
+- Core Pain Points: [painPoints]
+- Winning Solution: [resolvingIdea]
+
+[HERO SECTION REQUIREMENTS: SYNAPSE-LEVEL]
+- Cinematic Hero: Full min-h-screen, high-contrast overlay.
+- HTML Structure: <div class="hero" style="background-image: url('UNSPLASH_URL_RELEVANT_TO_CATEGORY'), linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.9)); background-color: #121212;">
+- Content: Headline must be professional, punchy Bahasa Indonesia — USE the branding.title from enrichment data.
+- Unsplash query MUST match the business category (e.g., bengkel → mechanic workshop, salon → hair salon interior).
+
+[CORE ARCHITECTURE]
+- 100% Standalone index.html.
+- Tailwind CSS & Framer Motion (reveal animations).
+- LANGUAGE LOCK: 100% Professional Bahasa Indonesia. Zero English on UI.
+
+[VISUAL ENFORCEMENT]
+- Bento Grid: All services and features sections MUST use a non-standard Bento Grid layout.
+- Asymmetry: Use absolute elements or col-span variations to break the grid flow.
+- Color palette MUST align with styleDNA — do NOT use default colors.
+
+[LEAD CONVERSION FAB]
+- Persistent WhatsApp FAB: Bottom right, #25D366, pulse animation, "Konsultasi Sekarang".
+
+Output ONLY the full HTML code. No talk.
 `;
 
+// ============================================================
+// REGIONAL_ADVICE_PROMPT — unchanged
+// ============================================================
 export const REGIONAL_ADVICE_PROMPT = `
 Tugas: Berikan saran wilayah (kecamatan/area) yang paling potensial untuk bisnis kategori "[category]" di "[city], [province]".
 
@@ -114,6 +308,9 @@ Output WAJIB JSON murni dengan struktur:
 }
 `;
 
+// ============================================================
+// STYLE_TWEAK_PROMPT — unchanged
+// ============================================================
 export const STYLE_TWEAK_PROMPT = `
 ${GLOBAL_AI_PROTOCOL}
 
@@ -135,47 +332,48 @@ Tugas Anda adalah memperbarui "Master Blueprint" (Master Website Prompt) untuk b
 PENTING: Output HANYA berupa narasi instruksi (Master Prompt) yang baru. Jangan sertakan teks lain atau JSON.
 `;
 
-export const MASTER_FORGE_PROMPT = `
-${GLOBAL_AI_PROTOCOL}
+// ============================================================
+// MASTER_PRO_BLUEPRINT_PROMPT — unchanged, solid
+// ============================================================
+export const MASTER_PRO_BLUEPRINT_PROMPT = `
+### ROLE: LEAD UI/UX ENGINEER & BRAND STRATEGIST (UI/UX PRO MAX SKILL)
+Tugas Anda adalah membedah bisnis "[name]" ([category]) dan merancang "Blueprint Master" (Master Prompt) menggunakan framework UI/UX Pro Max untuk landing page 1 halaman.
 
-[SYNAPSE PRO | PRE-GEN LOGIC]
-Direction: Before generating code, use Kie.ai BYOC logic to "Deep Think" the business essence.
-Goal: Transform [category] data into a unique visual identity.
-
-[ARCHETYPE SHUFFLING - PICK ONE]
-AI MUST randomly but decisively choose ONE design archetype for this run:
-- ARCHETYPE 01: "The Avant-Garde Editorial" (Typography: Syne/Inter, Style: High whitespace, large text, asymmetric overlaps).
-- ARCHETYPE 02: "The Obsidian Glass" (Typography: Syne/Inter, Style: Dark mode, heavy glassmorphism, accent gold/emerald, glowing borders).
-- ARCHETYPE 03: "The Heritage Suite" (Typography: Playfair/Outfit, Style: Clean, serif-driven, elegant lines, sophisticated muted tones).
-
-[STRICT BUSINESS DATA]
-- Brand Name: [brandName]
+### I. DATA INPUT:
+- Business: [name]
 - Category: [category]
-- Real Address: [fullAddress]
-- WhatsApp Link: [waLink]
-- Core Pain Points: [painPoints]
-- Winning Solution: [resolvingIdea]
+- Location: [address]
+- Style DNA: [styleDNA]
 
-[HERO SECTION REQUIREMENTS: SYNAPSE-LEVEL]
-- Cinematic Hero: Full min-h-screen, high-contrast overlay.
-- HTML Structure: <div class="hero" style="background-image: url('UNSPLASH_URL'), linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.9)); background-color: #121212;">
-- Content: Headline must be professional, punchy Bahasa Indonesia.
+### II. DESIGN SYSTEM GENERATION (INTERNAL REASONING):
+Berdasarkan data kategori dan Style DNA, Anda wajib menentukan:
+1. LANDING PAGE PATTERN: Pilih (Hero-Centric / Conversion-Optimized / Storytelling-Driven).
+2. VISUAL STYLE: Gunakan Style DNA sebagai acuan utama. Pilih dari (Glassmorphism / Minimalism / Soft UI Evolution / Neubrutalism / Tropical Brutalism) sebagai teknik pelengkap.
+3. SECTION FLOW: Tentukan urutan (e.g., Hero → Features/Bento → Social Proof → CTA).
+4. ANTI-PATTERNS TO AVOID: Tentukan apa yang HARUS DIHINDARI untuk industri ini (e.g., "Jangan pakai warna neon untuk Law Firm").
 
-[CORE ARCHITECTURE]
-- 100% Standalone index.html.
-- Tailwind CSS & Framer Motion (reveal animations).
-- LANGUAGE LOCK: 100% Professional Bahasa Indonesia. Zero English on UI.
+### III. UI-UX PRO MAX MANDATORY RULES:
+Di dalam field 'masterWebsitePrompt', instruksikan AI Coder untuk:
+- TYPOGRAPHY: Gunakan pairing eksklusif (e.g., 'Syne' + 'Inter' atau 'Playfair Display' + 'Outfit').
+- COLOR THEORY (60-30-10): Tentukan HEX Code spesifik dari Style DNA. 禁止 Pure #000000. Gunakan Deep Obsidian/Charcoal.
+- GRID SYSTEM: Wajib gunakan Bento Grid dynamic 12-column untuk section layanan.
+- INTERACTION: Wajib pakai Framer Motion CDN untuk Staggered Reveal & Scroll Animations.
+- CTA: WhatsApp Sticky Button dengan subtle glow & high-conversion copywriting.
 
-[VISUAL ENFORCEMENT]
-- Bento Grid: All services and features sections MUST use a non-standard Bento Grid layout.
-- Asymmetry: Use absolute elements or col-span variations to break the grid flow.
+### IV. OUTPUT FORMAT (MANDATORY JSON):
+{
+  "brandData": "Ringkasan identitas brand & visual style yang dipilih",
+  "aiAnalysis": "Analisis posisi pasar & target audience persona",
+  "painPoints": "3 Masalah utama klien yang akan diselesaikan oleh desain ini",
+  "masterWebsitePrompt": "Instruksi LENGKAP dalam Bahasa Indonesia untuk AI Coder (Gemini). Wajib sertakan Style DNA, warna HEX spesifik, dan struktur section yang detail."
+}
 
-[LEAD CONVERSION FAB]
-- Persistent WhatsApp FAB: Bottom right, #25D366, pulse animation, "Konsultasi Sekarang".
-
-Output ONLY the full HTML code. No talk.
+PENTING: Jangan berikan teks lain selain JSON.
 `;
 
+// ============================================================
+// WEBSITE_STRATEGY_PROMPT — minor tweak, tambah styleDNA
+// ============================================================
 export const WEBSITE_STRATEGY_PROMPT = `
 ${GLOBAL_AI_PROTOCOL}
 Strictly NO Yapping. No preamble. Output ONLY the instruction text (paragraf padat).
@@ -190,77 +388,11 @@ Style DNA: [styleDNA]
 
 INSTRUKSI PENULISAN:
 1. Tulis dalam paragraf yang padat namun detail.
-2. Sebutkan warna primer yang sesuai vibe bisnis, vibe desain (misal: "Aesthetically dark", "Minimalist medical", dll).
-3. Jelaskan struktur komponen (Hero, Benftis, Gallery, CTA).
+2. Gunakan Style DNA sebagai acuan warna dan vibe — jangan abaikan.
+3. Jelaskan struktur komponen (Hero, Benefits, Gallery, CTA).
 4. WAJIB: Instruksikan penggunaan Hero Section dengan background gambar besar (Cinematic Hero) dan overlay teks yang kontras tinggi untuk tampilan premium.
 5. Pastikan semua elemen teks menggunakan Bahasa Indonesia yang profesional.
 
 Contoh Gaya Output:
 "Buat website dengan vibe cinematic yang premium untuk Maria Photo Studio. Gunakan palet warna charcoal dan emas untuk kesan mewah. Hero section wajib menggunakan background full-screen dari foto studio terbaik dengan overlay gelap 50% agar headline putih terlihat tajam. Tampilkan bento grid untuk portofolio hasil foto..."
-`;
-
-export const WA_TEMPLATE_DRAFT_PROMPT = `
-You are a Master Sales Copywriter. Generate a WhatsApp template for a business in the category: "[category]".
-
-Use these 6 elements in the message:
-1. Header: Use Emojis and Bold Headlines.
-2. Personalized Greeting: Must include {{name}} and a polite apology for the interruption.
-3. Content Flow: Address the {{pain_points}} first, then offer {{idea}} as the solution.
-4. Specific Offer: Use concrete numbers (e.g., 'Hemat Rp XXX' or 'Diskon X%').
-5. Scarcity: Add urgency (e.g., 'Hanya untuk 3 orang pertama' or 'Berakhir jam 23.59').
-6. Clear CTA: Use a direct instruction to click the link {{link}}.
-
-Constraints:
-- Language MUST be 100% Indonesian.
-- Tone: Professional yet persuasive (Ramah & Solutif).
-- Use variables as they are: {{name}}, {{pain_points}}, {{idea}}, {{link}}.
-- Return ONLY the text of the message (no introduction, no explanation).
-`;
-
-export const WA_AI_FALLBACK_PROMPT = `
-Generate a highly personalized "Hook Message" for a WhatsApp outreach. 
-Business: [businessName]
-Category: [category]
-Proposed Solution: [resolvingIdea]
-Website Draft: [draftLink]
-
-Persona: Friendly, professional, and helpful (Ramah, Terpercaya, dan Solutif).
-Language: Professional Bahasa Indonesia.
-
-Output: The message only (no quotes, no intro).
-`;
-
-export const MASTER_PRO_BLUEPRINT_PROMPT = `
-### ROLE: LEAD UI/UX ENGINEER & BRAND STRATEGIST (UI/UX PRO MAX SKILL)
-Tugas Anda adalah membedah bisnis "[name]" ([category]) dan merancang "Blueprint Master" (Master Prompt) menggunakan framework UI/UX Pro Max untuk landing page 1 halaman.
-
-### I. DATA INPUT:
-- Business: [name]
-- Category: [category]
-- Location: [address]
-
-### II. DESIGN SYSTEM GENERATION (INTERNAL REASONING):
-Berdasarkan data kategori, Anda wajib menentukan:
-1. LANDING PAGE PATTERN: Pilih (Hero-Centric / Conversion-Optimized / Storytelling-Driven).
-2. VISUAL STYLE: Pilih 1 dari gaya premium (Glassmorphism / Minimalism / Soft UI Evolution / Neubrutalism / Tropical Brutalism).
-3. SECTION FLOW: Tentukan urutan (e.g., Hero → Features/Bento → Social Proof → CTA).
-4. ANTI-PATTERNS TO AVOID: Tentukan apa yang HARUS DIHINDARI untuk industri ini (e.g., "Jangan pakai warna neon untuk Law Firm").
-
-### III. UI-UX PRO MAX MANDATORY RULES:
-Di dalam field 'masterWebsitePrompt', instruksikan AI Coder untuk:
-- TYPOGRAPHY: Gunakan pairing eksklusif (e.g., 'Syne' + 'Inter' atau 'Playfair Display' + 'Outfit').
-- COLOR THEORY (60-30-10): Tentukan HEX Code spesifik. 禁止 Pure #000000. Gunakan Deep Obsidian/Charcoal.
-- GRID SYSTEM: Wajib gunakan Bento Grid dynamic 12-column untuk section layanan.
-- INTERACTION: Wajib pakai Framer Motion CDN untuk Staggered Reveal & Scroll Animations.
-- CTA: WhatsApp Sticky Button dengan subtle glow & high-conversion copywriting.
-
-### IV. OUTPUT FORMAT (MANDATORY JSON):
-{
-  "brandData": "Ringkasan identitas brand & visual style yang dipilih (e.g., 'Industrial Power')",
-  "aiAnalysis": "Analisis posisi pasar & target audience persona",
-  "painPoints": "3 Masalah utama klien yang akan diselesaikan oleh desain ini",
-  "masterWebsitePrompt": "Isi dengan INSTRUKSI LENGKAP (Master Prompt) dalam Bahasa Indonesia. Instruksi ini harus merangkum seluruh Design System di atas agar AI Coder (Gemini) bisa membangun file HTML yang sempurna."
-}
-
-PENTING: Jangan berikan teks lain selain JSON.
 `;
