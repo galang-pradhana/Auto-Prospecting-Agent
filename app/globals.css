@@ -32,3 +32,16 @@ body {
     background-repeat: no-repeat !important;
   }
 }
+
+/* Quick Theme Hack for Dark-First Codebase */
+html.light {
+  filter: invert(1) hue-rotate(180deg);
+  background-color: #0f1115; /* Will be inverted to light gray */
+}
+
+/* Revert media elements back to normal */
+html.light img,
+html.light video,
+html.light iframe {
+  filter: invert(1) hue-rotate(180deg);
+}

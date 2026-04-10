@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import DownloadButton from '@/components/DownloadButton';
-import SendWaButton from '@/components/SendWaButton';
-import LiveEditModal from '@/components/LiveEditModal';
+import EditPageModal from '@/components/EditPageModal';
+import LeadDetailModal from '@/components/LeadDetailModal';
 interface LiveLead {
     id: string;
     name: string;
@@ -29,6 +29,8 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [leads] = useState(initialLeads);
     const [editingHtmlLead, setEditingHtmlLead] = useState<any>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [detailLead, setDetailLead] = useState<any>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     return (
         <div className="space-y-8">
@@ -40,7 +42,14 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
             {leads.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {leads.map((lead) => (
-                        <div key={lead.id} className="glass p-6 rounded-[32px] border-white/5 hover:border-orange-500/30 transition-all group flex flex-col h-full bg-zinc-950/40">
+                        <div 
+                            key={lead.id} 
+                            onClick={() => {
+                                setDetailLead(lead);
+                                setIsDetailModalOpen(true);
+                            }}
+                            className="glass p-6 rounded-[32px] border-white/5 hover:border-orange-500/30 transition-all group flex flex-col h-full bg-zinc-950/40 cursor-pointer"
+                        >
                             <div className="flex justify-between items-start mb-6">
                                 <div className="p-3 bg-orange-500/10 rounded-2xl border border-orange-500/20 group-hover:scale-110 transition-transform">
                                     <Globe className="w-6 h-6 text-orange-500" />
@@ -70,21 +79,17 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                             </div>
 
                             <div className="pt-6 border-t border-white/5 flex flex-wrap gap-2">
-                                <Link 
-                                    href={`/${lead.slug}`}
-                                    target="_blank"
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(`/${lead.slug}`, '_blank');
+                                    }}
                                     className="flex-1 min-w-[120px] h-12 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] uppercase tracking-widest active:scale-95 shadow-lg shadow-orange-900/20"
                                 >
                                     <ExternalLink size={14} />
                                     Visit Site
-                                </Link>
+                                </button>
                                 
-                                <SendWaButton 
-                                    leadId={lead.id} 
-                                    leadName={lead.name}
-                                    templates={templates}
-                                />
-
                                 {lead.htmlCode && (
                                     <>
                                         <DownloadButton 
@@ -93,15 +98,17 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                             className="h-12 w-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-all group/dl"
                                             iconSize={16}
                                         />
-                                        <a 
-                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.name + ' ' + lead.address)}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.name + ' ' + lead.address)}`;
+                                                window.open(url, '_blank');
+                                            }}
                                             className="h-12 w-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-all group/map"
                                             title="View on Google Maps"
                                         >
                                             <MapPin size={16} className="text-white/40 group-hover/map:text-red-400 transition-colors" />
-                                        </a>
+                                        </button>
                                     </>
                                 )}
                                 
@@ -142,9 +149,21 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                     </Link>
                 </div>
             )}
+            {/* Lead Detail Modal */}
+            {detailLead && (
+                <LeadDetailModal 
+                    isOpen={isDetailModalOpen}
+                    onClose={() => {
+                        setIsDetailModalOpen(false);
+                        setDetailLead(null);
+                    }}
+                    lead={detailLead}
+                />
+            )}
+
             {/* Live Edit Modal */}
             {editingHtmlLead && (
-                <LiveEditModal 
+                <EditPageModal 
                     isOpen={isEditModalOpen}
                     onClose={() => {
                         setIsEditModalOpen(false);

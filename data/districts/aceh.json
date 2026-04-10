@@ -15,5 +15,16 @@
     "MUARA DUA",
     "MUARA SATU",
     "BANDA SAKTI"
+  ],
+  "Langsa": [
+    "LANGSA TIMUR",
+    "LANGSA LAMA",
+    "LANGSA BARAT",
+    "LANGSA BARO",
+    "LANGSA KOTA"
+  ],
+  "Sabang": [
+    "SUKAJAYA",
+    "SUKAKARYA"
   ]
 }

@@ -30,7 +30,6 @@ export default function SettingsPage() {
     // --- AI Settings State ---
     const [apiKey, setApiKey] = useState('');
     const [byocMode, setByocMode] = useState(false);
-    const [aiEngine, setAiEngine] = useState('gemini-3-flash');
     const [estimatedUsage, setEstimatedUsage] = useState("0");
 
     // --- WA Templates State ---
@@ -80,7 +79,6 @@ export default function SettingsPage() {
         if (settings) {
             setApiKey(settings.kieAiApiKey || '');
             setByocMode(settings.byocMode);
-            setAiEngine(settings.aiEngine || 'gemini-3-flash');
         }
         setEstimatedUsage(usage.toString());
         setTemplates(waData);
@@ -104,7 +102,7 @@ export default function SettingsPage() {
     // --- AI Configuration Actions ---
     const handleSaveAiSettings = async () => {
         setSaving(true);
-        const res = await updateUserSettings({ kieAiApiKey: apiKey, byocMode, aiEngine });
+        const res = await updateUserSettings({ kieAiApiKey: apiKey, byocMode });
         if (res.success) showToast("AI configurations updated");
         else showToast(res.message || "Failed to update", "error");
         setSaving(false);
@@ -272,29 +270,6 @@ export default function SettingsPage() {
                             <div className="glass p-8 rounded-[40px] border-white/5 bg-zinc-950/40 shadow-2xl space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-6">
-                                        <div>
-                                            <h3 className="text-white font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <Zap className="text-accent-gold" size={16} /> AI Engine Selection
-                                            </h3>
-                                            <div className="space-y-4">
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-white/30 uppercase tracking-widest px-1">Selected Model Provider</label>
-                                                    <div className="relative group/select">
-                                                        <Cpu size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/select:text-accent-gold transition-colors" />
-                                                        <select
-                                                            value={aiEngine}
-                                                            onChange={(e) => setAiEngine(e.target.value)}
-                                                            className="w-full bg-zinc-900 border border-white/5 rounded-2xl pl-10 pr-12 py-4 appearance-none outline-none focus:border-accent-gold/40 transition-all text-sm font-black uppercase tracking-widest text-white cursor-pointer"
-                                                        >
-                                                            <option key="gemini-3-flash" value="gemini-3-flash" className="bg-zinc-950">Kie.ai: Gemini 3 Flash</option>
-                                                            <option key="o1" value="o1" className="bg-zinc-950">Kie.ai: O1</option>
-                                                            <option key="gpt-4o" value="gpt-4o" className="bg-zinc-950">Kie.ai: GPT-4o</option>
-                                                        </select>
-                                                        <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
 
                                         <div className="pt-6 border-t border-white/5">
                                             <h3 className="text-white font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -304,7 +279,7 @@ export default function SettingsPage() {
                                                 <div className="space-y-2">
                                                     <label className="text-[10px] font-black text-white/30 uppercase tracking-widest px-1">API Endpoint</label>
                                                     <div className="w-full bg-zinc-900 border border-white/5 rounded-2xl px-6 py-4 text-sm text-white/40 font-mono">
-                                                        https://api.kie.ai/{aiEngine}/v1/chat/completions
+                                                        https://api.kie.ai/gemini-3.1-pro/v1/chat/completions
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">

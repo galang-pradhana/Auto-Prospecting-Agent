@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, Building2, MapPin, Star, Globe, Phone, 
     Sparkles, Copy, Check, Zap, Lightbulb,
-    Target, Layout, Palette, Code2, AlertCircle, Save, Edit2
+    Target, Layout, Palette, Code2, AlertCircle, Save, Edit2,
+    Instagram, MessageCircle, ExternalLink, ChevronRight, Loader2
 } from 'lucide-react';
 import { ActivityTimeline } from './ActivityTimeline';
-import { updateLeadEnrichmentData } from '@/lib/actions';
+import { updateLeadEnrichmentData, logActivity, saveOutreachDraft } from '@/lib/actions/lead';
+import { enrichLead, generateOutreachDraft } from '@/lib/actions/ai';
 
 interface LeadDetailModalProps {
     isOpen: boolean;
@@ -21,6 +23,11 @@ export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailMod
     const [toast, setToast] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [enriching, setEnriching] = useState(false);
+    const [generatingDraft, setGeneratingDraft] = useState(false);
+    const [outreachDraft, setOutreachDraft] = useState(lead?.outreachDraft || '');
+    const [selectedPersona, setSelectedPersona] = useState('professional');
+    const [savingDraft, setSavingDraft] = useState(false);
     
     // Editable states
     const [editData, setEditData] = useState({
@@ -46,6 +53,7 @@ export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailMod
                 rawBrandData: lead?.brandData ? JSON.stringify(lead.brandData, null, 2) : '',
                 rawAiAnalysis: lead?.aiAnalysis ? JSON.stringify(lead.aiAnalysis, null, 2) : ''
             });
+            setOutreachDraft(lead?.outreachDraft || '');
         }
     }, [lead]);
 
@@ -63,36 +71,11 @@ export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailMod
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleCopyFullBlueprint = () => {
-        const fullBlueprint = `
-[ENRICHMENT DATA]
-Business: ${lead.name}
-Category: ${lead.category}
-Pain Points: ${lead.painPoints}
-Resolving Idea: ${lead.resolvingIdea}
-
-[SELECTED STYLE DNA]
-Style ID: ${lead.selectedStyle || 'N/A'}
-
-[TECHNICAL RULES]
-- Output MUST be 100% Bahasa Indonesia.
-- Hero: Cinematic Hero (min-h-screen, bg-cover).
-- Visual Fallbacks: Grodient overlay + Solid background.
-
-[MASTER PROMPT]
-${lead.masterWebsitePrompt}
-`.trim();
-        navigator.clipboard.writeText(fullBlueprint);
-        showToast("Full Blueprint Copied!");
-    };
-
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Parse raw JSONs if we are in technical mode or just sync them
             let finalBrandData = lead.brandData;
             let finalAiAnalysis = lead.aiAnalysis;
-
             try {
                 if (editData.rawBrandData) finalBrandData = JSON.parse(editData.rawBrandData);
                 if (editData.rawAiAnalysis) finalAiAnalysis = JSON.parse(editData.rawAiAnalysis);
@@ -118,7 +101,6 @@ ${lead.masterWebsitePrompt}
             if (res.success) {
                 showToast("Changes saved successfully!");
                 setIsEditing(false);
-                // Optionally reload or sync with parent state
                 setTimeout(() => window.location.reload(), 1000);
             } else {
                 alert("Failed to save: " + res.message);
@@ -129,14 +111,78 @@ ${lead.masterWebsitePrompt}
             setSaving(false);
         }
     };
+    
+    const handleGenerateDraft = async () => {
+        if (generatingDraft) return;
+        setGeneratingDraft(true);
+        try {
+            const res = await generateOutreachDraft(lead.id, selectedPersona);
+            if (res.success) {
+                setOutreachDraft(res.draft);
+                showToast("Outreach draft generated!");
+            } else {
+                alert("Generation failed: " + res.message);
+            }
+        } catch (e: any) {
+            alert("Error: " + e.message);
+        } finally {
+            setGeneratingDraft(false);
+        }
+    };
+
+    const handleSaveDraft = async () => {
+        if (!outreachDraft) return;
+        setSavingDraft(true);
+        try {
+            const res = await saveOutreachDraft(lead.id, outreachDraft);
+            if (res.success) {
+                showToast("Draft saved successfully!");
+            } else {
+                alert("Save failed: " + res.message);
+            }
+        } catch (e: any) {
+            alert("Error: " + e.message);
+        } finally {
+            setSavingDraft(false);
+        }
+    };
+
+    const handleEnrich = async () => {
+        if (enriching) return;
+        setEnriching(true);
+        try {
+            const res = await enrichLead(lead.id);
+            if (res.success) {
+                showToast("Intelligence enriched successfully!");
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                alert("Enrichment failed: " + res.message);
+            }
+        } catch (e: any) {
+            alert("Error during enrichment: " + e.message);
+        } finally {
+            setEnriching(false);
+        }
+    };
+
+    const handleSendWA = () => {
+        if (!outreachDraft) {
+            alert("Generate atau tulis pesan dulu bos!");
+            return;
+        }
+        const text = encodeURIComponent(outreachDraft);
+        const url = `https://wa.me/${lead.wa || lead.phone}?text=${text}`;
+        window.open(url, '_blank');
+        logActivity(lead.id, 'WA_SENT', 'Sent outreach message to client');
+    };
 
     const isEnriched = lead.status !== 'FRESH';
+    const isLive = lead.status === 'LIVE';
 
     return (
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                    {/* Backdrop */}
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -145,7 +191,6 @@ ${lead.masterWebsitePrompt}
                         className="absolute inset-0 bg-black/90 backdrop-blur-xl"
                     />
 
-                    {/* Modal Content */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -191,194 +236,259 @@ ${lead.masterWebsitePrompt}
 
                         {/* Scrolling Body */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar">
-                            <div className="grid grid-cols-1 lg:grid-cols-12">
-                                {/* Left Column: Intelligence */}
-                                <div className="lg:col-span-8 p-8 space-y-10 border-r border-white/5">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 h-full">
+                                {/* Left Column: Intelligence / Preview */}
+                                <div className={`${isLive ? 'lg:col-span-12' : 'lg:col-span-8'} p-8 space-y-10 border-r border-white/5`}>
                                     
-                                    {/* Brand Identity Branding (Editable) */}
-                                    <section className="space-y-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
-                                                <Sparkles className="text-accent-gold" size={18} />
-                                            </div>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest">Brand Persona</h3>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Website Title</label>
-                                                {isEditing ? (
-                                                    <input 
-                                                        type="text"
-                                                        value={editData.brandTitle}
-                                                        onChange={(e) => setEditData({...editData, brandTitle: e.target.value})}
-                                                        className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white font-bold outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all shadow-inner"
-                                                    />
-                                                ) : (
-                                                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-white font-black text-xl uppercase tracking-tight">
-                                                        {lead.brandData?.title || lead.name}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Tagline</label>
-                                                {isEditing ? (
-                                                    <input 
-                                                        type="text"
-                                                        value={editData.brandTagline}
-                                                        onChange={(e) => setEditData({...editData, brandTagline: e.target.value})}
-                                                        className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white font-medium outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all font-italic shadow-inner"
-                                                    />
-                                                ) : (
-                                                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-white/60 font-medium italic">
-                                                        "{lead.brandData?.tagline || 'No tagline generated.'}"
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Brand Narrative</label>
-                                                {isEditing ? (
-                                                    <textarea 
-                                                        rows={4}
-                                                        value={editData.brandDescription}
-                                                        onChange={(e) => setEditData({...editData, brandDescription: e.target.value})}
-                                                        className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white text-sm leading-relaxed outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all resize-none shadow-inner"
-                                                    />
-                                                ) : (
-                                                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl text-white/70 text-sm leading-relaxed">
-                                                        {lead.brandData?.description || 'No description available.'}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    {/* Technical JSON Metadata (Editable) */}
-                                    <section className="space-y-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                                                <Palette className="text-blue-400" size={18} />
-                                            </div>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest">Technical Metadata (JSON)</h3>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Raw Brand Data</label>
-                                                {isEditing ? (
-                                                    <textarea 
-                                                        rows={8}
-                                                        value={editData.rawBrandData}
-                                                        onChange={(e) => setEditData({...editData, rawBrandData: e.target.value})}
-                                                        className="w-full bg-zinc-900/50 border border-white/10 rounded-2xl p-4 font-mono text-[10px] text-blue-300 outline-none focus:border-blue-500/50 transition-all resize-none"
-                                                    />
-                                                ) : (
-                                                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl font-mono text-[10px] text-white/30 h-[160px] overflow-y-auto custom-scrollbar">
-                                                        <pre>{JSON.stringify(lead.brandData, null, 2)}</pre>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Raw AI Analysis</label>
-                                                {isEditing ? (
-                                                    <textarea 
-                                                        rows={8}
-                                                        value={editData.rawAiAnalysis}
-                                                        onChange={(e) => setEditData({...editData, rawAiAnalysis: e.target.value})}
-                                                        className="w-full bg-zinc-900/50 border border-white/10 rounded-2xl p-4 font-mono text-[10px] text-purple-300 outline-none focus:border-purple-500/50 transition-all resize-none"
-                                                    />
-                                                ) : (
-                                                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl font-mono text-[10px] text-white/30 h-[160px] overflow-y-auto custom-scrollbar">
-                                                        <pre>{JSON.stringify(lead.aiAnalysis, null, 2)}</pre>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    {/* The Blueprint Section */}
-                                    <section className="space-y-6">
-                                        <div className="flex items-center justify-between">
+                                    {/* LIVE PREVIEW (Exclusive for LIVE) */}
+                                    {isLive && lead.htmlCode && (
+                                        <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                                             <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                                                    <Code2 className="text-purple-400" size={18} />
+                                                <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
+                                                    <Layout className="text-accent-gold" size={18} />
                                                 </div>
-                                                <h3 className="text-sm font-black text-white uppercase tracking-widest">Master Prompt / Code Structure</h3>
+                                                <h3 className="text-sm font-black text-white uppercase tracking-widest">Final Website Blueprint</h3>
                                             </div>
-                                            {isEnriched && lead.masterWebsitePrompt && (
-                                                <div className="flex gap-2">
+                                            <div className="w-full h-[600px] bg-white rounded-[40px] overflow-hidden border-8 border-zinc-900 shadow-2xl relative">
+                                                <iframe 
+                                                    srcDoc={lead.htmlCode}
+                                                    className="w-full h-full border-none"
+                                                    title="Live Preview"
+                                                />
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    {!isLive && (
+                                        <>
+                                            {/* Brand Identity Branding (Editable) */}
+                                            {isEnriched && (
+                                                <section className="space-y-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
+                                                            <Sparkles className="text-accent-gold" size={18} />
+                                                        </div>
+                                                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Brand Persona</h3>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-1 gap-4">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Website Title</label>
+                                                            {isEditing ? (
+                                                                <input 
+                                                                    type="text"
+                                                                    value={editData.brandTitle}
+                                                                    onChange={(e) => setEditData({...editData, brandTitle: e.target.value})}
+                                                                    className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white font-bold outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all shadow-inner"
+                                                                />
+                                                            ) : (
+                                                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-white font-black text-xl uppercase tracking-tight">
+                                                                    {lead.brandData?.title || lead.name}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Tagline</label>
+                                                            {isEditing ? (
+                                                                <input 
+                                                                    type="text"
+                                                                    value={editData.brandTagline}
+                                                                    onChange={(e) => setEditData({...editData, brandTagline: e.target.value})}
+                                                                    className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white font-medium outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all font-italic shadow-inner"
+                                                                />
+                                                            ) : (
+                                                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-white/60 font-medium italic">
+                                                                    "{lead.brandData?.tagline || 'No tagline generated.'}"
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Brand Narrative</label>
+                                                            {isEditing ? (
+                                                                <textarea 
+                                                                    rows={4}
+                                                                    value={editData.brandDescription}
+                                                                    onChange={(e) => setEditData({...editData, brandDescription: e.target.value})}
+                                                                    className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white text-sm leading-relaxed outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all resize-none shadow-inner"
+                                                                />
+                                                            ) : (
+                                                                <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl text-white/70 text-sm leading-relaxed">
+                                                                    {lead.brandData?.description || 'No description available.'}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                            )}
+
+                                            {/* Scraped Data Intelligence */}
+                                            {!isEnriched && (
+                                                <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
+                                                            <Building2 className="text-accent-gold" size={18} />
+                                                        </div>
+                                                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Scraped Data Intelligence</h3>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[32px] space-y-4 hover:border-accent-gold/20 transition-all group">
+                                                            <div className="flex items-center gap-3 text-accent-gold">
+                                                                <Globe size={20} />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Official Website</span>
+                                                            </div>
+                                                            <p className="text-lg font-bold text-white truncate group-hover:text-accent-gold transition-colors">
+                                                                {lead.website !== 'N/A' ? lead.website : 'No Website Found'}
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[32px] space-y-4 hover:border-pink-500/20 transition-all group">
+                                                            <div className="flex items-center gap-3 text-pink-500">
+                                                                <Instagram size={20} />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Instagram Profile</span>
+                                                            </div>
+                                                            <p className="text-lg font-bold text-white truncate group-hover:text-pink-400 transition-colors">
+                                                                {lead.ig || 'Searching Socials...'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-accent-gold/5 border border-accent-gold/10 p-8 rounded-[40px] flex flex-col items-center justify-center text-center gap-6 py-12">
+                                                        <div className="w-20 h-20 bg-accent-gold/10 rounded-full flex items-center justify-center border border-accent-gold/20 shadow-2xl shadow-accent-gold/10">
+                                                            <Zap size={32} className="text-accent-gold fill-accent-gold animate-pulse" />
+                                                        </div>
+                                                        <h4 className="text-xl font-black text-white uppercase tracking-tight">Ready for Enrichment</h4>
+                                                        <button 
+                                                            onClick={handleEnrich}
+                                                            disabled={enriching}
+                                                            className="px-10 py-5 bg-accent-gold text-black font-black rounded-full transition-all text-xs uppercase tracking-[0.2em]"
+                                                        >
+                                                            {enriching ? 'Enriching...' : 'Fire Enrichment AI'}
+                                                        </button>
+                                                    </div>
+                                                </section>
+                                            )}
+
+                                            {/* Technical Metadata */}
+                                            {(isEnriched || isEditing) && (
+                                                <section className="space-y-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                                                            <Palette className="text-blue-400" size={18} />
+                                                        </div>
+                                                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Technical Metadata (JSON)</h3>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl font-mono text-[10px] text-white/30 h-[160px] overflow-y-auto">
+                                                            <pre>{JSON.stringify(lead.brandData, null, 2)}</pre>
+                                                        </div>
+                                                        <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl font-mono text-[10px] text-white/30 h-[160px] overflow-y-auto">
+                                                            <pre>{JSON.stringify(lead.aiAnalysis, null, 2)}</pre>
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Outreach Section (Shown for both, always at bottom for LIVE) */}
+                                    {isLive && (
+                                        <section className="space-y-6 pt-10 border-t border-white/10">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-green-500/10 rounded-xl border border-green-500/20">
+                                                        <Zap className="text-green-400" size={18} />
+                                                    </div>
+                                                    <h3 className="text-sm font-black text-white uppercase tracking-widest">🚀 Outreach & Delivery Center</h3>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-2">
+                                                        <select 
+                                                            value={selectedPersona}
+                                                            onChange={(e) => setSelectedPersona(e.target.value)}
+                                                            className="bg-transparent text-[10px] font-black uppercase tracking-widest text-white/60 outline-none py-2 pr-4 cursor-pointer hover:text-white transition-colors"
+                                                        >
+                                                            <option value="professional" className="bg-zinc-900">👔 Professional</option>
+                                                            <option value="casual" className="bg-zinc-900">🎨 Indie Casual</option>
+                                                            <option value="expert" className="bg-zinc-900">🧠 Growth Expert</option>
+                                                            <option value="disruptor" className="bg-zinc-900">🚀 Disruptor</option>
+                                                            <option value="storyteller" className="bg-zinc-900">📖 Storyteller</option>
+                                                            <option value="pragmatist" className="bg-zinc-900">📊 Pragmatist</option>
+                                                            <option value="connector" className="bg-zinc-900">🤝 Connector</option>
+                                                        </select>
+                                                    </div>
                                                     <button 
-                                                        onClick={handleCopy}
-                                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white border border-white/10'}`}
+                                                        onClick={handleGenerateDraft}
+                                                        disabled={generatingDraft}
+                                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                            generatingDraft 
+                                                            ? 'bg-white/10 text-white/40 cursor-not-allowed' 
+                                                            : 'bg-accent-gold text-black hover:scale-105 active:scale-95'
+                                                        }`}
                                                     >
-                                                        {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Master</>}
+                                                        {generatingDraft ? (
+                                                            <>
+                                                                <Loader2 size={14} className="animate-spin" /> Generating...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Sparkles size={14} /> Generate Draft
+                                                            </>
+                                                        )}
                                                     </button>
                                                 </div>
-                                            )}
-                                        </div>
+                                            </div>
 
-                                        <div className="relative group">
-                                            {isEditing ? (
-                                                <div className="space-y-4">
-                                                    <textarea 
-                                                        rows={12}
-                                                        value={editData.masterWebsitePrompt}
-                                                        onChange={(e) => setEditData({...editData, masterWebsitePrompt: e.target.value})}
-                                                        className="w-full bg-zinc-900/50 border border-white/10 rounded-[32px] p-8 font-mono text-xs leading-relaxed text-blue-300 outline-none focus:border-purple-500/50 transition-all resize-none shadow-2xl"
-                                                        placeholder="Edit the Master Website Prompt here..."
-                                                    />
-                                                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-[10px] font-bold text-blue-400 uppercase tracking-widest">
-                                                        <Sparkles size={12} />
-                                                        Manual refactor: Changes here will directly affect the final website structure.
+                                            <div className="grid grid-cols-1 gap-6">
+                                                <div className="p-6 bg-white/[0.02] border border-white/5 rounded-[32px] flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Live Preview Link</p>
+                                                        <p className="text-sm font-bold text-white uppercase tracking-tight">
+                                                            {process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/preview/{lead.slug || lead.id}
+                                                        </p>
                                                     </div>
+                                                    <button 
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/preview/${lead.slug || lead.id}`);
+                                                            showToast("Link Copied!");
+                                                        }}
+                                                        className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/40"
+                                                    >
+                                                        <Copy size={16} />
+                                                    </button>
                                                 </div>
-                                            ) : (
-                                                <div className={`w-full min-h-[300px] bg-zinc-900/50 border rounded-[32px] p-8 font-mono text-xs leading-relaxed transition-all ${isEnriched ? 'border-white/5 text-zinc-300' : 'border-dashed border-white/10 flex flex-col items-center justify-center text-center gap-4'}`}>
-                                                    {isEnriched && lead.masterWebsitePrompt ? (
-                                                        <div className="whitespace-pre-wrap">{lead.masterWebsitePrompt}</div>
-                                                    ) : (
-                                                        <>
-                                                            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center border border-white/5">
-                                                                <AlertCircle className="text-white/20" size={32} />
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <p className="text-white font-bold uppercase tracking-tight text-sm">Design Blueprint Unready</p>
-                                                                <p className="text-white/30 font-medium text-[11px] max-w-[240px]">Enrich data terlebih dahulu untuk melihat prompt dan blueprint website.</p>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </section>
+                                                <textarea 
+                                                    rows={8}
+                                                    value={outreachDraft}
+                                                    onChange={(e) => setOutreachDraft(e.target.value)}
+                                                    className="w-full bg-zinc-900/50 border border-white/10 rounded-[32px] p-8 text-sm text-zinc-300 outline-none focus:border-green-500/50 resize-none shadow-2xl"
+                                                    placeholder="Message draft goes here..."
+                                                />
+                                                <button 
+                                                    onClick={handleSaveDraft}
+                                                    disabled={savingDraft || !outreachDraft}
+                                                    className="w-full py-3 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    {savingDraft ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                                    {savingDraft ? "Saving..." : "Save Selection to DB"}
+                                                </button>
 
-                                    {/* Resolutions / Solutions */}
-                                    <section className="space-y-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-green-500/10 rounded-xl border border-green-500/20">
-                                                <Lightbulb className="text-green-400" size={18} />
+                                                <button 
+                                                    onClick={handleSendWA}
+                                                    className="w-full h-16 bg-green-500 hover:bg-green-400 text-black font-black rounded-[24px] transition-all flex items-center justify-center gap-4 group"
+                                                >
+                                                    <MessageCircle size={24} />
+                                                    <span className="text-sm uppercase tracking-[0.2em]">Send to Client</span>
+                                                    <ChevronRight size={20} />
+                                                </button>
                                             </div>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest">Winning Solution</h3>
-                                        </div>
-                                        {isEditing ? (
-                                            <textarea 
-                                                rows={3}
-                                                value={editData.resolvingIdea}
-                                                onChange={(e) => setEditData({...editData, resolvingIdea: e.target.value})}
-                                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white text-sm outline-none focus:border-green-500/50 transition-all resize-none"
-                                            />
-                                        ) : (
-                                            <div className="p-8 bg-zinc-900/30 border border-white/5 rounded-[32px]">
-                                                <p className="text-sm text-white/70 leading-relaxed italic font-medium">"{lead.resolvingIdea || 'No solution generated yet.'}"</p>
-                                            </div>
-                                        )}
-                                    </section>
+                                        </section>
+                                    )}
                                 </div>
 
                                 {/* Right Column: Meta & Logs */}
-                                <div className="lg:col-span-4 bg-zinc-900/20 p-8 space-y-10">
-                                    {/* Intelligence Summary */}
-                                    <div className="grid grid-cols-1 gap-4">
+                                {!isLive && (
+                                    <div className="lg:col-span-4 bg-zinc-900/20 p-8 space-y-10">
                                         <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-3">
                                             <div className="flex items-center gap-2 text-white/40">
                                                 <Star size={14} className="text-accent-gold" />
@@ -386,77 +496,39 @@ ${lead.masterWebsitePrompt}
                                             </div>
                                             <p className="text-2xl font-black text-white">{lead.rating || '0.0'} <span className="text-xs text-white/20">Rating</span></p>
                                         </div>
-                                    </div>
-
-                                    {/* Contact Card */}
-                                    <section className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Core Contact</h3>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
-                                                <div className="flex items-center gap-3 text-white/60">
-                                                    <Phone size={14} />
-                                                    <span className="text-[11px] font-mono">{lead.wa}</span>
+                                        <section className="space-y-4">
+                                            <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Core Contact</h3>
+                                            <div className="space-y-2">
+                                                <div className="p-4 bg-white/5 border border-white/5 rounded-2xl text-[11px] font-mono text-white/60">
+                                                    {lead.wa}
+                                                </div>
+                                                <div className="p-4 bg-white/5 border border-white/5 rounded-2xl text-[11px] text-white/60">
+                                                    {lead.address}
                                                 </div>
                                             </div>
-                                            <div className="flex items-start gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl">
-                                                <MapPin size={14} className="text-white/40 mt-1 shrink-0" />
-                                                <p className="text-[11px] text-white/60 leading-relaxed font-medium">{lead.address}</p>
+                                        </section>
+                                        <section className="space-y-4">
+                                            <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Operational History</h3>
+                                            <div className="max-h-[300px] overflow-y-auto">
+                                                <ActivityTimeline leadId={lead.id} />
                                             </div>
-                                        </div>
-                                    </section>
-
-                                    {/* Timeline */}
-                                    <section className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Operational History</h3>
-                                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                                            <ActivityTimeline leadId={lead.id} />
-                                        </div>
-                                    </section>
-                                </div>
+                                        </section>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Actions Footer */}
+                        {/* Footer */}
                         <div className="p-8 border-t border-white/5 bg-zinc-900/50 flex justify-between items-center">
                             <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
                                 Lead ID: {lead.id}
                             </div>
-                            <div className="flex gap-3">
-                                {isEditing ? (
-                                    <>
-                                        <button 
-                                            onClick={() => setIsEditing(false)}
-                                            className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/10"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button 
-                                            onClick={handleSave}
-                                            disabled={saving}
-                                            className="px-8 py-4 bg-green-500 text-black font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest shadow-xl shadow-green-900/10 flex items-center gap-2"
-                                        >
-                                            <Save size={14} /> {saving ? 'Saving...' : 'Save Refinement'}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <button 
-                                            onClick={onClose}
-                                            className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/10"
-                                        >
-                                            Close
-                                        </button>
-                                        {lead.status === 'FRESH' && (
-                                            <button 
-                                                className="px-8 py-4 bg-accent-gold text-black font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest shadow-xl shadow-accent-gold/5 flex items-center gap-2"
-                                            >
-                                                <Zap size={14} fill="currentColor" />
-                                                Enrich Now
-                                            </button>
-                                        )}
-                                    </>
-                                )}
-                            </div>
+                            <button 
+                                onClick={onClose}
+                                className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/10"
+                            >
+                                Close
+                            </button>
                         </div>
 
                         <AnimatePresence>

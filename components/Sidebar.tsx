@@ -4,16 +4,22 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    LayoutDashboard, Terminal, Package, Users, Sparkles, Globe, Settings,
-    LogOut, ChevronLeft, ChevronRight
+    X, Building2, MapPin, Star, Globe, Phone, 
+    Sparkles, Copy, Check, Zap, Lightbulb,
+    Target, Layout, Palette, Code2, AlertCircle, Save, Edit2,
+    Instagram, MessageCircle, ExternalLink, ChevronRight,
+    LayoutDashboard, Terminal, Package, Users, Settings, LogOut,
+    ChevronLeft, Sun, Moon, FilePlus2
 } from 'lucide-react';
 import { logoutUser } from '@/lib/auth';
+import { useTheme } from 'next-themes';
 
 const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Scraper', href: '/dashboard/scraper', icon: Terminal },
-    { name: 'Sandbox', href: '/dashboard/sandbox', icon: Package },
-    { name: 'Leads', href: '/dashboard/leads', icon: Users },
+    { name: 'Leads Gmaps', href: '/dashboard/leads', icon: Users },
+    // { name: 'Leads IG', href: '/dashboard/leads-ig', icon: Instagram },
+    // { name: 'Leads Manual', href: '/dashboard/leads-manual', icon: FilePlus2 },
     { name: 'Enriched', href: '/dashboard/enriched', icon: Sparkles },
     { name: 'Live Sites', href: '/dashboard/live', icon: Globe },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -27,7 +33,9 @@ interface SidebarProps {
 export function Sidebar({ isMobile, onClose }: SidebarProps) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const { theme, setTheme } = useTheme();
     const [isLoaded, setIsLoaded] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         const saved = localStorage.getItem('sidebar-collapsed');
@@ -35,6 +43,7 @@ export function Sidebar({ isMobile, onClose }: SidebarProps) {
             setIsCollapsed(saved === 'true');
         }
         setIsLoaded(true);
+        setMounted(true);
     }, []);
 
     const toggleCollapse = () => {
@@ -98,7 +107,21 @@ export function Sidebar({ isMobile, onClose }: SidebarProps) {
                 })}
             </nav>
 
-            <div className="p-6 mt-auto">
+            <div className="p-6 mt-auto space-y-2">
+                {mounted && (
+                    <button
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl text-accent-gold hover:bg-accent-gold/10 w-full transition-all group"
+                    >
+                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                        {!isCollapsed && <span className="font-semibold text-sm">Theme</span>}
+                        {isCollapsed && (
+                            <span className="absolute left-16 px-2 py-1 bg-accent-gold/10 border border-accent-gold/20 text-accent-gold text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[70]">
+                                Toggle Theme
+                            </span>
+                        )}
+                    </button>
+                )}
                 <form action={logoutUser}>
                     <button
                         type="submit"

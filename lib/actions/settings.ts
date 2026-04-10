@@ -2,9 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { getSession } from '@/lib/auth';
+import { getSession, getCurrentUser } from '@/lib/auth';
 import { sanitizeWaNumber } from '@/lib/utils';
-import { WA_TEMPLATE_DRAFT_PROMPT, WA_AI_FALLBACK_PROMPT } from '@/lib/prompts';
+import { OUTREACH_GENERATOR_PROMPT, OUTREACH_PERSONAS } from '@/lib/prompts';
 
 // --- WhatsApp Template Management ---
 
@@ -110,11 +110,18 @@ export async function generateWaTemplateDraft(category: string) {
 
     try {
         const settings = await getUserSettings();
-        const model = settings?.aiEngine || 'gemini-3-flash';
+        const model = settings?.aiEngine || 'gemini-3.1-pro';
         const apiKey = settings?.kieAiApiKey || process.env.KIE_AI_API_KEY;
         const endpoint = `https://api.kie.ai/${model}/v1/chat/completions`;
 
-        const prompt = WA_TEMPLATE_DRAFT_PROMPT.replace("[category]", category);
+        const personaDefinition = OUTREACH_PERSONAS['professional'];
+        const prompt = OUTREACH_GENERATOR_PROMPT
+            .replace("[persona_definition]", personaDefinition)
+            .replace("[category]", category)
+            .replace("{{name}}", "[Business Name]")
+            .replace("{{pain_points}}", "[Specific Pain Points]")
+            .replace("{{idea}}", "[Our Proposed Solution]")
+            .replace("{{link}}", "[Preview Link]");
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -159,19 +166,22 @@ export async function generateWaLink(leadId: string, templateId?: string) {
                 .replace(/{{category}}/g, lead.category)
                 .replace(/{{idea}}/g, lead.resolvingIdea || 'solusi digital')
                 .replace(/{{pain_points}}/g, lead.painPoints || 'kebutuhan bisnis')
-                .replace(/{{link}}/g, `${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-prospecting.vercel.app'}/${lead.slug || ''}`);
+                .replace(/{{link}}/g, `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`);
         } else {
             activeTemplateName = 'AI Generated (Fallback)';
             const settings = await getUserSettings();
-            const model = settings?.aiEngine || 'gemini-3-flash';
+            const model = settings?.aiEngine || 'gemini-3.1-pro';
             const apiKey = settings?.kieAiApiKey || process.env.KIE_AI_API_KEY;
             const endpoint = `https://api.kie.ai/${model}/v1/chat/completions`;
 
-            const prompt = WA_AI_FALLBACK_PROMPT
-                .replace("[businessName]", lead.name)
+            const personaDefinition = OUTREACH_PERSONAS['casual'];
+            const prompt = OUTREACH_GENERATOR_PROMPT
+                .replace("[persona_definition]", personaDefinition)
                 .replace("[category]", lead.category)
-                .replace("[resolvingIdea]", lead.resolvingIdea || '')
-                .replace("[draftLink]", `${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-prospecting.vercel.app'}/${lead.slug || ''}`);
+                .replace("{{name}}", lead.name)
+                .replace("{{pain_points}}", lead.painPoints || 'kebutuhan bisnis')
+                .replace("{{idea}}", lead.resolvingIdea || 'solusi digital')
+                .replace("{{link}}", `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`);
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -204,21 +214,119 @@ export async function generateWaLink(leadId: string, templateId?: string) {
 export async function getUserSettings() {
     const session = await getSession();
     if (!session) return null;
+    
     return prisma.user.findUnique({
         where: { id: session.userId },
-        select: { kieAiApiKey: true, byocMode: true, aiEngine: true }
+        select: { 
+            kieAiApiKey: true, 
+            byocMode: true, 
+            aiEngine: true 
+        }
     });
 }
 
-export async function updateUserSettings(data: { kieAiApiKey?: string, byocMode?: boolean, aiEngine?: string }) {
+export async function updateUserSettings(data: { 
+    kieAiApiKey?: string, 
+    byocMode?: boolean 
+}) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
+
     try {
-        await prisma.user.update({ where: { id: session.userId }, data });
+        await prisma.user.update({
+            where: { id: session.userId },
+            data: {
+                kieAiApiKey: data.kieAiApiKey,
+                byocMode: data.byocMode,
+                // aiEngine kita hapus dari sini, biarkan default di DB atau abaikan
+            }
+        });
+
+        // Revalidate path agar UI langsung update datanya
         revalidatePath('/dashboard/settings');
         return { success: true };
     } catch (error) {
         console.error('Update User Settings error:', error);
         return { success: false, message: 'Failed to update settings' };
+    }
+}
+
+export async function checkKieStatus(manualKey?: string) {
+    const user = await getCurrentUser();
+    
+    // LOGIKA FALLBACK: 
+    // 1. Pake key yang lagi diketik di UI (manualKey) buat testing.
+    // 2. Kalau gak ada, ambil dari DB user.
+    // 3. Kalau gak ada juga, ambil dari .env server.
+    const apiKey = manualKey || user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
+
+    if (!apiKey) {
+        return { success: false, message: 'API Key kosong, mesin gak bisa nyala.' };
+    }
+
+    const url = "https://api.kie.ai/api/v1/chat/credit";
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            cache: 'no-store', // Jangan di-cache biar datanya real-time
+            signal: AbortSignal.timeout(10000) // 10 detik cukup lah
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            return { 
+                success: true, 
+                message: 'Connected!', 
+                credit: data.data?.credit || '0', // Asumsi struktur Kie.ai
+                engine: user?.aiEngine || 'gemini-3.1-pro'
+            };
+        }
+
+        return { 
+            success: false, 
+            message: data.msg || 'API Key Invalid atau Expired.' 
+        };
+
+    } catch (error) {
+        console.error("[checkKieStatus Error]:", error);
+        return { success: false, message: 'Kie.ai Server Timeout / Unreachable.' };
+    }
+}
+
+export async function getAiPulseStatus() {
+    try {
+        const status = await checkKieStatus(); // Fungsi yang kita buat tadi
+        
+        if (status.success) {
+            // IJO: Koneksi lancar & saldo ada
+            return {
+                status: 'online',
+                color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+                pulseColor: 'bg-emerald-500',
+                label: `Ready: $${status.credit}`,
+            };
+        } else {
+            // MERAH: Key salah atau expired
+            return {
+                status: 'error',
+                color: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+                pulseColor: 'bg-rose-500',
+                label: 'API Disconnected',
+            };
+        }
+    } catch (e) {
+        // KUNING: Masalah network atau Kie.ai lagi down
+        return {
+            status: 'warning',
+            color: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+            pulseColor: 'bg-amber-500',
+            label: 'Connection Lag',
+        };
     }
 }

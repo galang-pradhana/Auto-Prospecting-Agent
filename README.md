@@ -6,7 +6,7 @@ A powerful, automated lead generation and branding pipeline designed for Indones
 - **Frontend**: Next.js 14 (App Router), Tailwind CSS, Framer Motion.
 - **Backend**: Python (Scraper & AI Engine), Prisma ORM.
 - **Database**: Supabase (PostgreSQL).
-- **AI**: Gemini 3 Flash via Kie.ai for high-speed branding generation.
+- **AI**: Gemini 3.1 Pro via Kie.ai for high-speed branding generation.
 
 ## 🏗️ Project Architecture
 1. **Phase 1: Data Mining**: Scrapes Google Maps for business leads (WA, Rating, Category).

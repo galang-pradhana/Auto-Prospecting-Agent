@@ -6,6 +6,9 @@ export const metadata: Metadata = {
     description: "Automated Prospecting Engine Preview",
 };
 
+import { Toaster } from 'react-hot-toast';
+import { ThemeProvider } from '@/components/ThemeProvider';
+
 export default function RootLayout({
     children,
 }: {
@@ -19,7 +22,12 @@ export default function RootLayout({
                     rel="stylesheet"
                 />
             </head>
-            <body>{children}</body>
+            <body>
+                <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+                    <Toaster position="bottom-right" />
+                    {children}
+                </ThemeProvider>
+            </body>
         </html>
     );
 }

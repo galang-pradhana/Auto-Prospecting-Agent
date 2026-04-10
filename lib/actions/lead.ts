@@ -50,11 +50,16 @@ export async function getLeads(filters?: {
     search?: string;
     page?: number;
     pageSize?: number;
+    city?: string;
 }) {
     const session = await getSession();
     if (!session) return [];
 
     const where: any = { userId: session.userId };
+
+    if (filters?.city && filters.city !== 'ALL CITIES') {
+        where.city = filters.city;
+    }
 
     if (filters?.status && (filters.status as any) !== 'ALL STATUS') {
         where.status = filters.status;
@@ -91,11 +96,16 @@ export async function getLeadsCount(filters?: {
     category?: string;
     province?: string;
     search?: string;
+    city?: string;
 }) {
     const session = await getSession();
     if (!session) return 0;
 
     const where: any = { userId: session.userId };
+
+    if (filters?.city && filters.city !== 'ALL CITIES') {
+        where.city = filters.city;
+    }
 
     if (filters?.status && (filters.status as any) !== 'ALL STATUS') {
         where.status = filters.status;
@@ -176,18 +186,43 @@ export async function deleteLeads(ids: string[]) {
     }
 }
 
-export async function getUniqueCategories() {
+export async function getUniqueCategories(status?: string) {
     const session = await getSession();
     if (!session) return [];
     
     try {
+        const where: any = { userId: session.userId };
+        if (status && status !== 'ALL STATUS') {
+            where.status = status;
+        }
+
         const categories = await prisma.lead.groupBy({
             by: ['category'],
-            where: { userId: session.userId },
+            where,
         });
         return categories.map(c => c.category).filter(Boolean);
     } catch (error) {
         console.error('getUniqueCategories error:', error);
+        return [];
+    }
+}
+
+export async function getUniqueCities(status?: string) {
+    const session = await getSession();
+    if (!session) return [];
+    try {
+        const where: any = { userId: session.userId };
+        if (status && status !== 'ALL STATUS') {
+            where.status = status;
+        }
+
+        const cities = await prisma.lead.groupBy({
+            by: ['city'],
+            where,
+        });
+        return cities.map(c => c.city).filter(Boolean);
+    } catch (error) {
+        console.error('getUniqueCities error:', error);
         return [];
     }
 }
@@ -335,6 +370,22 @@ export async function getDistricts(province: string, city: string) {
     }
 }
 
+export async function getCoordinates(city: string, district?: string) {
+    const query = district ? `${district}, ${city}` : city;
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+            headers: { 'User-Agent': 'ForgeScraper/1.0' }
+        });
+        const data = await res.json();
+        if (data && data[0]) {
+            return { lat: data[0].lat, lng: data[0].lon };
+        }
+    } catch (err) {
+        console.error("Geocoding failed:", err);
+    }
+    return null; // Fallback ke pencarian teks biasa
+}
+
 export async function updateLeadEnrichmentData(leadId: string, data: {
     brandData?: any;
     aiAnalysis?: any;
@@ -385,6 +436,29 @@ export async function updateLeadHtml(leadId: string, htmlCode: string) {
         return { success: true };
     } catch (error: any) {
         console.error('[Update HTML Error]:', error);
+        return { success: false, message: error.message };
+    }
+}
+
+export async function saveOutreachDraft(leadId: string, draft: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: { outreachDraft: draft }
+        });
+
+        await logActivity(leadId, 'DRAFT_SAVED', 'Outreach draft saved manually');
+        
+        revalidatePath('/dashboard/leads');
+        revalidatePath('/dashboard/enriched');
+        revalidatePath('/dashboard/live');
+        
+        return { success: true };
+    } catch (error: any) {
+        console.error('[Save Draft Error]:', error);
         return { success: false, message: error.message };
     }
 }

@@ -9,12 +9,16 @@ import * as fsPromises from 'fs/promises';
 import { cleanAIResponse, isValidWhatsApp, sanitizeWaNumber } from '@/lib/utils';
 import { logActivity } from './lead';
 import { 
-    TONE_MAP, 
+    TONE_MAP,
     REGIONAL_ADVICE_PROMPT,
     STYLE_TWEAK_PROMPT,
+    STRICT_STYLE_TWEAK_PROMPT,
     WEBSITE_STRATEGY_PROMPT,
     ENRICHMENT_PROMPT,
     MASTER_PRO_BLUEPRINT_PROMPT,
+    OUTREACH_GENERATOR_PROMPT,
+    OUTREACH_PERSONAS,
+    buildForgeData,
 } from '@/lib/prompts';
 import { getEffectivePrompt } from './prompt';
 import { getUserSettings } from './settings';
@@ -85,61 +89,113 @@ export async function getStyleSummary() {
 // --- KIE.AI MULTI-PROTOCOL CALLER ---
 // Jalur ini mengunci protokol agar tidak ada asumsi parsing data.
 
-async function callKieAI(prompt: string, modelType: 'gemini' | 'gpt' | 'claude') {
+export async function callKieAI(prompt: string) {
     const user = await getCurrentUser();
+    
+    // LOGIKA FALLBACK: Prioritas DB User -> Fallback ke .env Server
     const apiKey = user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
-    if (!apiKey) throw new Error("API Key Missing");
 
-    let url = "";
-    let body: any = {};
-
-    // 1. MAPPING REQUEST BODY (STRICT PROTOCOL)
-    if (modelType === 'gpt') {
-        // SPEK GPT 5.2 KIE.AI (HIGH REASONING + WEB SEARCH)
-        url = "https://api.kie.ai/gpt-5-2/v1/chat/completions";
-        body = { 
-            messages: [{ 
-                role: "user", 
-                content: [{ type: "text", text: prompt }] // WAJIB ARRAY
-            }],
-            stream: false,
-            reasoning_effort: "high", // Otak Pro Max
-            tools: [{ type: "function", function: { name: "web_search" } }]
-        };
-    } else if (modelType === 'gemini') {
-        // SPEK GEMINI (KIE.AI STYLE)
-        url = "https://api.kie.ai/gemini-3-flash/v1/chat/completions";
-        body = { 
-            messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-            stream: false
-        };
-    } else {
-        // SPEK CLAUDE
-        url = "https://api.kie.ai/claude/v1/messages";
-        body = { 
-            model: "claude-3-5-sonnet", 
-            max_tokens: 4096,
-            messages: [{ role: "user", content: prompt }] 
-        };
+    if (!apiKey) {
+        throw new Error("API Key tidak ditemukan di Database maupun .env. Mesin mogok!");
     }
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(180000) // 3 Menit (GPT 5.2 mikirnya lama)
-    });
+    const url = "https://api.kie.ai/gemini-3.1-pro/v1/chat/completions";
+    const body = { 
+        messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+        stream: false
+    };
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(`Kie.ai Error: ${data.msg || 'Rejected'}`);
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(180000) 
+        });
 
-    // 2. PARSING LOGIC (Cari teks di mana saja)
-    return data.choices?.[0]?.message?.content || 
-           data.candidates?.[0]?.content?.parts?.[0]?.text || 
-           data.content?.[0]?.text || null;
+        const data = await response.json();
+        if (!response.ok) {
+            console.error(`[Kie.ai Error] ${url}:`, data);
+            throw new Error(`Kie.ai Error: ${data.msg || data.message || 'Rejected'}`);
+        }
+
+        // PARSING LOGIC (Cari teks di mana saja)
+        const content = data.choices?.[0]?.message?.content || 
+               data.candidates?.[0]?.content?.parts?.[0]?.text || 
+               data.content?.[0]?.text;
+        
+        if (!content) {
+            console.error("[Kie.ai Error] Empty content result:", data);
+            throw new Error("AI returned no content.");
+        }
+
+        return content;
+    } catch (error: any) {
+        console.error(`[callKieAI Failure]:`, error.message);
+        throw error;
+    }
 }
 
-export async function enrichLead(leadId: string, skipCreditCheck: boolean = false, modelType: 'gemini' | 'gpt' | 'claude' = 'gemini') {
+// --- Kie.ai Vision (Image + Text) ---
+// Kirim base64 image bersama prompt teks ke Gemini multimodal endpoint
+
+export async function callKieAIWithVision(
+    prompt: string,
+    base64Image: string,
+    mimeType: string = 'image/jpeg'
+): Promise<string> {
+    const user = await getCurrentUser();
+    const apiKey = user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
+
+    if (!apiKey) throw new Error('API Key tidak ditemukan.');
+
+    const url = 'https://api.kie.ai/gemini-3.1-pro/v1/chat/completions';
+    const dataUrl = `data:${mimeType};base64,${base64Image}`;
+
+    const body = {
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: dataUrl } }
+            ]
+        }],
+        stream: false
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(120000)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('[Kie.ai Vision Error]:', data);
+            throw new Error(`Kie.ai Vision Error: ${data.msg || data.message || 'Rejected'}`);
+        }
+
+        const content =
+            data.choices?.[0]?.message?.content ||
+            data.candidates?.[0]?.content?.parts?.[0]?.text ||
+            data.content?.[0]?.text;
+
+        if (!content) throw new Error('AI returned no content from vision request.');
+
+        return content;
+    } catch (error: any) {
+        console.error('[callKieAIWithVision Failure]:', error.message);
+        throw error;
+    }
+}
+
+export async function enrichLead(leadId: string) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
 
@@ -149,84 +205,18 @@ export async function enrichLead(leadId: string, skipCreditCheck: boolean = fals
     if (!isValidWhatsApp(lead.wa)) return { success: false, message: 'Invalid WhatsApp number' };
     if (lead.status !== 'FRESH') return { success: false, message: 'Lead already processed' };
 
-    const isPro = modelType !== 'gemini';
-
-    try {
-        const reviews = Array.isArray(lead.reviews)
-            ? (lead.reviews as any[])
-                .map(r => (typeof r === 'object' && r?.Description) ? r.Description : String(r))
-                .filter(Boolean)
-                .slice(0, 5) 
-            : [];
-
-        const promptType = isPro ? 'PRO_FORGE_PROMPT' : 'ENRICHMENT_PROMPT';
-        const basePrompt = await getEffectivePrompt(promptType);
-        
-        let finalPrompt = basePrompt
-            .replace("[Business Name]", lead.name)
-            .replace("[name]", lead.name)
-            .replace("[Category]", lead.category)
-            .replace("[category]", lead.category)
-            .replace("[phone]", lead.wa)
-            .replace("[address]", lead.address || 'Bali');
-
-        if (!isPro) {
-            const styleSummary = await getStyleSummary();
-            finalPrompt = finalPrompt
-                .replace("[Pain Points]", "Analyzed from reviews below")
-                .replace("[Style Models JSON]", styleSummary);
-            finalPrompt += `\n\nDATA REVIEW TO ANALYZE (Top 5):\n${reviews.join(' | ')}`;
-        }
-
-        const systemInstruction = isPro 
-            ? "You are a Senior Web Architect & Business Strategist. " 
-            : "You are a lead enrichment specialist. Return JSON format. ";
-        
-        const aiResponse = await callKieAI(systemInstruction + finalPrompt, modelType);
-
-        if (aiResponse) {
-            let updateData: any = {
-                status: 'ENRICHED',
-                isPro: isPro,
-                masterWebsitePrompt: aiResponse
-            };
-
-            if (!isPro) {
-                try {
-                    const jsonResult = JSON.parse(cleanAIResponse(aiResponse));
-                    updateData.brandData = jsonResult.branding || jsonResult;
-                    updateData.aiAnalysis = jsonResult;
-                    updateData.painPoints = Array.isArray(jsonResult.painPoints) ? jsonResult.painPoints.join(', ') : jsonResult.painPoints;
-                    updateData.resolvingIdea = jsonResult.resolvingIdea || jsonResult.branding?.description || '';
-                    updateData.resolutions = jsonResult.resolutions || [];
-                    updateData.suggestedAssets = jsonResult.suggestedAssets || [];
-                } catch (e) {
-                    console.warn("JSON Parse failed for standard enrichment, fallback to raw prompt", e);
-                }
-            }
-
-            await prisma.lead.update({
-                where: { id: leadId },
-                data: updateData
-            });
-
-            await logActivity(leadId, 'ENRICH', `Enriched using ${modelType}`, { 
-                model: modelType,
-                isPro
-            });
-
-            revalidatePath('/dashboard/leads');
-            return { success: true, message: `${lead.name} enriched successfully.` };
-        }
-        return { success: false, message: 'AI returned no data' };
-    } catch (error: any) {
-        console.error(`[Enrichment Error] ${lead.name}:`, error);
-        return { success: false, message: error.message };
+    // Call the unified batch enricher
+    const result = await batchEnrichLeads([leadId]);
+    
+    if (result.success) {
+        return { success: true, message: `${lead.name} enriched successfully.` };
     }
+    
+    return { success: false, message: 'Failed to enrich lead due to internal error.' };
 }
 
 
-export async function batchEnrichLeads(ids: string[], modelType: 'gemini' | 'gpt' | 'claude' = 'gemini') {
+export async function batchEnrichLeads(ids: string[]) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
 
@@ -236,11 +226,21 @@ export async function batchEnrichLeads(ids: string[], modelType: 'gemini' | 'gpt
             if (!lead) continue;
 
             // STEP 1: ENRICHMENT (Riset & Analisis JSON)
+            const promptBase = ENRICHMENT_PROMPT;
+            const forgeData = buildForgeData(lead);
+
             const researchRaw = await callKieAI(
-                ENRICHMENT_PROMPT
+                promptBase
                     .replace('[name]', lead.name)
-                    .replace('[category]', lead.category), 
-                modelType
+                    .replace('[category]', lead.category)
+                    .replace('[address]', lead.address || 'Bali')
+                    .replace('[styleDNA]', lead.styleDNA || 'Modern, Premium')
+                    .replace('[industryPattern]', forgeData.industryPattern)
+                    .replace('[industryStylePriority]', forgeData.industryStylePriority)
+                    .replace('[industryColorMood]', forgeData.industryColorMood)
+                    .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
+                    .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
+                    .replace('[unsplashQueries]', forgeData.unsplashQueries)
             );
             
             if (!researchRaw) continue;
@@ -254,41 +254,55 @@ export async function batchEnrichLeads(ids: string[], modelType: 'gemini' | 'gpt
                     .replace('[category]', lead.category)
                     .replace('[painPoints]', Array.isArray(resData.painPoints) ? resData.painPoints.join(', ') : (resData.painPoints || ""))
                     .replace('[resolvingIdea]', resData.branding?.description || resData.aiAnalysis?.branding || "")
-                    .replace('[styleDNA]', "Modern, Premium, and Professional")
-                    .replace('[analysis]', JSON.stringify(resData));
+                    .replace('[styleDNA]', resData.styleDNA || "Modern, Premium, and Professional")
+                    .replace('[analysis]', JSON.stringify(resData))
+                    .replace('[industryPattern]', forgeData.industryPattern)
+                    .replace('[industryStylePriority]', forgeData.industryStylePriority)
+                    .replace('[industryColorMood]', forgeData.industryColorMood)
+                    .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
+                    .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
+                    .replace('[unsplashQueries]', forgeData.unsplashQueries);
 
-                const masterPrompt = await callKieAI(stratPrompt, modelType);
+                const masterPrompt = await callKieAI(stratPrompt);
 
-                // DATABASE UPDATE (SIMPAN KE KOLOM YANG BENER)
+                // DATABASE UPDATE
                 await prisma.lead.update({
                     where: { id },
                     data: {
                         brandData: resData.brandData || resData.branding || {},
                         aiAnalysis: resData.aiAnalysis || resData,
                         painPoints: Array.isArray(resData.painPoints) ? resData.painPoints.join(', ') : (resData.painPoints || ""),
-                        masterWebsitePrompt: masterPrompt || researchRaw, // Blueprint dewa
+                        styleDNA: resData.styleDNA || "",
+                        masterWebsitePrompt: masterPrompt || researchRaw,
                         status: 'ENRICHED',
-                        isPro: modelType !== 'gemini',
-                        lastLog: `Success: Double-Step via ${modelType.toUpperCase()}`
+                        isPro: false,
+                        lastLog: `Success: Double-Step via GEMINI 3.1 PRO`
                     }
                 });
 
-                await logActivity(id, 'ENRICH', `Unified Double-Step Enriched via ${modelType.toUpperCase()}`, { model: modelType });
+                await logActivity(id, 'ENRICH', `Unified Double-Step Enriched via GEMINI 3.1 PRO`);
             } catch (e) {
                 console.error(`Error parsing JSON on ${id}:`, e);
-                // Fallback: simpan raw ke master prompt aja kalau gagal
                 await prisma.lead.update({
                     where: { id },
                     data: {
                         masterWebsitePrompt: researchRaw,
                         status: 'ENRICHED',
-                        isPro: modelType !== 'gemini',
-                        lastLog: `Fallback: Raw Enrichment via ${modelType.toUpperCase()} (JSON Parse Failed)`
+                        isPro: false,
+                        lastLog: `Fallback: Raw Enrichment via GEMINI 3.1 PRO (JSON Parse Failed)`
                     }
                 });
             }
         } catch (error: any) {
             console.error(`[Batch Enrich Error] ${id}:`, error.message);
+            try {
+                await prisma.lead.update({
+                    where: { id },
+                    data: { lastLog: `Error: ${error.message}` }
+                });
+            } catch (dbErr) {
+                console.error("Failed to log error to DB:", dbErr);
+            }
         }
     }
     
@@ -299,7 +313,7 @@ export async function batchEnrichLeads(ids: string[], modelType: 'gemini' | 'gpt
 
 // --- Website Generation (Forge) ---
 
-export async function generateForgeCode(leadId: string, isPro: boolean = false) {
+export async function generateForgeCode(leadId: string) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
 
@@ -307,21 +321,26 @@ export async function generateForgeCode(leadId: string, isPro: boolean = false) 
         const lead = await prisma.lead.findUnique({ where: { id: leadId } });
         if (!lead) throw new Error("Lead tidak ditemukan");
 
-        // Gunakan engine baru
-        const modelType = isPro ? 'gpt' : 'gemini';
-        
-        const systemPrompt = isPro 
-            ? "You are a Senior Web Architect. Forge this master prompt into a CINEMATIC luxury landing page with world-class UI/UX, smooth transitions, and high-converting copy. Use Tailwind CSS and ensure the code is production-ready."
-            : "You are a Web Designer. Create a basic functional HTML structure based on this prompt. Focus on clarity and standard layouts. Use Tailwind CSS.";
+        const systemPrompt = "You are a Senior Web Architect. Forge this master prompt into a high-converting landing page with professional UI/UX. Use Tailwind CSS and ensure the code is production-ready.";
 
-        const promptTemplate = await getEffectivePrompt(isPro ? 'PRO_FORGE_PROMPT' : 'MASTER_FORGE_PROMPT');
+        const promptTemplate = await getEffectivePrompt('MASTER_FORGE_PROMPT');
+        const forgeData = buildForgeData(lead);
         const finalPrompt = promptTemplate
+            .replace('[selectedArchetype]', forgeData.selectedArchetype)
+            .replace('[brandName]', lead.name)
             .replace('[name]', lead.name)
             .replace('[category]', lead.category)
             .replace('[phone]', lead.wa)
-            .replace('[address]', lead.address || 'Bali');
+            .replace('[address]', lead.address || 'Bali')
+            .replace('[styleDNA]', lead.styleDNA || 'Modern, Professional and Premium')
+            .replace('[industryPattern]', forgeData.industryPattern)
+            .replace('[industryStylePriority]', forgeData.industryStylePriority)
+            .replace('[industryColorMood]', forgeData.industryColorMood)
+            .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
+            .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
+            .replace('[unsplashQueries]', forgeData.unsplashQueries);
 
-        const htmlContent = await callKieAI(systemPrompt + "\n\n" + finalPrompt, modelType);
+        const htmlContent = await callKieAI(systemPrompt + "\n\n" + finalPrompt);
         
         if (!htmlContent || htmlContent.length < 500) throw new Error("Output AI korup atau terlalu pendek.");
 
@@ -333,8 +352,8 @@ export async function generateForgeCode(leadId: string, isPro: boolean = false) 
             data: {
                 htmlCode: cleanHtml,
                 status: 'LIVE',
-                isPro: isPro,
-                lastLog: `Success via ${modelType} at ${new Date().toISOString()}`
+                isPro: false,
+                lastLog: `Success via GEMINI 3.1 PRO at ${new Date().toISOString()}`
             }
         });
 
@@ -387,7 +406,7 @@ export async function tweakLeadStyle(leadId: string, styleId: string, instructio
             }))
             .replace("[instructions]", instructions || "Refine the overall design to be more professional and polished.");
 
-        const aiResponse = await callKieAI("Return JSON. " + prompt, 'gemini');
+        const aiResponse = await callKieAI("Return JSON. " + prompt);
         
         if (!aiResponse) throw new Error("AI Re-generation failed");
         
@@ -409,8 +428,7 @@ export async function tweakLeadStyle(leadId: string, styleId: string, instructio
         });
 
         await logActivity(leadId, 'TWEAK', `Design refined with style: ${styleDNA.name}`, { 
-            styleId, 
-            model: "gemini"
+            styleId
         });
 
         revalidatePath('/dashboard/live');
@@ -420,6 +438,79 @@ export async function tweakLeadStyle(leadId: string, styleId: string, instructio
     } catch (error: any) {
         console.error('Tweak Error:', error);
         return { success: false, message: error.message || 'Tweak failed' };
+    }
+}
+
+export async function tweakLeadStyleStrict(leadId: string, styleId: string, instructions?: string, previewOnly: boolean = false) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return { success: false, message: 'Lead not found' };
+
+    try {
+        let styleDNA = null;
+        if (styleId) {
+            styleDNA = await getStyleDNA(styleId);
+        }
+
+        const fullAddress = `${lead.address}, ${lead.city}, ${lead.province}`;
+        
+        let enforcementConstraint = `CRITICAL ENFORCEMENT: MAINTAIN EXACT HTML DOM STRUCTURE, SAME IMAGE URLS, SAME SECTION ORDER. DO NOT REMOVE OR CHANGE ANY <img> TAGS OR BACKGROUND-IMAGE CSS. ONLY modify Tailwind utility classes (bg-colors, text-colors, fonts, shadow, border radius, paddings) to match the new Style DNA. DO NOT CHANGE CONTENT OR LAYOUT.`;
+        
+        if (instructions && instructions.trim() !== '') {
+            enforcementConstraint = `USER OVERRIDE OVERHAUL ALLOWED: ${instructions}. You may now change structure or content based exclusively on this specific instruction.`;
+        }
+
+        const prompt = STRICT_STYLE_TWEAK_PROMPT
+            .replace("[name]", lead.name)
+            .replace("[category]", lead.category)
+            .replace("[currentHtml]", lead.htmlCode || '')
+            .replace("[stylingDetails]", styleDNA ? JSON.stringify({
+                colorPalette: styleDNA.colorPalette,
+                typography: styleDNA.typography,
+                buttonStyles: styleDNA.buttonStyles,
+                cardStyles: styleDNA.cardStyles,
+            }) : "KEEP CURRENT STYLING - ONLY APPLY THE MANUAL OVERRIDES BELOW")
+            .replace("[instructions]", enforcementConstraint);
+
+        const aiResponse = await callKieAI(prompt);
+        
+        if (!aiResponse) throw new Error("AI Re-generation failed");
+        
+        // Extract HTML from markdown if present
+        let htmlCode = aiResponse.trim();
+        if (htmlCode.includes('```html')) {
+            htmlCode = htmlCode.split('```html')[1].split('```')[0].trim();
+        } else if (htmlCode.includes('```')) {
+            htmlCode = htmlCode.split('```')[1].split('```')[0].trim();
+        }
+
+        if (!htmlCode || htmlCode.length < 10) {
+            throw new Error("AI failed to generate valid HTML code.");
+        }
+
+        if (!previewOnly) {
+            await prisma.lead.update({
+                where: { id: leadId },
+                data: { 
+                    selectedStyle: styleId || lead.selectedStyle, 
+                    htmlCode
+                }
+            });
+
+            await logActivity(leadId, 'TWEAK_STRICT', `Strict Design tweak with style: ${styleDNA ? styleDNA.name : 'Custom Overrides'}`, { 
+                styleId
+            });
+
+            revalidatePath('/dashboard/live');
+            revalidatePath(`/${lead.slug || lead.id}`);
+        }
+        
+        return { success: true, htmlCode };
+    } catch (error: any) {
+        console.error('Strict Tweak Error:', error);
+        return { success: false, message: error.message || 'Strict Tweak failed' };
     }
 }
 
@@ -449,8 +540,8 @@ export async function refineLeadStyle(leadId: string, styleId: string) {
             .replace('[masterWebsitePrompt]', lead.masterWebsitePrompt || '')
             .replace('[styleConfig]', JSON.stringify(selectedModel));
 
-        // 3. Panggil Kie.ai (Cukup pake Gemini-3-Flash biar irit, karena cuma hasilin teks)
-        const refinedBlueprint = await callKieAI(finalPrompt, 'gemini');
+        // 3. Panggil Kie.ai
+        const refinedBlueprint = await callKieAI(finalPrompt);
 
         if (!refinedBlueprint) throw new Error("AI failed to refine blueprint");
 
@@ -481,7 +572,7 @@ export async function getRegionalAdvice(province: string, city: string, category
             .replace("[city]", city)
             .replace("[province]", province);
 
-        const aiResponse = await callKieAI("Return JSON. " + prompt, 'gemini');
+        const aiResponse = await callKieAI("Return JSON. " + prompt);
         
         if (aiResponse) return JSON.parse(aiResponse.replace(/```json/g, '').replace(/```/g, '').trim());
         return null;
@@ -517,4 +608,43 @@ export async function getTop3Styles(category: string) {
 
 export async function getRecommendedStyles(category: string) {
     return getTop3Styles(category);
+}
+
+export async function generateOutreachDraft(leadId: string, persona: string = 'professional') {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, message: 'Unauthorized' };
+
+    try {
+        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) throw new Error("Lead not found");
+
+        const personaDefinition = OUTREACH_PERSONAS[persona] || OUTREACH_PERSONAS['professional'];
+
+        // Pakai variabel yang sudah ada dari hasil Enrichment
+        const finalPrompt = OUTREACH_GENERATOR_PROMPT
+            .replace('[persona_definition]', personaDefinition)
+            .replace('[category]', lead.category)
+            .replace('{{name}}', lead.name)
+            .replace('[category]', lead.category)
+            .replace('{{pain_points}}', lead.painPoints || 'Kurangnya identitas digital yang kuat')
+            .replace('{{idea}}', lead.masterWebsitePrompt || 'Landing page premium')
+            .replace('{{link}}', `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`);
+
+        const draft = await callKieAI(finalPrompt);
+
+        if (!draft) throw new Error("AI failed to generate draft");
+
+        // SIMPAN KE DB
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: { outreachDraft: draft }
+        });
+
+        revalidatePath('/leads');
+        revalidatePath('/dashboard/leads');
+        return { success: true, draft };
+    } catch (error: any) {
+        console.error("[Outreach Error]:", error.message);
+        return { success: false, message: error.message };
+    }
 }

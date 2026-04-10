@@ -6,10 +6,16 @@ import {
     Trash2, Building2, MapPin, ChevronDown,
     Search, Square, CheckSquare, Sparkles, X, AlertTriangle,
     Check, Copy, Image as ImageIcon, Lightbulb, Settings2, Sliders, ChevronRight,
-    Download, CircleDashed, Code2
+    Download, CircleDashed, Code2, Navigation
 } from 'lucide-react';
 import { batchEnrichLeads, getStyleModels } from '@/lib/actions/ai';
-import { deleteLeads, getLeads, getLeadsCount, getUniqueCategories } from '@/lib/actions/lead';
+import { 
+    deleteLeads, 
+    getLeads, 
+    getLeadsCount, 
+    getUniqueCategories,
+    getUniqueCities
+} from '@/lib/actions/lead';
 import { generateWaLink } from '@/lib/actions/settings';
 import { isValidWhatsApp } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -73,8 +79,6 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
     const [isLoading, setIsLoading] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [currentStage, setCurrentStage] = useState(0);
-    const [isProMode, setIsProMode] = useState(false);
-    const [proModel, setProModel] = useState<'gpt' | 'claude'>('gpt');
 
     const stages = [
         "Initializing Kie.ai Engine...",
@@ -100,6 +104,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
     // Filter States
     const [filterCategory, setFilterCategory] = useState('ALL CATEGORIES');
     const [filterStatus, setFilterStatus] = useState<'FRESH' | 'ENRICHED' | 'LIVE'>(forceStatus as any || 'FRESH');
+    const [filterCity, setFilterCity] = useState('ALL CITIES');
     const activeTab = filterStatus; // Alias for consistency with requested logic
     const setActiveTab = setFilterStatus; // Alias for consistency
     const [searchTerm, setSearchTerm] = useState('');
@@ -116,6 +121,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
     const [forgeModalOpen, setForgeModalOpen] = useState(false);
     const [forgeLead, setForgeLead] = useState<Lead | null>(null);
     const [dynamicCategories, setDynamicCategories] = useState<string[]>(['ALL CATEGORIES']);
+    const [dynamicCities, setDynamicCities] = useState<string[]>(['ALL CITIES']);
 
     const [view, setView] = useState<'grid' | 'table'>(forceStatus === 'ENRICHED' ? 'grid' : 'table');
 
@@ -198,13 +204,15 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                     status, 
                     category, 
                     search: searchTerm, 
+                    city: filterCity === 'ALL CITIES' ? undefined : filterCity,
                     page, 
                     pageSize 
                 }),
                 getLeadsCount({ 
                     status, 
                     category, 
-                    search: searchTerm 
+                    search: searchTerm,
+                    city: filterCity === 'ALL CITIES' ? undefined : filterCity,
                 })
             ]);
             
@@ -223,7 +231,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
         } else {
             fetchData();
         }
-    }, [page, filterCategory, filterStatus, searchTerm, forceStatus]); 
+    }, [page, filterCategory, filterStatus, searchTerm, filterCity, forceStatus]); 
 
     useEffect(() => {
         // JANGAN GANTI TAB JIKA MODAL EDIT ATAU DETAIL SEDANG TERBUKA
@@ -236,19 +244,21 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
 
     useEffect(() => {
         const loadInitialData = async () => {
-            const [styles, categories] = await Promise.all([
+            const [styles, categories, citiesList] = await Promise.all([
                 getStyleModels(),
-                getUniqueCategories()
+                getUniqueCategories(filterStatus),
+                getUniqueCities(filterStatus)
             ]);
             if (styles) setAllStyles(styles);
             if (categories) {
-                // Strictly use database categories + default option
-                const merged = Array.from(new Set(['ALL CATEGORIES', ...categories]));
-                setDynamicCategories(merged);
+                setDynamicCategories(['ALL CATEGORIES', ...categories]);
+            }
+            if (citiesList) {
+                setDynamicCities(['ALL CITIES', ...citiesList]);
             }
         };
         loadInitialData();
-    }, []);
+    }, [filterStatus]);
 
 
 
@@ -257,17 +267,14 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
 
     const handleBatchEnrich = async () => {
         setProcessing(true);
-        // Tentukan model berdasarkan toggle & dropdown
-        const selectedModel = isProMode ? proModel : 'gemini'; 
-        
         // Panggil Action-nya
-        await batchEnrichLeads(selectedIds, selectedModel);
+        await batchEnrichLeads(selectedIds);
         
         setProcessing(false);
         setSelectedIds([]);
     };
 
-    const handleBatchForge = async (isPro: boolean = false) => {
+    const handleBatchForge = async () => {
         if (selectedIds.length === 0) return;
         
         setProcessing(true);
@@ -279,7 +286,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
             const { generateForgeCode } = await import('@/lib/actions/ai');
             
             for (const id of selectedIds) {
-                const res = await generateForgeCode(id, isPro);
+                const res = await generateForgeCode(id);
                 if (!res.success) {
                     // Tampilkan notifikasi error (toast) agar kamu tahu kenapa gagal
                     alert(`Gagal Forge: ${res.message}`); 
@@ -367,7 +374,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                 <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-6 py-3 rounded-2xl">
                     <div className="flex flex-col items-end">
                         <span className="text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Total</span>
-                        <span className="text-xl font-mono font-bold text-accent-gold">{leads.length}</span>
+                        <span className="text-xl font-mono font-bold text-accent-gold">{totalLeads}</span>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="flex flex-col items-end">
@@ -409,22 +416,24 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
                         </div>
 
-                        {!forceStatus && (
-                            <div className="relative group/status min-w-[140px] shrink-0">
-                                <CircleDashed size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/status:text-accent-gold transition-colors" />
-                                <select 
-                                    value={filterStatus}
-                                    onChange={(e) => {
-                                        setFilterStatus(e.target.value as any);
-                                        setPage(1);
-                                    }}
-                                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none outline-none focus:border-accent-gold/40 transition-all text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white cursor-pointer"
-                                >
-                                    {STATUS_FILTERS.map(s => <option key={s} value={s} className="bg-zinc-950">{s}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
-                            </div>
-                        )}
+                        <div className="relative group/city min-w-[160px] shrink-0">
+                            <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/city:text-accent-gold transition-colors" />
+                            <select 
+                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                value={filterCity}
+                                onChange={(e) => {
+                                    setFilterCity(e.target.value);
+                                    setPage(1);
+                                }}
+                            >
+                                {dynamicCities.map(city => (
+                                    <option key={city} value={city} className="bg-zinc-950">{city}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                        </div>
+
+
                     </div>
                 </div>
             </div>
@@ -619,12 +628,14 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                                                         <span className="text-[10px] font-black text-white/70 uppercase tracking-widest">Edit Page</span>
                                                                     </button>
                                                                  )}
-                                                                 <button 
-                                                                     onClick={(e) => { e.stopPropagation(); handleGenerateWaLink(lead.id); }}
-                                                                    className="flex items-center justify-center w-12 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 rounded-xl transition-all"
-                                                                >
-                                                                    <Phone size={12} className="text-green-500" />
-                                                                </button>
+                                                                 {lead.status !== 'LIVE' && (
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); handleGenerateWaLink(lead.id); }}
+                                                                        className="flex items-center justify-center w-12 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 rounded-xl transition-all"
+                                                                    >
+                                                                        <Phone size={12} className="text-green-500" />
+                                                                    </button>
+                                                                 )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -863,36 +874,13 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
 
                         <div className="h-8 w-[1px] bg-white/10 mx-1" />
 
-                        {/* TOGGLE PRO: HANYA DI TAB FRESH */}
-                        {filterStatus === 'FRESH' && (
-                            <div className="flex items-center gap-2 px-4 h-12 bg-white/5 rounded-xl border border-white/5">
-                                <div 
-                                    className={`relative inline-flex h-5 w-9 items-center rounded-full cursor-pointer transition-colors ${isProMode ? 'bg-accent-gold' : 'bg-zinc-700'}`}
-                                    onClick={() => setIsProMode(!isProMode)}
-                                >
-                                    <div className={`h-3 w-3 rounded-full bg-white transition-transform ${isProMode ? 'translate-x-5' : 'translate-x-1'}`} />
-                                </div>
-                                {isProMode && (
-                                    <select 
-                                        value={proModel} 
-                                        onChange={(e) => setProModel(e.target.value as any)}
-                                        className="bg-transparent text-[10px] font-black text-accent-gold outline-none border-l border-white/10 pl-2 ml-1 cursor-pointer"
-                                    >
-                                        <option value="gpt" className="bg-zinc-900">GPT 5.2</option>
-                                        <option value="claude" className="bg-zinc-900">CLAUDE</option>
-                                    </select>
-                                )}
-                                {!isProMode && <span className="text-[10px] font-black text-zinc-500 ml-1 uppercase">STD</span>}
-                            </div>
-                        )}
-
                         {/* ACTION BUTTON */}
                         <button 
                             onClick={() => {
                                 if (filterStatus === 'FRESH') {
                                     handleBatchEnrich();
                                 } else {
-                                    handleBatchForge(false);
+                                    handleBatchForge();
                                 }
                             }}
                             disabled={processing}

@@ -5,12 +5,11 @@ import { getSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import * as DEFAULTS from '@/lib/prompts';
 
-export type PromptName = 'MASTER_FORGE_PROMPT' | 'ENRICHMENT_PROMPT' | 'PRO_FORGE_PROMPT';
+export type PromptName = 'MASTER_FORGE_PROMPT' | 'ENRICHMENT_PROMPT';
 
 const PROMPT_LABELS: Record<PromptName, string> = {
     MASTER_FORGE_PROMPT: 'Master Website (Forge)',
     ENRICHMENT_PROMPT: 'Lead Enrichment',
-    PRO_FORGE_PROMPT: 'Pro Website (Forge)',
 };
 
 const LOGICAL_LOCK_PREFIX = "MANDATORY: Bahasa Indonesia & Cinematic Hero\n\n";
@@ -75,7 +74,7 @@ export async function resetSystemPrompt(name: PromptName) {
  */
 export async function getCurrentPromptStates() {
     const dbPrompts = await prisma.systemPrompt.findMany();
-    const names: PromptName[] = ['MASTER_FORGE_PROMPT', 'ENRICHMENT_PROMPT', 'PRO_FORGE_PROMPT'];
+    const names: PromptName[] = ['MASTER_FORGE_PROMPT', 'ENRICHMENT_PROMPT'];
 
     const states: Record<string, { current: string; isOverride: boolean; default: string; label: string }> = {};
 

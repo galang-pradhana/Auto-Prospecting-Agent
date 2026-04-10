@@ -23,7 +23,6 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
     const [activeTab, setActiveTab] = useState<'manual' | 'ai'>('manual');
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [isPro, setIsPro] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     const showMessage = (type: 'success' | 'error', text: string) => {
@@ -56,7 +55,7 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
     const handleGenerate = async () => {
         setIsGenerating(true);
         try {
-            const result = await generateForgeCode(lead.id, isPro);
+            const result = await generateForgeCode(lead.id);
             if (result.success && result.html) {
                 setHtmlCode(result.html);
                 setActiveTab('manual');
@@ -154,20 +153,12 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-3 px-6 py-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl transition-all hover:bg-orange-500/20 cursor-pointer" onClick={() => setIsPro(!isPro)}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={isPro}
-                                        onChange={(e) => setIsPro(e.target.checked)}
-                                        className="w-5 h-5 rounded appearance-none border border-orange-500/50 checked:bg-orange-500 checked:border-orange-500 transition-colors relative after:content-[''] after:absolute after:hidden checked:after:block after:w-1.5 after:h-2.5 after:border-r-2 after:border-b-2 after:border-black after:rotate-45 after:left-[6px] after:top-[2px]"
-                                    />
-                                    <span className="text-xs font-black uppercase tracking-widest text-orange-400 select-none">💎 LUXURY PRO FORGE (GPT-5.2)</span>
-                                </div>
+
 
                                 <button 
                                     onClick={handleGenerate}
                                     disabled={isGenerating}
-                                    className={`px-10 py-5 ${isPro ? 'bg-orange-600 hover:bg-orange-500 shadow-[0_10px_40px_rgba(234,88,12,0.4)] text-black' : 'bg-zinc-800 hover:bg-zinc-700 shadow-xl text-white'} disabled:opacity-50 font-black rounded-2xl flex items-center gap-3 transition-all active:scale-95 uppercase text-xs tracking-widest`}
+                                    className="px-10 py-5 bg-orange-600 hover:bg-orange-500 shadow-[0_10px_40px_rgba(234,88,12,0.4)] text-black disabled:opacity-50 font-black rounded-2xl flex items-center gap-3 transition-all active:scale-95 uppercase text-xs tracking-widest"
                                 >
                                     {isGenerating ? (
                                         <>

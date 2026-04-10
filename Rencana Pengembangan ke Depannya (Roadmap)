@@ -1,0 +1,8 @@
+ Rencana Pengembangan ke Depannya (Roadmap)
+Untuk membawa aplikasi ini ke standar sistem otomatisasi tingkat Enterprise, berikut adalah beberapa hal yang bisa kita garap ke depannya:
+
+AI Design Tweaking (Dynamic Micro-Edits): Kita sudah punya file DesignTweakerModal.tsx. Ke depannya, ini bisa kita buat sepenuhnya adaptif di mana staf penjual (atau Anda pribadi) bisa memberitahu AI: "Ganti warnanya jadi lebih mencolok layaknya e-commerce." dan engine The Forge memperbaiki desainnya secara real-time sebelum dikirim melalui WA.
+Sistem Rantai Respons (Smart Follow-Up Flow): Bukan sekedar 1 kali kirim pesan (Send WA action). Kita dapat merancang aplikasi ini agar mengotomatiskan kiriman balasan atau pelacakan otomatis (H+3, H+7) apabila prospek klien telah mengunjungi URL Live Sites namun belum membeli.
+Pelacakan Analitik "Live Sites" (Behavior Analytics): Menambahkan pelacak (tracker) internal pada situs-situs prospek yang di-generate. Jika calon pelanggan menekan tombol tertentu atau melihat halaman lebih dari 10 detik, notifikasi ditarik masuk ke Dashboard.
+Ekspansi Multi-Scraper Source: Melebarkan Google Maps Scraper mencakup sumber-sumber lainnya seperti data LinkedIn bisnis lokal, Instagram Ads Library, atau Yelp, agar corong (funnel) leads tidak pernah kering.
+Audit Visual Multi-modal (Logo & Web Scraping): Jika suatu prospek sudah memiliki website lama yang usang, bot kita dapat men-scrape dan mengambil tangkapan layarnya (screenshot). AI Multi-modal dapat menganalisis kelemahannya untuk dijadikan amunisi argumen saat template WA/penawaran dibuat (e.g., "Saya lihat website Anda kurang mobile friendly...").

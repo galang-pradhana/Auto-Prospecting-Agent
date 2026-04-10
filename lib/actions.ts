@@ -22,7 +22,8 @@ export {
 export { 
     runScraper, 
     checkScraperHealth, 
-    repairScraperPermissions 
+    repairScraperPermissions,
+    stopScraper
 } from './actions/scraper';
 
 export { enrichLead, batchEnrichLeads, generateForgeCode, getKieCredit } from './actions/ai';

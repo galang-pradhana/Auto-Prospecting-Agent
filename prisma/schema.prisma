@@ -27,7 +27,7 @@ model Lead {
   masterWebsitePrompt String?  @db.Text
   id                  String        @id @default(cuid())
   name                String
-  wa                  String        @unique
+  wa                  String?       @unique
   category            String
   province            String        @default("")
   city                String        @default("")
@@ -35,6 +35,7 @@ model Lead {
   rating              Float         @default(0)
   website             String        @default("N/A")
   mapsUrl             String?
+  ig                  String?
   reviews             Json          @default("[]")
   status              LeadStatus    @default(FRESH)
   isPro               Boolean       @default(false)
@@ -52,6 +53,8 @@ model Lead {
   selectedStyle       String?
   htmlCode            String?  @db.Text
   slug                String?       @unique
+  outreachDraft       String?  @db.Text  // Simpan draf pesan di sini
+  styleDNA            String?  @db.Text
   logs                ActivityLog[]
   user                User          @relation(fields: [userId], references: [id])
 

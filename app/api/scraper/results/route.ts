@@ -27,31 +27,14 @@ export async function GET(req: NextRequest) {
             take: 100
         });
 
-        // Fetch Sandbox Leads
-        const sandbox = await prisma.leadSandbox.findMany({
-            where: {
-                userId: session.userId
-            },
-            select: {
-                id: true,
-                name: true,
-                wa: true,
-                category: true,
-                address: true,
-                reason: true, // Include the reason for quarantine
-                createdAt: true,
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 100
-        });
+        // Unified results (only from Lead table now)
+        const finalResults = leads.map(l => ({ 
+            ...l, 
+            destination: 'LEAD', 
+            reason: null 
+        }));
 
-        // Unified results with destination property
-        const unifiedResults = [
-            ...leads.map(l => ({ ...l, destination: 'LEAD', reason: null })),
-            ...sandbox.map(s => ({ ...s, destination: 'SANDBOX' }))
-        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-        return NextResponse.json(unifiedResults.slice(0, 100));
+        return NextResponse.json(finalResults);
     } catch (error) {
         console.error("[API Scraper Results Error]:", error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

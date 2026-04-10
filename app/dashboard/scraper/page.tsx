@@ -8,11 +8,12 @@ import {
     Sparkles, ChevronDown, X, RefreshCcw, ChevronsUpDown, Check, Circle, AlertTriangle
 } from 'lucide-react';
 import { 
-    runScraper, checkScraperHealth, repairScraperPermissions
+    runScraper, checkScraperHealth, repairScraperPermissions, stopScraper
 } from '@/lib/actions/scraper';
 import { getRegionalAdvice } from '@/lib/actions/ai';
 import { getProvinces, getCities, getDistricts } from '@/lib/actions/lead';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 const CATEGORIES = [
     'Barber shop', 'Cafe', 'Coffee shop', 'Dental Clinic', 'Gym',
@@ -21,6 +22,7 @@ const CATEGORIES = [
     'Law Firm', 'Interior Design', 'Wedding Organizer',
     'Pet Shop', 'Laundry Service', 'Photography Studio'
 ];
+
 
 // Searchable Combobox Component
 function SearchCombobox({ value, onChange, options, placeholder }: {
@@ -132,7 +134,16 @@ function SearchCombobox({ value, onChange, options, placeholder }: {
 }
 
 export default function ScraperPage() {
-    const [loading, setLoading] = useState(false);
+    const [isScraping, setIsScraping] = useState(false);
+    const [step, setStep] = useState(0);
+    const scraperStages = [
+        "Initializing Gravity Engine...",
+        "Bypassing Google Maps Rate Limits...",
+        "Extracting High-Potential Leads...",
+        "Filtering Businesses without Websites...",
+        "Injecting verified leads to Database...",
+        "Finalizing batch synchronization..."
+    ];
     const [provinces, setProvinces] = useState<string[]>([]);
     const [cities, setCities] = useState<string[]>([]);
     const [districts, setDistricts] = useState<string[]>([]);
@@ -144,7 +155,26 @@ export default function ScraperPage() {
     const [results, setResults] = useState<any[]>([]);
     const [fetchingDistricts, setFetchingDistricts] = useState(false);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
-    const [stats, setStats] = useState({ new: 0, duplicate: 0, fresh: 0, aiRejected: 0 });
+    const [stats, setStats] = useState({ new: 0, aiRejected: 0, processed: 0 });
+    const [isDone, setIsDone] = useState(false);
+    const [sessionStats, setSessionStats] = useState<any>(null);
+    const [coords, setCoords] = useState<{lat: string, lng: string} | null>(null);
+    const [isStopping, setIsStopping] = useState(false);
+    const [showStopConfirm, setShowStopConfirm] = useState(false);
+    const [currentRadius, setCurrentRadius] = useState<number | null>(null);
+    const SCRAPE_LIMIT = 15; // Defining a constant for progress calculation
+
+    // Tambahkan useEffect ini buat simulasi pergerakan bar
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (isScraping) {
+            setStep(0);
+            interval = setInterval(() => {
+                setStep((prev) => (prev < scraperStages.length - 1 ? prev + 1 : prev));
+            }, 5000); // Gerak tiap 5 detik
+        }
+        return () => clearInterval(interval);
+    }, [isScraping]);
 
     // Health State
     const [health, setHealth] = useState<any>(null);
@@ -190,6 +220,23 @@ export default function ScraperPage() {
         loadDistricts();
     }, [selectedProvince, selectedCity]);
 
+    // Geo-Lock: Update coordinates on location change (Dynamic Import for optimized loading)
+    useEffect(() => {
+        const fetchCoords = async () => {
+            if (selectedCity) {
+                const { getCoordinates } = await import('@/lib/actions/lead');
+                const res = await getCoordinates(selectedCity, selectedDistrict || '');
+                if (res) {
+                    console.log(`[Geo-Lock] Region Lock Activated: ${res.lat}, ${res.lng}`);
+                    setCoords(res);
+                } else {
+                    setCoords(null);
+                }
+            }
+        };
+        fetchCoords();
+    }, [selectedCity, selectedDistrict]);
+
     // Health Polling
     useEffect(() => {
         const updateHealth = async () => {
@@ -212,9 +259,9 @@ export default function ScraperPage() {
                 const res = await fetch('/api/scraper/results');
                 if (res.ok) {
                     const latest: any[] = await res.json();
-                    // Filter by session start time if active
+                    // Filter by session start time if active (with 10s buffer for server/client sync)
                     const filtered = sessionStartTime 
-                        ? latest.filter(l => new Date(l.createdAt).getTime() > sessionStartTime)
+                        ? latest.filter(l => new Date(l.createdAt).getTime() > (sessionStartTime - 10000))
                         : latest;
                     setResults(filtered);
                 }
@@ -233,44 +280,62 @@ export default function ScraperPage() {
     }, [sessionStartTime]);
 
     const handleScrape = async () => {
+        setIsScraping(true);
+        setStep(0);
         setResults([]);
         setSessionStartTime(Date.now());
-        setLoading(true);
+        setIsDone(false);
+        setSessionStats(null);
+        setCurrentRadius(null); // Reset radius
+        setStats({ new: 0, aiRejected: 0, processed: 0 }); // Reset stats dashboard
 
         if (health && !health.browserReady) {
-            alert(health.message);
-            setLoading(false);
+            toast.error(health.message);
+            setIsScraping(false);
             return;
         }
-        try {
-            // Refined surgical keyword
-            const keyword = selectedDistrict
-                ? `${selectedCategory} in ${selectedDistrict}, ${selectedCity}, ${selectedProvince}`
-                : `${selectedCategory} in ${selectedCity}, ${selectedProvince}`;
 
+        let success = false;
+        try {
             const result = await runScraper(
-                keyword,
-                10,
-                0,
-                5,
-                false,
-                25000, // radius meter
-                false,
                 selectedCategory,
-                selectedCity,
                 selectedProvince,
-                includeDistricts,
-                selectedDistrict
+                selectedCity,
+                selectedDistrict || "",
+                coords?.lat,
+                coords?.lng
             );
 
-            if (!(result as any).success) {
-                throw new Error((result as any).message || 'Scraper failed to start');
+            if (result.success) {
+                success = true;
+                setStats(result.stats);
+                setSessionStats(result.stats); 
+                setIsDone(true); 
+                toast.success("Scraper Finished!");
             }
-            alert('Surgical scraping initiated! Watch the live results below.');
-        } catch (error: any) {
-            alert(`Scraper Error: ${error.message}`);
+        } catch (error) {
+            toast.error("Koneksi terputus (Timeout), tapi cek database lu. Biasanya data tetep masuk.");
         } finally {
-            setLoading(false);
+            setIsScraping(false);
+            if (!success) {
+                setStep(scraperStages.length - 1);
+            }
+        }
+    };
+
+    const handleStop = async () => {
+        setIsStopping(true);
+        try {
+            const res = await stopScraper();
+            if (res.success) {
+                toast.success(res.message);
+                setIsScraping(false);
+                setShowStopConfirm(false);
+            }
+        } catch (e) {
+            toast.error("Failed to stop scraper");
+        } finally {
+            setIsStopping(false);
         }
     };
 
@@ -346,7 +411,7 @@ export default function ScraperPage() {
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                             <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Fresh in DB</span>
-                            <span className="font-mono text-zinc-100 font-bold">{stats.fresh}</span>
+                            <span className="font-mono text-zinc-100 font-bold">{stats.new}</span>
                         </div>
                         <div className="w-px h-4 bg-white/10" />
                         <div className="flex items-center gap-2">
@@ -407,20 +472,116 @@ export default function ScraperPage() {
 
                     <button
                         type="submit"
-                        disabled={loading || (health && !health.browserReady)}
+                        disabled={isScraping || (health && !health.browserReady)}
                         className="md:col-span-1 lg:col-span-1 h-[60px] w-full bg-white text-black font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-accent-gold transition-all shadow-2xl disabled:opacity-50 text-sm uppercase tracking-tighter"
                     >
-                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                        {isScraping ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
                         Launch
                     </button>
                 </form>
+
+                {/* PROGRESS UI */}
+                {(isScraping || isDone) && (
+                    <div className={`mt-8 mb-8 p-6 border rounded-2xl space-y-4 shadow-2xl animate-in fade-in slide-in-from-bottom-4 transition-all duration-500 ${isDone ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-zinc-950 border-white/5'}`}>
+                        <div className="flex justify-between items-end">
+                            <div className="space-y-1">
+                                <p className={`text-[10px] font-black uppercase tracking-widest ${isDone ? 'text-emerald-400' : 'text-accent-gold'}`}>
+                                    {isDone ? 'Mission Accomplished' : 'Process Status'}
+                                </p>
+                                <AnimatePresence mode="wait">
+                                    <motion.p
+                                        key={isDone ? 'done' : step}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
+                                        className="text-xs font-bold text-zinc-300 italic flex items-center gap-2"
+                                    >
+                                        {isDone ? (
+                                            <>
+                                                <CheckCircle2 size={14} className="text-emerald-400" />
+                                                Data synchronization complete and verified.
+                                            </>
+                                        ) : scraperStages[step]}
+                                    </motion.p>
+                                </AnimatePresence>
+                            </div>
+                            <p className="text-[10px] font-mono text-zinc-500 flex items-center gap-4">
+                                {isScraping && !isDone && (
+                                    <div className="flex items-center gap-2">
+                                        {!showStopConfirm ? (
+                                            <button 
+                                                type="button"
+                                                onClick={() => setShowStopConfirm(true)}
+                                                className="text-[9px] font-black uppercase text-red-500/60 hover:text-red-500 transition-colors border border-red-500/20 px-2 py-0.5 rounded-md bg-red-500/5 hover:bg-red-500/10"
+                                            >
+                                                Force Stop
+                                            </button>
+                                        ) : (
+                                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                                                <span className="text-[9px] font-black text-red-500 uppercase">Yakin?</span>
+                                                <button 
+                                                    type="button"
+                                                    onClick={handleStop}
+                                                    className="px-2 py-0.5 bg-red-600 text-white text-[9px] font-black rounded-md hover:bg-red-700 transition-all"
+                                                    disabled={isStopping}
+                                                >
+                                                    {isStopping ? '...' : 'YA'}
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setShowStopConfirm(false)}
+                                                    className="px-2 py-0.5 bg-zinc-800 text-zinc-400 text-[9px] font-black rounded-md hover:text-white transition-all"
+                                                >
+                                                    BATAL
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <span>{isDone ? '100' : Math.min(99, Math.max(Math.round(((step + 1) / scraperStages.length) * 50) + Math.round((results.length / SCRAPE_LIMIT) * 50), 1))}%</span>
+                            </p>
+                        </div>
+
+                        {/* PROGRESS BAR TRACK */}
+                        <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-white/5">
+                            <motion.div 
+                                className={`h-full shadow-[0_0_15px_rgba(255,255,255,0.1)] transition-all duration-700 ${isDone ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-accent-gold to-white shadow-accent-gold/20'}`}
+                                initial={{ width: "0%" }}
+                                animate={{ width: isScraping ? "98%" : "100%" }} // Jalan pelan ke 98%, loncat ke 100% pas beres
+                                transition={{ duration: 60, ease: "linear" }} // Kasih waktu lebih lama (60 detik)
+                            />
+                        </div>
+
+                        {isDone && sessionStats && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="grid grid-cols-3 gap-4 pt-2 border-t border-emerald-500/10"
+                            >
+                                <div className="text-center">
+                                    <p className="text-[9px] font-black text-zinc-500 uppercase">Processed</p>
+                                    <p className="text-lg font-black text-emerald-400">{sessionStats.processed || 0}</p>
+                                </div>
+                                <div className="text-center border-l border-emerald-500/10">
+                                    <p className="text-[9px] font-black text-zinc-500 uppercase">New Leads</p>
+                                    <p className="text-lg font-black text-emerald-400">{sessionStats.new || 0}</p>
+                                </div>
+                                <div className="text-center border-l border-emerald-500/10">
+                                    <p className="text-[9px] font-black text-zinc-500 uppercase">AI Rejected</p>
+                                    <p className="text-lg font-black text-red-500">{sessionStats.aiRejected || 0}</p>
+                                </div>
+                            </motion.div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="w-full">
+
                 <div className="flex flex-col bg-white border border-zinc-200 rounded-[32px] overflow-hidden shadow-2xl relative min-h-[600px]">
                     <div className="p-8 border-b border-zinc-100 flex items-center justify-between bg-white/90 backdrop-blur-xl sticky top-0 z-20">
                         <h3 className="text-xl font-black flex items-center gap-2 text-zinc-900 tracking-tighter">
-                            Scrape Results {loading && <Loader2 size={16} className="animate-spin text-accent-gold ml-2" />}
+                            Scrape Results {isScraping && <Loader2 size={16} className="animate-spin text-accent-gold ml-2" />}
                         </h3>
                         <div className="flex items-center gap-4">
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Live Analytics Feed</span>
@@ -453,12 +614,8 @@ export default function ScraperPage() {
                                             >
                                                 <td className="px-6 py-4 pl-8">
                                                     <div className="flex items-center gap-3">
-                                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter border ${
-                                                            lead.destination === 'LEAD' 
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                                                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                                                        }`}>
-                                                            {lead.destination || 'UNKNOWN'}
+                                                        <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter border bg-emerald-50 text-emerald-700 border-emerald-100">
+                                                            LEAD
                                                         </span>
                                                     </div>
                                                 </td>
@@ -482,16 +639,10 @@ export default function ScraperPage() {
                                                 </td>
                                                 <td className="px-6 py-4 pr-8 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {lead.destination === 'LEAD' ? (
-                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-lg">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                                <span className="text-[9px] font-black text-emerald-600 uppercase">High Potential</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 rounded-lg">
-                                                                <span className="text-[9px] font-black text-amber-600 uppercase">{lead.reason || "Analyzing..."}</span>
-                                                            </div>
-                                                        )}
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 rounded-lg">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            <span className="text-[9px] font-black text-emerald-600 uppercase">High Potential</span>
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </motion.tr>

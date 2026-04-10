@@ -28,8 +28,8 @@ export function isRecentLead(reviews: any[]): boolean {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const thirtySixMonthsAgo = new Date(today);
-    thirtySixMonthsAgo.setMonth(thirtySixMonthsAgo.getMonth() - 36);
+    const twentyFourMonthsAgo = new Date(today);
+    twentyFourMonthsAgo.setMonth(twentyFourMonthsAgo.getMonth() - 24);
 
     const reviewDates = reviews
         .map(r => r.When ? new Date(r.When) : null)
@@ -40,7 +40,7 @@ export function isRecentLead(reviews: any[]): boolean {
     const latestReviewDate = new Date(Math.max(...reviewDates.map(d => d.getTime())));
     latestReviewDate.setHours(0, 0, 0, 0);
     
-    return latestReviewDate >= thirtySixMonthsAgo;
+    return latestReviewDate >= twentyFourMonthsAgo;
 }
 
 export function cleanAIResponse(text: string): string {
@@ -55,4 +55,15 @@ export function slugify(text: string): string {
         .replace(/[^\w\s-]/g, '')
         .replace(/[\s_-]+/g, '-')
         .replace(/^-+|-+$/g, '');
+}
+
+export function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371; // Radius Bumi (KM)
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; 
 }
