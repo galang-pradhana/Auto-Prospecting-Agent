@@ -10,7 +10,7 @@ import {
     ImagePlus, ChevronRight, Check
 } from 'lucide-react';
 import { updateLeadHtml } from '@/lib/actions/lead';
-import { tweakLeadStyleStrict, getStyleModels } from '@/lib/actions/ai';
+import { getStyleModels } from '@/lib/actions/ai';
 
 interface EditPageModalProps {
     isOpen: boolean;

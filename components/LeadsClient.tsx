@@ -8,7 +8,7 @@ import {
     Check, Copy, Image as ImageIcon, Lightbulb, Settings2, Sliders, ChevronRight,
     Download, CircleDashed, Code2, Navigation
 } from 'lucide-react';
-import { batchEnrichLeads, getStyleModels } from '@/lib/actions/ai';
+import { getStyleModels } from '@/lib/actions/ai';
 import { 
     deleteLeads, 
     getLeads, 
