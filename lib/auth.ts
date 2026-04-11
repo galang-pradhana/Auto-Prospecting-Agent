@@ -68,7 +68,7 @@ export async function registerUser(formData: FormData) {
     const token = encodeSession(user.id);
     cookies().set(SESSION_COOKIE, token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_APP_URL?.startsWith('https'),
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7, // 7 days
         path: '/',
@@ -98,7 +98,7 @@ export async function loginUser(formData: FormData) {
     const token = encodeSession(user.id);
     cookies().set(SESSION_COOKIE, token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_APP_URL?.startsWith('https'),
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,
         path: '/',
