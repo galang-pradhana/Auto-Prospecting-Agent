@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   // Menonaktifkan lint saat build jika perlu mempercepat proses
   eslint: {
     ignoreDuringBuilds: true,
