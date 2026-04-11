@@ -14,7 +14,7 @@ export default function FollowUpQueue() {
     const fetchQueue = async () => {
         setLoading(true);
         const data = await getFollowUpQueue();
-        setQueue(data);
+        setQueue(data || []);
         setLoading(false);
     };
 
