@@ -8,28 +8,28 @@ async function main() {
   const password = '12345';
   const name = 'Admin Engine';
 
-  console.log('--- Seeding Admin User ---');
+  const qaEmail = 'qa@forge.dev';
+  const qaPassword = 'Test1234!';
+  const qaName = 'QA Tester';
 
-  const existing = await prisma.user.findUnique({
-    where: { email },
+  const existingQa = await prisma.user.findUnique({
+    where: { email: qaEmail },
   });
 
-  if (existing) {
-    console.log(`User ${email} already exists. Skipping.`);
-    return;
+  if (!existingQa) {
+    const hashedQaPassword = await bcrypt.hash(qaPassword, 12);
+    await prisma.user.create({
+      data: {
+        email: qaEmail,
+        password: hashedQaPassword,
+        name: qaName,
+      },
+    });
+    console.log(`QA user created: ${qaEmail}`);
+  } else {
+    console.log(`QA user ${qaEmail} already exists. Skipping.`);
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
-
-  const user = await prisma.user.create({
-    data: {
-      email,
-      password: hashedPassword,
-      name,
-    },
-  });
-
-  console.log(`Admin user created: ${user.email}`);
   console.log('---------------------------');
 }
 

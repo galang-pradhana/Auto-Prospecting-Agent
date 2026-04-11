@@ -325,14 +325,19 @@ export async function generateForgeCode(leadId: string) {
 
         const promptTemplate = await getEffectivePrompt('MASTER_FORGE_PROMPT');
         const forgeData = buildForgeData(lead);
+        const fullAddress = `${lead.address || 'Bali'}, ${lead.city || ''}, ${lead.province || ''}`.trim().replace(/,\s*,/g, ',');
         const finalPrompt = promptTemplate
             .replace('[selectedArchetype]', forgeData.selectedArchetype)
             .replace('[brandName]', lead.name)
             .replace('[name]', lead.name)
             .replace('[category]', lead.category)
-            .replace('[phone]', lead.wa)
+            .replace('[fullAddress]', fullAddress)   // FIX: sesuai template MASTER_FORGE_PROMPT
             .replace('[address]', lead.address || 'Bali')
+            .replace('[waLink]', `https://wa.me/${lead.wa}`)  // FIX: sesuai template
+            .replace('[phone]', lead.wa)
             .replace('[styleDNA]', lead.styleDNA || 'Modern, Professional and Premium')
+            .replace('[painPoints]', lead.painPoints || 'Kurangnya digital presence yang profesional')  // FIX
+            .replace('[resolvingIdea]', lead.resolvingIdea || 'Website premium yang konversi tinggi')    // FIX
             .replace('[industryPattern]', forgeData.industryPattern)
             .replace('[industryStylePriority]', forgeData.industryStylePriority)
             .replace('[industryColorMood]', forgeData.industryColorMood)
@@ -546,7 +551,7 @@ export async function refineLeadStyle(leadId: string, styleId: string) {
         if (!refinedBlueprint) throw new Error("AI failed to refine blueprint");
 
         // 4. Update Database (Update masterWebsitePrompt dengan blueprint baru)
-        await prisma.lead.update({
+        const updatedLead = await prisma.lead.update({
             where: { id: leadId },
             data: {
                 masterWebsitePrompt: refinedBlueprint,
@@ -558,7 +563,7 @@ export async function refineLeadStyle(leadId: string, styleId: string) {
         revalidatePath('/leads');
         revalidatePath('/dashboard/leads');
         revalidatePath('/dashboard/enriched');
-        return { success: true };
+        return { success: true, masterWebsitePrompt: refinedBlueprint, updatedLead };
     } catch (error: any) {
         console.error("[Refine Error]:", error.message);
         return { success: false, message: error.message };
@@ -628,7 +633,10 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
             .replace('[category]', lead.category)
             .replace('{{pain_points}}', lead.painPoints || 'Kurangnya identitas digital yang kuat')
             .replace('{{idea}}', lead.masterWebsitePrompt || 'Landing page premium')
-            .replace('{{link}}', `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`);
+            .replace('{{link}}', `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`)
+            .replace('{{my_business_name}}', user.businessName || '[Nama Bisnis Kamu]')
+            .replace('{{my_ig}}', user.businessIg || '[IG Kamu]')
+            .replace('{{my_wa}}', user.businessWa || '[WA Kamu]');
 
         const draft = await callKieAI(finalPrompt);
 

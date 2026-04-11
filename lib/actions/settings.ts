@@ -121,7 +121,10 @@ export async function generateWaTemplateDraft(category: string) {
             .replace("{{name}}", "[Business Name]")
             .replace("{{pain_points}}", "[Specific Pain Points]")
             .replace("{{idea}}", "[Our Proposed Solution]")
-            .replace("{{link}}", "[Preview Link]");
+            .replace("{{link}}", "[Preview Link]")
+            .replace("{{my_business_name}}", settings.businessName || "[Nama Bisnis]")
+            .replace("{{my_ig}}", settings.businessIg || "[IG Kamu]")
+            .replace("{{my_wa}}", settings.businessWa || "[WA Kamu]");
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -166,7 +169,10 @@ export async function generateWaLink(leadId: string, templateId?: string) {
                 .replace(/{{category}}/g, lead.category)
                 .replace(/{{idea}}/g, lead.resolvingIdea || 'solusi digital')
                 .replace(/{{pain_points}}/g, lead.painPoints || 'kebutuhan bisnis')
-                .replace(/{{link}}/g, `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`);
+                .replace(/{{link}}/g, `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`)
+                .replace(/{{my_business_name}}/g, (await getUserSettings())?.businessName || '')
+                .replace(/{{my_ig}}/g, (await getUserSettings())?.businessIg || '')
+                .replace(/{{my_wa}}/g, (await getUserSettings())?.businessWa || '');
         } else {
             activeTemplateName = 'AI Generated (Fallback)';
             const settings = await getUserSettings();
@@ -220,14 +226,19 @@ export async function getUserSettings() {
         select: { 
             kieAiApiKey: true, 
             byocMode: true, 
-            aiEngine: true 
+            aiEngine: true,
+            businessName: true,
+            businessIg: true,
+            businessWa: true
         }
     });
 }
 
 export async function updateUserSettings(data: { 
-    kieAiApiKey?: string, 
-    byocMode?: boolean 
+    kieAiApiKey?: string,
+    businessName?: string,
+    businessIg?: string,
+    businessWa?: string
 }) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
@@ -237,8 +248,9 @@ export async function updateUserSettings(data: {
             where: { id: session.userId },
             data: {
                 kieAiApiKey: data.kieAiApiKey,
-                byocMode: data.byocMode,
-                // aiEngine kita hapus dari sini, biarkan default di DB atau abaikan
+                businessName: data.businessName,
+                businessIg: data.businessIg,
+                businessWa: data.businessWa
             }
         });
 
@@ -328,5 +340,49 @@ export async function getAiPulseStatus() {
             pulseColor: 'bg-amber-500',
             label: 'Connection Lag',
         };
+    }
+}
+
+export async function getAiUsageHistory(page: number = 1, limit: number = 10) {
+    const session = await getSession();
+    if (!session) return { success: false, data: [], total: 0 };
+
+    try {
+        const skip = (page - 1) * limit;
+
+        const [logs, total] = await prisma.$transaction([
+            prisma.activityLog.findMany({
+                where: {
+                    action: {
+                        in: ['ENRICH', 'FORGE', 'REFORGE', 'LIVE', 'AI_REGENERATE', 'STYLE_TWEAK']
+                    }
+                },
+                include: {
+                    lead: {
+                        select: { name: true }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            }),
+            prisma.activityLog.count({
+                where: {
+                    action: {
+                        in: ['ENRICH', 'FORGE', 'REFORGE', 'LIVE', 'AI_REGENERATE', 'STYLE_TWEAK']
+                    }
+                }
+            })
+        ]);
+
+        return { 
+            success: true, 
+            data: logs, 
+            total,
+            totalPages: Math.ceil(total / limit)
+        };
+    } catch (error) {
+        console.error('Fetch AI Usage History error:', error);
+        return { success: false, data: [], total: 0 };
     }
 }

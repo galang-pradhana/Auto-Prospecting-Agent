@@ -16,7 +16,8 @@ export default function LeadsManualPage() {
         city: '',
         province: '',
         address: '',
-        website: ''
+        website: '',
+        rating: 0
     });
     
     const [existingCategories, setExistingCategories] = useState<string[]>([]);
@@ -210,6 +211,7 @@ export default function LeadsManualPage() {
                             </div>
                         </div>
 
+                        {/* Alamat Lengkap */}
                         <div className="space-y-2">
                             <label className="text-xs text-white/50 font-bold uppercase tracking-widest">Alamat Lengkap</label>
                             <textarea 
@@ -218,6 +220,24 @@ export default function LeadsManualPage() {
                                 className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-blue-500/50 outline-none transition-colors h-24 resize-none"
                                 placeholder="Detail alamat bisnis..."
                             ></textarea>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs text-white/50 font-bold uppercase tracking-widest">Rating Bisnis (0.0 - 5.0)</label>
+                            <div className="flex items-center gap-4">
+                                <input 
+                                    type="range"
+                                    min="0"
+                                    max="5"
+                                    step="0.1"
+                                    value={formData.rating} 
+                                    onChange={(e) => setFormData({...formData, rating: parseFloat(e.target.value)})}
+                                    className="flex-1 accent-blue-500"
+                                />
+                                <span className="bg-blue-500/20 text-blue-400 px-4 py-2 rounded-xl font-mono font-bold w-16 text-center border border-blue-500/30">
+                                    {formData.rating.toFixed(1)}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="pt-6 flex gap-4 border-t border-white/5">

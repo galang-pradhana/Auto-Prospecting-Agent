@@ -16,9 +16,23 @@ import (
 	"github.com/gosom/google-maps-scraper/rqueue"
 )
 
+// ProspectData contains lead information for message template rendering.
+type ProspectData struct {
+	Name         string
+	City         string
+	BusinessType string
+}
+
 // IStore defines the interface for API storage operations.
 type IStore interface {
 	ValidateAPIKey(ctx context.Context, key string) (keyID int, keyName string, err error)
+
+	// Pipeline methods
+	GetLeadByToken(ctx context.Context, token string) (leadID string, slug string, err error)
+	LogProspectEvent(ctx context.Context, leadID string, eventType string, metadata map[string]interface{}) error
+	UpdateLeadEngagement(ctx context.Context, leadID string, duration int) (qualified bool, err error)
+	UpdateFollowupQueueStatus(ctx context.Context, itemID string, status string, sentAt *time.Time) error
+	ProcessFollowups(ctx context.Context, renderFn func(int, ProspectData) string, linkFn func(string, string) string) error
 }
 
 // AppState holds dependencies for API handlers.
@@ -40,14 +54,24 @@ func Routes(r chi.Router, appState *AppState) {
 	r.Use(httpext.LoggingMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(120 * time.Second))
-	r.Use(KeyAuth(appState.Store.ValidateAPIKey))
 
-	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/health", healthCheckHandler(appState))
-		r.Post("/scrape", scrapeHandler(appState))
-		r.Get("/jobs", listJobsHandler(appState))
-		r.Get("/jobs/{job_id}", getJobHandler(appState))
-		r.Delete("/jobs/{job_id}", deleteJobHandler(appState))
+	// Public Routes
+	r.Get("/go/{token}", redirectHandler(appState))
+	r.Post("/api/track", trackHandler(appState))
+
+	// Private Routes (Protected by API Key)
+	r.Group(func(r chi.Router) {
+		r.Use(KeyAuth(appState.Store.ValidateAPIKey))
+
+		r.Route("/api/v1", func(r chi.Router) {
+			r.Get("/health", healthCheckHandler(appState))
+			r.Post("/scrape", scrapeHandler(appState))
+			r.Get("/jobs", listJobsHandler(appState))
+			r.Get("/jobs/{job_id}", getJobHandler(appState))
+			r.Delete("/jobs/{job_id}", deleteJobHandler(appState))
+		})
+
+		r.Patch("/api/followup-queue/{id}", updateQueueStatusHandler(appState))
 	})
 }
 

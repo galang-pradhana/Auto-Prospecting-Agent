@@ -24,3 +24,13 @@ queries_*.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Temp / Logs
+*.log
+scratch/
+server_logs.txt
+*.tsbuildinfo
+
+# Testing
+playwright-report/
+test-results/

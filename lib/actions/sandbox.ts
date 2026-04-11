@@ -92,7 +92,7 @@ export async function promoteToLead(id: string, correctedWa: string) {
             // Log activity
             await tx.activityLog.create({
                 data: {
-                    leadId: newLead.id,
+                    prospectId: newLead.id,
                     action: 'PROMOTE',
                     description: 'Promoted from Sandbox via Manual Research',
                     metadata: { originalId: id, previousWa: sandboxItem.wa }

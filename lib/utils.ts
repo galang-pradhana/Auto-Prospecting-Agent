@@ -67,3 +67,29 @@ export function getDistance(lat1: number, lon1: number, lat2: number, lon2: numb
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c; 
 }
+
+/**
+ * SERALIZATION UTILITIES
+ * Converts Prisma Date objects to ISO strings for safe transfer to Client Components.
+ */
+
+export function serializeLead(lead: any) {
+    if (!lead) return null;
+    return {
+        ...lead,
+        createdAt: lead.createdAt instanceof Date ? lead.createdAt.toISOString() : lead.createdAt,
+        updatedAt: lead.updatedAt instanceof Date ? lead.updatedAt.toISOString() : lead.updatedAt,
+        lastContactAt: lead.lastContactAt instanceof Date ? lead.lastContactAt.toISOString() : lead.lastContactAt,
+        nextFollowupAt: lead.nextFollowupAt instanceof Date ? lead.nextFollowupAt.toISOString() : (lead.nextFollowupAt || null),
+        linkClickedAt: lead.linkClickedAt instanceof Date ? lead.linkClickedAt.toISOString() : (lead.linkClickedAt || null),
+        qualifiedAt: lead.qualifiedAt instanceof Date ? lead.qualifiedAt.toISOString() : (lead.qualifiedAt || null),
+    };
+}
+
+export function serializeLeadSandbox(lead: any) {
+    if (!lead) return null;
+    return {
+        ...lead,
+        createdAt: lead.createdAt instanceof Date ? lead.createdAt.toISOString() : lead.createdAt,
+    };
+}

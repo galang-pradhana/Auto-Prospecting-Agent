@@ -2,6 +2,7 @@ import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import SandboxClient from '@/components/SandboxClient';
 import { prisma } from '@/lib/prisma';
+import { serializeLeadSandbox } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,10 +19,7 @@ export default async function SandboxPage() {
         });
 
         // Convert Dates to ISO strings for Client Component
-        const serializedLeads = leads.map(l => ({
-            ...l,
-            createdAt: l.createdAt.toISOString()
-        }));
+        const serializedLeads = leads.map(serializeLeadSandbox);
 
         return (
             <main className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen">

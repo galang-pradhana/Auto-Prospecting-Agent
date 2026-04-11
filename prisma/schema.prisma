@@ -9,22 +9,23 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String        @id @default(cuid())
+  email         String        @unique
   password      String
   name          String
-  rejectedLeads Int      @default(0)
+  businessName  String?
+  businessIg    String?
+  businessWa    String?
+  rejectedLeads Int           @default(0)
   kieAiApiKey   String?
-  byocMode      Boolean  @default(false)
-  aiEngine      String   @default("gemini-3-flash")
-  createdAt     DateTime @default(now())
+  byocMode      Boolean       @default(false)
+  aiEngine      String        @default("gemini-3-flash")
+  createdAt     DateTime      @default(now())
   leads         Lead[]
   sandboxLeads  LeadSandbox[]
 }
 
 model Lead {
-  lastLog     String?  @db.Text
-  masterWebsitePrompt String?  @db.Text
   id                  String        @id @default(cuid())
   name                String
   wa                  String?       @unique
@@ -35,7 +36,6 @@ model Lead {
   rating              Float         @default(0)
   website             String        @default("N/A")
   mapsUrl             String?
-  ig                  String?
   reviews             Json          @default("[]")
   status              LeadStatus    @default(FRESH)
   isPro               Boolean       @default(false)
@@ -46,32 +46,70 @@ model Lead {
   userId              String
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
+  masterWebsitePrompt String?
   resolutions         Json?
   suggestedAssets     Json?
   resolvingIdea       String?
   selectedLayout      String?
   selectedStyle       String?
-  htmlCode            String?  @db.Text
+  htmlCode            String?
+  lastLog             String?
   slug                String?       @unique
-  outreachDraft       String?  @db.Text  // Simpan draf pesan di sini
-  styleDNA            String?  @db.Text
+  outreachDraft       String?
+  ig                  String?
+  styleDNA            String?
+  followupStage       String        @default("sent")
+  followupCount       Int           @default(0)
+  lastContactAt       DateTime      @default(now())
+  nextFollowupAt      DateTime?
+  linkClickedAt       DateTime?
+  qualifiedAt         DateTime?
+  totalTimeOnPage     Int           @default(0)
+  
+  events              ProspectEvent[]
+  tokens              TrackingToken[]
+  followupQueue       FollowupQueue[]
+
   logs                ActivityLog[]
   user                User          @relation(fields: [userId], references: [id])
 
   @@index([status, category])
   @@index([userId])
+  // @@map("prospects")
+}
+
+model ProspectEvent {
+  id            String   @id @default(uuid())
+  prospectId    String   @map("prospect_id")
+  eventType     String   // link_clicked | time_beacon | button_click
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  lead          Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+  @@map("prospect_events")
+}
+
+model TrackingToken {
+  token         String   @id
+  prospectId    String   @unique @map("prospect_id")
+  createdAt     DateTime @default(now())
+  lead          Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+  @@map("tracking_tokens")
 }
 
 model ActivityLog {
   id          String   @id @default(cuid())
-  leadId      String
+  prospectId  String   @map("prospect_id")
   action      String
   description String?
   metadata    Json?
   createdAt   DateTime @default(now())
-  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead        Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  @@index([leadId])
+  @@index([prospectId])
   @@index([action])
 }
 
@@ -95,11 +133,33 @@ model LeadSandbox {
 model WaTemplate {
   id        String   @id @default(cuid())
   title     String
-  category  String?  // Optional category filter
-  content   String   // The text with variables like {{name}} and {{idea}}
+  category  String?
+  content   String
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SystemPrompt {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  content   String
+  updatedAt DateTime @updatedAt
+}
+
+model FollowupQueue {
+  id             String    @id @default(uuid())
+  prospectId     String    @map("prospect_id")
+  followupNumber Int       @map("followup_number")
+  messageText    String    @map("message_text")
+  waLink         String    @map("wa_link")
+  status         String    @default("pending") // pending | sent | dismissed
+  queuedAt       DateTime  @default(now())     @map("queued_at")
+  sentAt         DateTime?                     @map("sent_at")
+  lead           Lead      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId])
+  @@map("followup_queue")
 }
 
 enum LeadStatus {
@@ -108,11 +168,4 @@ enum LeadStatus {
   READY
   FINISH
   LIVE
-}
-
-model SystemPrompt {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  content   String   @db.Text
-  updatedAt DateTime @updatedAt
 }

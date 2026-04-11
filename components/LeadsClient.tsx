@@ -14,7 +14,8 @@ import {
     getLeads, 
     getLeadsCount, 
     getUniqueCategories,
-    getUniqueCities
+    getUniqueCities,
+    archiveToGSheet
 } from '@/lib/actions/lead';
 import { generateWaLink } from '@/lib/actions/settings';
 import { isValidWhatsApp } from '@/lib/utils';
@@ -52,6 +53,17 @@ interface Lead {
     selectedLayout?: string;
     createdAt: string;
     updatedAt: string;
+    // New Pipeline Fields
+    followupStage: string;
+    followupCount: number;
+    lastContactAt: string;
+    nextFollowupAt?: string | null;
+    linkClickedAt?: string | null;
+    qualifiedAt?: string | null;
+    totalTimeOnPage: number;
+    outreachDraft?: string | null;
+    ig?: string | null;
+    styleDNA?: string | null;
 }
 
 interface LeadsClientProps {
@@ -65,6 +77,13 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }>
     READY: { bg: 'bg-green-500/15', text: 'text-green-400', label: 'READY' },
     FINISH: { bg: 'bg-blue-500/15', text: 'text-blue-400', label: 'FINISH' },
     LIVE: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'LIVE' },
+    // Pipeline Stages
+    sent: { bg: 'bg-sky-500/10', text: 'text-sky-400', label: 'SENT' },
+    clicked: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', label: 'CLICKED' },
+    qualified: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'QUALIFIED' },
+    replied: { bg: 'bg-purple-500/10', text: 'text-purple-400', label: 'REPLIED' },
+    deal: { bg: 'bg-green-500/20', text: 'text-green-300', label: 'DEAL' },
+    closed_lost: { bg: 'bg-rose-500/10', text: 'text-rose-400', label: 'LOST' },
 };
 
 
@@ -127,6 +146,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
 
     const [detailLead, setDetailLead] = useState<Lead | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isArchiving, setIsArchiving] = useState(false);
 
     const [editingHtmlLead, setEditingHtmlLead] = useState<Lead | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -306,6 +326,25 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
         }
     };
 
+    const handleArchive = async () => {
+        if (selectedIds.length === 0) return;
+        setIsArchiving(true);
+        try {
+            const res = await archiveToGSheet(selectedIds);
+            if (res.success) {
+                alert(res.message || "Berhasil archive ke GSheet");
+                setSelectedIds([]);
+            } else {
+                alert(res.message || "Gagal archive leads");
+            }
+        } catch (e) {
+            console.error("Archive error:", e);
+            alert("Terjadi kesalahan saat archive!");
+        } finally {
+            setIsArchiving(false);
+        }
+    };
+
     const handleDelete = async () => {
         if (selectedIds.length === 0) return;
         if (!confirm(`Hapus ${selectedIds.length} leads terpilih?`)) return;
@@ -462,6 +501,28 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                         <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Auto-Refresh {view === 'table' ? 'Active' : 'Live'}</span>
                     </div>
                 </div>
+                
+                {/* Status Tabs (New) */}
+                {!forceStatus && (
+                    <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 overflow-x-auto scrollbar-hide">
+                        {STATUS_FILTERS.map(status => (
+                            <button
+                                key={status}
+                                onClick={() => {
+                                    setFilterStatus(status as any);
+                                    setPage(1);
+                                }}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                                    filterStatus === status 
+                                    ? 'bg-white text-black shadow-lg' 
+                                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                                }`}
+                            >
+                                {status}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {view === 'grid' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -678,6 +739,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Category</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Location</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Engagement</th>
+                                        <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Pipeline</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Contact</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Status</th>
                                     </tr>
@@ -735,9 +797,27 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                                         </div>
                                                     </td>
                                                     <td className="p-5">
-                                                        <div className="flex items-center gap-2">
-                                                            <Star size={10} fill="currentColor" className="text-accent-gold" />
-                                                            <span className="text-[11px] font-black text-white">{lead.rating || '0.0'}</span>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <Star size={10} fill="currentColor" className="text-accent-gold" />
+                                                                <span className="text-[11px] font-black text-white">{lead.rating || '0.0'}</span>
+                                                            </div>
+                                                            {lead.status === 'LIVE' && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <Clock size={10} className="text-indigo-400" />
+                                                                    <span className="text-[10px] font-bold text-indigo-400/80">{lead.totalTimeOnPage}s</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-5">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className={`px-2 py-0.5 w-fit ${(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).bg} ${(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).text} text-[8px] font-black uppercase rounded-md border border-current/20`}>
+                                                                {(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).label}
+                                                            </div>
+                                                            {lead.followupCount > 0 && (
+                                                                <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">Follow-up #{lead.followupCount}</span>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="p-5 text-center">
@@ -872,6 +952,15 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                             <Trash2 size={18} />
                         </button>
 
+                        <button 
+                            onClick={handleArchive}
+                            disabled={isArchiving}
+                            className="h-12 w-12 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center hover:bg-blue-500 hover:text-white transition-all active:scale-95 disabled:opacity-50"
+                            title="Archive to GSheet"
+                        >
+                            {isArchiving ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                        </button>
+
                         <div className="h-8 w-[1px] bg-white/10 mx-1" />
 
                         {/* ACTION BUTTON */}
@@ -952,6 +1041,13 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                         setDetailLead(null); // ⚠️ WAJIB null
                     }}
                      lead={detailLead}
+                     onDraftSave={(newDraft) => {
+                         setLeads(prev => prev.map(l => 
+                             l.id === detailLead.id 
+                             ? { ...l, outreachDraft: newDraft } 
+                             : l
+                         ));
+                     }}
                  />
              )}
 
@@ -975,6 +1071,15 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                     onClose={() => {
                         setIsTweakerOpen(false);
                         setSelectedLeadForTweak(null);
+                    }}
+                    onSuccess={(newPrompt) => {
+                        if (selectedLeadForTweak) {
+                            setLeads(prev => prev.map(l => 
+                                l.id === selectedLeadForTweak.id 
+                                ? { ...l, masterWebsitePrompt: newPrompt } 
+                                : l
+                            ));
+                        }
                     }}
                     lead={selectedLeadForTweak}
                 />

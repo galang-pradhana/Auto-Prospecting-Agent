@@ -1,0 +1,18 @@
+
+📋 Daftar Modul Aplikasi
+Modul Authentication (/login)
+Registrasi user baru, login, logout, dan proteksi middleware (mencegah akses dashboard tanpa login).
+Modul Lead Management (/dashboard/leads)
+Fitur CRUD Prospek: Menampilkan data, filter status (Fresh/Enriched), pencarian, pagination, dan penghapusan data.
+Modul Scraper Engine (/dashboard/scraper)
+Proses pengambilan data dari Google Maps, pengecekan status binary di server, dan filter otomatis (berdasarkan rating dan koordinat).
+Modul Instagram Lead Extraction (/dashboard/leads-ig)
+Ekstraksi data bisnis (Nama, IG, WA) dari upload screenshot menggunakan AI vision.
+Modul AI Enrichment & Forge (/dashboard/forge & /dashboard/leads/[id])
+Proses pengayaan data prospek menggunakan AI (pain points, ide solusi) dan pembuatan (generate) website landing page otomatis.
+Modul Live Site & Preview (/[slug] & /preview)
+Halaman landing page prospek yang sudah "LIVE" dan fitur pengeditan live (Live Edit).
+Modul Tracking & Redirect (/go/[token] & /api/track)
+Sistem pemendek link (tracking token) dan beacon untuk mencatat durasi kunjungan setiap prospek.
+Modul Scheduler & Follow-Up Queue
+Antrean pengiriman pesan WA otomatis secara bertahap (H+7, H+14, dll) dan panel notifikasi di dashboard.

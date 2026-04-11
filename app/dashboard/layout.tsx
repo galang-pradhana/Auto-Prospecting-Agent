@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import FollowUpQueue from '@/components/FollowUpQueue';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
     const user = await getCurrentUser();
@@ -30,6 +31,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     </div>
                 </main>
             </div>
+            {/* Global Follow-up Notification Queue */}
+            <FollowUpQueue />
         </div>
     );
 }

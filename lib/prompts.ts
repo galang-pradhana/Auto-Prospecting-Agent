@@ -19,7 +19,14 @@ export const GLOBAL_AI_PROTOCOL = `
 3. COLOR THEORY: 禁止 Pure #000000. Use deep zinc/obsidian tones or brand-specific muted palettes.
 4. IMAGE PROTOCOL: Unsplash &auto=format&fit=crop&w=1920&q=80.
 5. LANGUAGE: 100% Professional, High-Conversion Bahasa Indonesia only.
+6. ⚠️ CRITICAL JAVASCRIPT RULE — NEVER USE HTML COMMENTS INSIDE <script> TAGS:
+   HTML comments (<!-- -->) inside <script> blocks are NOT valid JavaScript and cause FATAL SYNTAX ERRORS that produce a completely BLANK page.
+   INSIDE <script>: Use ONLY JavaScript comments: // single line  OR  /* multi-line block */
+   CORRECT → <script> /* Hero Section */ const hero = ... </script>
+   WRONG   → <script> <!-- Hero Section --> const hero = ... </script>
+   HTML comments (<!-- -->) are ONLY allowed OUTSIDE of <script> tags, between HTML sections.
 `;
+
 
 export const TONE_MAP: Record<string, string> = {
   "Interior Design": "Gunakan gaya bahasa kreatif, modern, dan sophisticated. Fokus pada estetika, fungsionalitas, dan transformasi ruang.",
@@ -510,7 +517,11 @@ Target business category: [category]
 - Language: 100% Bahasa Indonesia natural, bukan bahasa formal kaku.
 - Tone: Ramah, rendah hati, tidak memaksa.
 - Length: Maksimal 5-7 baris. Pendek = lebih mungkin dibaca.
-- Variables yang WAJIB ada: {{businessName}}, {{category}}, {{draftLink}}
+- Variables yang WAJIB ada: {{businessName}}, {{category}}, {{draftLink}}, {{my_business_name}}, {{my_ig}}, {{my_wa}}
+- Identitas Pengirim (Sertakan di akhir atau pembukaan):
+  - Nama Bisnis: {{my_business_name}}
+  - Instagram: {{my_ig}}
+  - WhatsApp: {{my_wa}}
 - ZERO angka diskon yang ngarang.
 - ZERO scarcity palsu.
 - Output: Teks pesan saja. Tidak ada intro, tidak ada penjelasan.
@@ -623,6 +634,10 @@ Target business category: [category]
 - Masalah Utama: {{pain_points}}
 - Solusi Visual: {{idea}}
 - Link Preview: {{link}}
+- Identitas Kamu (Gunakan untuk sapaan/signature):
+    - Bisnis Kamu: {{my_business_name}}
+    - IG Kamu: {{my_ig}}
+    - WA Kamu: {{my_wa}}
 
 ### STRUKTUR PESAN (THE HOOK):
 1. **THE SALUTATION:** Sapa dengan nama brand mereka. Sesuaikan nada dengan persona.
@@ -726,6 +741,24 @@ UNTUK CARD / SECTION IMAGES — tambahkan inline style:
 
 ZERO TOLERANCE: Tidak boleh ada satu pun gambar/background yang blank atau broken di output.
 
+
+[ASSET TRACKING SYSTEM — CRITICAL, NON-NEGOTIABLE]
+⚠️ VIOLATION = OUTPUT INVALID AND WILL BE REJECTED ⚠️
+SEMUA elemen gambar (TANPA TERKECUALI) WAJIB memiliki atribut 'data-asset-id' yang unik.
+Penomoran dimulai dari 0 (integer), increment satu per satu untuk setiap elemen gambar.
+
+CONTOH WAJIB — Gunakan format PERSIS seperti ini:
+  <img src="..." data-asset-id="0" alt="Hero Image" loading="lazy" />
+  <div data-asset-id="1" style="background-image: url('...')">...</div>
+  <section data-asset-id="2" style="background-image: url('...'); background-size: cover;">...</section>
+  <img src="..." data-asset-id="3" alt="Product Image" />
+
+Aturan:
+- <img> tag → tambahkan data-asset-id LANGSUNG di tag <img>
+- Elemen dengan background-image CSS → tambahkan data-asset-id di elemen HTML-nya
+- Nomor harus UNIK di seluruh halaman (tidak boleh ada 2 elemen dengan data-asset-id yang sama)
+- Jangan skip nomor
+
 [CORE ARCHITECTURE]
 - 100% Standalone index.html.
 - Tailwind CSS & Framer Motion (reveal animations).
@@ -740,6 +773,19 @@ ZERO TOLERANCE: Tidak boleh ada satu pun gambar/background yang blank atau broke
 [LEAD CONVERSION FAB]
 - Persistent WhatsApp FAB: Bottom right, #25D366, pulse animation, "Konsultasi Sekarang".
 
+Output harus berupa HTML5 yang valid dan semantik.
+DILARANG KERAS:
+1. Menggunakan 'className' (Gunakan 'class').
+2. Menggunakan self-closing tags untuk elemen non-void (Gunakan <div></div> bukan <div/>).
+3. Menggunakan sintaks JSX/React. Ini adalah file .html murni.
+4. Menghilangkan atau lupa menambahkan atribut 'data-asset-id' pada ELEMEN GAMBAR MANAPUN.
+5. ⚠️ KRITIS — JANGAN PERNAH menggunakan komentar HTML (<!-- -->) di dalam blok <script> manapun.
+   Di dalam <script>, WAJIB gunakan komentar JavaScript: // komentar satu baris ATAU /* komentar blok */
+   Komentar HTML di dalam <script> menyebabkan JavaScript gagal total dan halaman menjadi BLANK.
+   BENAR  → <script> /* Hero Section */ const hero = ... </script>
+   SALAH  → <script> <!-- Hero Section --> const hero = ... </script>
+
+Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
 Output ONLY the full HTML code. No talk.
 `;
 
@@ -804,7 +850,17 @@ IMPLEMENTASI untuk <img> tag:
        loading="lazy" alt="..." />
 
 ZERO TOLERANCE: Tidak ada gambar blank. Jika ragu dengan photo ID, gunakan LAYER 2 sebagai primary.
+
+[ASSET TRACKING — WAJIB]
+⚠️ SEMUA <img> tag dan elemen dengan background-image HARUS memiliki atribut data-asset-id unik.
+Format: data-asset-id="0", data-asset-id="1", dst. Dimulai dari 0.
+Contoh: <img src="..." data-asset-id="0" alt="..."> dan <div data-asset-id="1" style="background-image:url('...')">.
+Jangan ada elemen gambar tanpa data-asset-id.
+
+Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
+Output ONLY the full HTML code. No talk.
 `;
+
 
 // ============================================================
 // WEBSITE_STRATEGY_PROMPT — REVISED v2 (tambah industry rules)
@@ -887,7 +943,24 @@ Tugas Anda adalah memperbarui memodifikasi "HTML Code" untuk bisnis "[name]" ([c
 PENTING: Output WAJIB berupa KODE HTML MURNI yang utuh. 
 JANGAN mengembalikan JSON, JANGAN menambahkan narasi/penjelasan, cukup respons dengan kode HTML yang sudah di-update.
 Gunakan \`\`\`html ... \`\`\` block untuk membungkus hasilnya.
+
+⚠️ KRITIS — JANGAN PERNAH menggunakan komentar HTML (<!-- -->) di dalam blok <script> manapun.
+   Di dalam <script>, WAJIB gunakan komentar JavaScript: // atau /* */
+   Komentar HTML di dalam <script> menyebabkan JavaScript gagal total dan halaman menjadi BLANK.
+   BENAR  → <script> /* Hero Section */ ... </script>
+   SALAH  → <script> <!-- Hero Section --> ... </script>
+
+[ASSET TRACKING — NON-NEGOTIABLE]
+Pertahankan atau tambahkan atribut 'data-asset-id' pada SEMUA elemen gambar (<img> dan elemen dengan background-image).
+- Jika HTML asli sudah memilikinya → JANGAN hapus, pertahankan nomor yang ada.
+- Jika ada gambar baru yang ditambahkan → Tambahkan data-asset-id dengan nomor lanjutan.
+- Jika HTML asli TIDAK memilikinya → Tambahkan dengan penomoran mulai dari 0.
+Contoh: <img src="..." data-asset-id="0"> dan <div data-asset-id="1" style="background-image:url('...')">
+
+Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
+Output ONLY the full HTML code. No talk.
 `;
+
 
 // ============================================================
 // REGIONAL_ADVICE_PROMPT — Local Market Analysis
@@ -935,3 +1008,37 @@ export const buildForgeData = (lead: {
     unsplashQueries,
   };
 };
+export const MASTER_PRO_BLUEPRINT_PROMPT = `
+### ROLE: LEAD UI/UX ENGINEER & BRAND STRATEGIST (UI/UX PRO MAX SKILL)
+Tugas Anda adalah membedah bisnis "[name]" ([category]) dan merancang "Blueprint Master" (Master Prompt) menggunakan framework UI/UX Pro Max untuk landing page 1 halaman.
+
+### I. DATA INPUT:
+- Business: [name]
+- Category: [category]
+- Location: [address]
+
+### II. DESIGN SYSTEM GENERATION (INTERNAL REASONING):
+Berdasarkan data kategori, Anda wajib menentukan:
+1. LANDING PAGE PATTERN: Pilih (Hero-Centric / Conversion-Optimized / Storytelling-Driven).
+2. VISUAL STYLE: Pilih 1 dari gaya premium (Glassmorphism / Minimalism / Soft UI Evolution / Neubrutalism / Tropical Brutalism).
+3. SECTION FLOW: Tentukan urutan (e.g., Hero → Features/Bento → Social Proof → CTA).
+4. ANTI-PATTERNS TO AVOID: Tentukan apa yang HARUS DIHINDARI untuk industri ini (e.g., "Jangan pakai warna neon untuk Law Firm").
+
+### III. UI-UX PRO MAX MANDATORY RULES:
+Di dalam field 'masterWebsitePrompt', instruksikan AI Coder untuk:
+- TYPOGRAPHY: Gunakan pairing eksklusif (e.g., 'Syne' + 'Inter' atau 'Playfair Display' + 'Outfit').
+- COLOR THEORY (60-30-10): Tentukan HEX Code spesifik. 禁止 Pure #000000. Gunakan Deep Obsidian/Charcoal.
+- GRID SYSTEM: Wajib gunakan Bento Grid dynamic 12-column untuk section layanan.
+- INTERACTION: Wajib pakai Framer Motion CDN untuk Staggered Reveal & Scroll Animations.
+- CTA: WhatsApp Sticky Button dengan subtle glow & high-conversion copywriting.
+
+### IV. OUTPUT FORMAT (MANDATORY JSON):
+{
+  "brandData": "Ringkasan identitas brand & visual style yang dipilih (e.g., 'Industrial Power')",
+  "aiAnalysis": "Analisis posisi pasar & target audience persona",
+  "painPoints": "3 Masalah utama klien yang akan diselesaikan oleh desain ini",
+  "masterWebsitePrompt": "Isi dengan INSTRUKSI LENGKAP (Master Prompt) dalam Bahasa Indonesia. Instruksi ini harus merangkum seluruh Design System di atas agar AI Coder (Gemini) bisa membangun file HTML yang sempurna."
+}
+
+PENTING: Jangan berikan teks lain selain JSON.
+`;

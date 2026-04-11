@@ -4,7 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, Save, Sparkles, Wand2, Palette, Edit3, 
-    Check, Loader2, Bot, Type, Layers 
+    Loader2, Bot, Type, Layers, Eye, Code2, Copy, 
+    ExternalLink, AlertCircle, RotateCcw, CheckCircle2,
+    ChevronDown, Image as ImageIcon, Search, RefreshCw, 
+    ImagePlus, ChevronRight, Check
 } from 'lucide-react';
 import { updateLeadHtml } from '@/lib/actions/lead';
 import { tweakLeadStyleStrict, getStyleModels } from '@/lib/actions/ai';
@@ -21,11 +24,29 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
     const [selectedStyle, setSelectedStyle] = useState<string>('');
     const [magicPrompt, setMagicPrompt] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isScanning, setIsScanning] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
-    const [toast, setToast] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ msg: string; type: 'success' | 'info' } | null>(null);
     const [isDirectEditEnabled, setIsDirectEditEnabled] = useState(false);
     const [previewHtml, setPreviewHtml] = useState<string>(lead?.htmlCode || '');
     const [revisionKey, setRevisionKey] = useState(0);
+    const [isCodeEditorOpen, setIsCodeEditorOpen] = useState(false);
+    
+    // --- Image Editor State ---
+    const [detectedImages, setDetectedImages] = useState<{ 
+        src: string, 
+        id: string, 
+        type: 'img' | 'bg', 
+        resolution?: string,
+        assetId?: string,
+        sourceType?: 'img-tag' | 'inline-style' | 'tailwind-class' | 'css-rule',
+        cssSelector?: string  // for css-rule sourceType
+    }[]>([]);
+    const [activeImageId, setActiveImageId] = useState<string | null>(null);
+    const [unsplashSearch, setUnsplashSearch] = useState('');
+    const [unsplashResults, setUnsplashResults] = useState<{ id: string, urls: { regular: string, small: string }, alt_description: string, width: number, height: number }[]>([]);
+    const [isSearchingUnsplash, setIsSearchingUnsplash] = useState(false);
+    const [activePanel, setActivePanel] = useState<'tools' | 'images'>('tools');
 
     useEffect(() => {
         async function load() {
@@ -42,8 +63,310 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
             setMagicPrompt('');
             setPreviewHtml(lead?.htmlCode || '');
             setRevisionKey(r => r + 1);
+            setActivePanel('tools');
+            // Detect images after a short delay to ensure previewHtml is set
+            setTimeout(() => {
+                scanImages(lead?.htmlCode || '');
+            }, 100);
         }
     }, [isOpen]);
+
+    const scanImages = async (html: string) => {
+        if (!html) return;
+        setIsScanning(true);
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const imgs: typeof detectedImages = [];
+        const seenSrcs = new Set<string>(); // deduplicate same URL from multiple layers
+
+        // Helper to get dimensions with 2s timeout
+        const getDimensions = (src: string): Promise<string> => new Promise((resolve) => {
+            const timeout = setTimeout(() => resolve(""), 2000);
+            const img = new Image();
+            img.onload = () => { clearTimeout(timeout); resolve(`${img.naturalWidth}x${img.naturalHeight}`); };
+            img.onerror = () => { clearTimeout(timeout); resolve(""); };
+            img.src = src;
+        });
+
+        try {
+            // LAYER 1: <img> tags
+            const imgElements = Array.from(doc.querySelectorAll('img'));
+            for (let idx = 0; idx < imgElements.length; idx++) {
+                const img = imgElements[idx];
+                const src = img.getAttribute('src');
+                const assetId = img.getAttribute('data-asset-id');
+                if (src && !src.startsWith('data:') && !seenSrcs.has(src)) {
+                    seenSrcs.add(src);
+                    const res = await getDimensions(src);
+                    imgs.push({ 
+                        src, 
+                        id: assetId ? `asset-${assetId}` : `img-${idx}`, 
+                        type: 'img',
+                        sourceType: 'img-tag',
+                        resolution: res,
+                        assetId: assetId || undefined 
+                    });
+                }
+            }
+
+            // LAYER 2: Inline style background-image
+            const bgElements = Array.from(doc.querySelectorAll('[style*="background-image"]'));
+            for (let idx = 0; idx < bgElements.length; idx++) {
+                const el = bgElements[idx];
+                const style = el.getAttribute('style');
+                const assetId = el.getAttribute('data-asset-id');
+                const match = style?.match(/url\(["']?([^"'\)]+)["']?\)/);
+                if (match && match[1] && !seenSrcs.has(match[1])) {
+                    seenSrcs.add(match[1]);
+                    const res = await getDimensions(match[1]);
+                    imgs.push({ 
+                        src: match[1], 
+                        id: assetId ? `asset-${assetId}` : `bg-${idx}`, 
+                        type: 'bg',
+                        sourceType: 'inline-style',
+                        resolution: res,
+                        assetId: assetId || undefined 
+                    });
+                }
+            }
+
+            // LAYER 3: Tailwind class background-url pattern
+            // e.g. class="bg-cover" with url encoded inside square bracket notation
+            const allElements = Array.from(doc.querySelectorAll('[class]'));
+            const tailwindBgEls = allElements.filter(el => /bg-\[url/.test(el.getAttribute('class') || ''));
+            for (let idx = 0; idx < tailwindBgEls.length; idx++) {
+                const el = tailwindBgEls[idx];
+                const className = el.getAttribute('class') || '';
+                // Match both single and double quoted URLs in Tailwind class
+                const match = className.match(/bg-\[url\(['"]?([^'"\)\]]+)['"]?\)\]/);
+                if (match && match[1] && !match[1].startsWith('data:') && !seenSrcs.has(match[1])) {
+                    seenSrcs.add(match[1]);
+                    const assetId = el.getAttribute('data-asset-id');
+                    const res = await getDimensions(match[1]);
+                    imgs.push({ 
+                        src: match[1], 
+                        id: assetId ? `asset-${assetId}` : `twbg-${idx}`, 
+                        type: 'bg',
+                        sourceType: 'tailwind-class',
+                        resolution: res,
+                        assetId: assetId || undefined 
+                    });
+                }
+            }
+
+            // LAYER 4: CSS <style> tag background-image rules
+            const styleEls = Array.from(doc.querySelectorAll('style'));
+            let cssImgIdx = 0;
+            for (const styleEl of styleEls) {
+                const cssText = styleEl.textContent || '';
+                // Match: selector { ... background(-image)?: url('...') ... }
+                const ruleRegex = /([^{}]+)\{[^{}]*background(?:-image)?\s*:[^;}]*url\(['"]?([^'"\)\s]+)['"]?\)[^{}]*\}/g;
+                let ruleMatch;
+                while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
+                    const selector = ruleMatch[1].trim().split(',')[0].trim(); // take first selector only
+                    const url = ruleMatch[2];
+                    if (url && !url.startsWith('data:') && !seenSrcs.has(url)) {
+                        try {
+                            const target = doc.querySelector(selector);
+                            if (target) {
+                                seenSrcs.add(url);
+                                const assetId = target.getAttribute('data-asset-id');
+                                const res = await getDimensions(url);
+                                imgs.push({
+                                    src: url,
+                                    id: assetId ? `asset-${assetId}` : `cssrule-${cssImgIdx}`,
+                                    type: 'bg',
+                                    sourceType: 'css-rule',
+                                    resolution: res,
+                                    assetId: assetId || undefined,
+                                    cssSelector: selector
+                                });
+                                cssImgIdx++;
+                            }
+                        } catch (_) { /* invalid selector, skip */ }
+                    }
+                }
+            }
+
+            setDetectedImages(imgs);
+        } catch (e) {
+            console.error("Scan error:", e);
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
+    const handleSearchUnsplash = async () => {
+        if (!unsplashSearch) return;
+        setIsSearchingUnsplash(true);
+        try {
+            const accessKey = process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY;
+            const res = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(unsplashSearch)}&per_page=12&client_id=${accessKey}`);
+            const data = await res.json();
+            setUnsplashResults(data.results || []);
+        } catch (e) {
+            console.error("Unsplash error:", e);
+            showToast("Failed to search Unsplash", 'info');
+        } finally {
+            setIsSearchingUnsplash(false);
+        }
+    };
+
+    const handleReplaceImage = (newSrc: string) => {
+        if (!activeImageId) return;
+        
+        const imgObj = detectedImages.find(i => i.id === activeImageId);
+        if (!imgObj) return;
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(previewHtml, 'text/html');
+        let success = false;
+
+        // Helper: Replace inline style background-image on an element
+        const replaceInlineStyle = (el: Element) => {
+            let style = el.getAttribute('style') || '';
+            if (style.includes('background')) {
+                el.setAttribute('style', style.replace(/url\(["']?([^"'\)]+)["']?\)/, `url('${newSrc}')`) );
+                return true;
+            }
+            return false;
+        };
+
+        // Helper: Replace Tailwind background-url class on an element
+        const replaceTailwindClass = (el: Element) => {
+            const cls = el.getAttribute('class') || '';
+            if (/bg-\[url/.test(cls)) {
+                // Break the string to prevent Tailwind JIT from scanning it as a real class
+                const bgPrefix = 'bg-[';
+                const newCls = cls.replace(/bg-\[url\(['"]?[^'"\)\]]+['"]?\)\]/, `${bgPrefix}url('${newSrc}')]`);
+                el.setAttribute('class', newCls);
+                return true;
+            }
+            return false;
+        };
+
+        // STRATEGY 1: By data-asset-id (most precise)
+        if (imgObj.assetId) {
+            const target = doc.querySelector(`[data-asset-id="${imgObj.assetId}"]`);
+            if (target) {
+                if (imgObj.sourceType === 'img-tag' || imgObj.type === 'img') {
+                    target.setAttribute('src', newSrc);
+                    target.removeAttribute('srcset');
+                    target.removeAttribute('data-srcset');
+                    target.removeAttribute('data-src');
+                    success = true;
+                } else if (imgObj.sourceType === 'tailwind-class') {
+                    success = replaceTailwindClass(target);
+                } else {
+                    // inline-style or css-rule fallback
+                    success = replaceInlineStyle(target) || replaceTailwindClass(target);
+                }
+            }
+        }
+
+        // STRATEGY 2: By source type + index
+        if (!success) {
+            const idParts = imgObj.id.split('-');
+            const prefix = idParts[0];
+            const idx = parseInt(idParts[idParts.length - 1]);
+
+            if (prefix === 'img' || imgObj.sourceType === 'img-tag') {
+                const target = doc.querySelectorAll('img')[idx];
+                if (target) {
+                    target.setAttribute('src', newSrc);
+                    target.removeAttribute('srcset');
+                    target.removeAttribute('data-srcset');
+                    target.removeAttribute('data-src');
+                    success = true;
+                }
+
+            } else if (prefix === 'twbg' || imgObj.sourceType === 'tailwind-class') {
+                // Tailwind background-url class pattern
+                const allEls = Array.from(doc.querySelectorAll('[class]')).filter(el =>
+                    /bg-\[url/.test(el.getAttribute('class') || '')
+                );
+                // Search by matching old src in class, or by index
+                const target = allEls.find(el => (el.getAttribute('class') || '').includes(encodeURIComponent(imgObj.src).slice(0, 30)) || (el.getAttribute('class') || '').includes(imgObj.src.slice(0, 30)))
+                    || allEls[idx];
+                if (target) success = replaceTailwindClass(target);
+
+            } else if (prefix === 'cssrule' || imgObj.sourceType === 'css-rule') {
+                // CSS <style> tag rule replacement
+                const styleEls = Array.from(doc.querySelectorAll('style'));
+                for (const styleEl of styleEls) {
+                    const original = styleEl.textContent || '';
+                    if (original.includes(imgObj.src)) {
+                        styleEl.textContent = original.replace(
+                            new RegExp(`url\\(['"]?${imgObj.src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]?\\)`, 'g'),
+                            `url('${newSrc}')`
+                        );
+                        success = true;
+                        break;
+                    }
+                }
+
+            } else if (prefix === 'bg' || imgObj.sourceType === 'inline-style') {
+                const target = doc.querySelectorAll('[style*="background-image"]')[idx];
+                if (target) success = replaceInlineStyle(target);
+            }
+        }
+
+        if (success) {
+            const doctypeStr = doc.doctype
+                ? `<!DOCTYPE ${doc.doctype.name}${doc.doctype.publicId ? ` PUBLIC "${doc.doctype.publicId}"` : ''}${!doc.doctype.publicId && doc.doctype.systemId ? ' SYSTEM' : ''}${doc.doctype.systemId ? ` "${doc.doctype.systemId}"` : ''}>`
+                : '<!DOCTYPE html>';
+            const newHtml = doctypeStr + '\n' + doc.documentElement.outerHTML;
+            setPreviewHtml(newHtml);
+            setRevisionKey(r => r + 1);
+            setTimeout(() => scanImages(newHtml), 300);
+            setActiveImageId(null);
+            showToast('Image replaced successfully!');
+        } else {
+            showToast('Failed to locate target image on page', 'info');
+        }
+    };
+
+    const handleHighlightImage = (id: string | null) => {
+        if (!iframeRef.current?.contentDocument) return;
+        const doc = iframeRef.current.contentDocument;
+        
+        // Remove all previous highlights
+        doc.querySelectorAll('.forge-img-highlight').forEach((el: any) => {
+            el.style.outline = "";
+            el.classList.remove('forge-img-highlight');
+        });
+
+        if (!id) return;
+
+        const imgObj = detectedImages.find(i => i.id === id);
+        if (!imgObj) return;
+
+        let target: Element | null = null;
+
+        // Priority 1: Try data-asset-id selector (for generated pages)
+        if (imgObj.assetId) {
+            target = doc.querySelector(`[data-asset-id="${imgObj.assetId}"]`);
+        }
+
+        // Priority 2: Fallback to index-based selector (for old/manual pages)
+        if (!target) {
+            const idParts = imgObj.id.split('-');
+            const idx = parseInt(idParts[idParts.length - 1]);
+            if (!isNaN(idx)) {
+                if (imgObj.type === 'img') {
+                    target = doc.querySelectorAll('img')[idx] || null;
+                } else {
+                    target = doc.querySelectorAll('[style*="background-image"]')[idx] || null;
+                }
+            }
+        }
+
+        if (target) {
+            (target as any).style.outline = "4px solid #EAB308";
+            (target as any).classList.add('forge-img-highlight');
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    };
 
     const isModified = previewHtml !== (lead?.htmlCode || '');
 
@@ -51,35 +374,30 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
         if (window.confirm("Discards all preview changes. Are you sure?")) {
             setPreviewHtml(lead?.htmlCode || '');
             setRevisionKey(r => r + 1);
-            showToast("Reverted to original state");
+            showToast("Reverted to original", 'info');
+            setTimeout(() => scanImages(lead?.htmlCode || ''), 100);
         }
     };
 
-    const showToast = (msg: string) => {
-        setToast(msg);
+    const showToast = (msg: string, type: 'success' | 'info' = 'success') => {
+        setToast({ msg, type });
         setTimeout(() => setToast(null), 3000);
     };
 
     const handleEnableDirectEdit = () => {
         if (!iframeRef.current || !iframeRef.current.contentDocument) return;
-        
         try {
             const doc = iframeRef.current.contentDocument;
-            
-            // Toggle edit mode
             const newState = !isDirectEditEnabled;
-            
             if (newState) {
-                // Enable contentEditable only for text nodes (p, h1, h2, h3, a, span)
                 const textElements = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, a, button, li');
                 textElements.forEach((el: any) => {
                     el.contentEditable = "true";
-                    el.style.outline = "1px dashed rgba(255,255,255,0.3)";
+                    el.style.outline = "1px dashed rgba(250,204,21,0.4)";
                     el.style.cursor = "text";
                 });
-                showToast("Direct Edit Enabled. Click texts to edit.");
+                showToast("Direct Edit Active — click any text to edit", 'info');
             } else {
-                // Disable contentEditable
                 const textElements = doc.querySelectorAll('[contenteditable="true"]');
                 textElements.forEach((el: any) => {
                     el.contentEditable = "false";
@@ -87,11 +405,10 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                     el.style.cursor = "default";
                 });
             }
-            
             setIsDirectEditEnabled(newState);
         } catch (e) {
             console.error("Could not enable direct edit:", e);
-            showToast("Failed to enable editor. Maybe a cross-origin error?");
+            showToast("Cross-origin error. Cannot access iframe content.", 'info');
         }
     };
 
@@ -100,8 +417,6 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
         setIsSaving(true);
         try {
             const doc = iframeRef.current.contentDocument;
-            
-            // Clean up contentEditables before saving
             const textElements = doc.querySelectorAll('[contenteditable="true"]');
             textElements.forEach((el: any) => {
                 el.removeAttribute('contenteditable');
@@ -109,12 +424,15 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                 el.style.cursor = "";
             });
             setIsDirectEditEnabled(false);
-
-            const newHtml = doc.documentElement.outerHTML;
-            const res = await updateLeadHtml(lead.id, newHtml);
             
+            // SAFE SERIALIZATION: Preserve Doctype and use HTML5 compliant outerHTML
+            const doctypeStr = doc.doctype ? `<!DOCTYPE ${doc.doctype.name}${doc.doctype.publicId ? ` PUBLIC "${doc.doctype.publicId}"` : ''}${!doc.doctype.publicId && doc.doctype.systemId ? ' SYSTEM' : ''}${doc.doctype.systemId ? ` "${doc.doctype.systemId}"` : ''}>` : '<!DOCTYPE html>';
+            const newHtml = doctypeStr + '\n' + doc.documentElement.outerHTML;
+
+            const res = await updateLeadHtml(lead.id, newHtml);
             if (res.success) {
-                showToast("Text Changes Saved!");
+                showToast("Changes saved successfully!");
+                setPreviewHtml(newHtml);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 alert("Save failed");
@@ -132,9 +450,10 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
         try {
             const res = await tweakLeadStyleStrict(lead.id, selectedStyle, magicPrompt, true);
             if (res.success) {
-                showToast("Style Preview ready! Click Save HTML to apply.");
+                showToast("Preview ready — hit Save HTML to apply.");
                 setPreviewHtml(res.htmlCode || '');
                 setRevisionKey(r => r + 1);
+                setTimeout(() => scanImages(res.htmlCode || ''), 100);
             } else {
                 alert("AI Regeneration failed: " + res.message);
             }
@@ -145,68 +464,172 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
         }
     };
 
+    const handlePreviewLive = () => {
+        const win = window.open('', '_blank');
+        if (win) {
+            win.document.write(previewHtml);
+            win.document.close();
+        } else {
+            alert("Pop-up blocked! Please allow pop-ups for this site.");
+        }
+    };
+
+    const handleCopyCode = () => {
+        navigator.clipboard.writeText(previewHtml);
+        showToast("Code copied to clipboard!");
+    };
+
     if (!isOpen || !lead) return null;
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                <motion.div 
+            <div className="fixed inset-0 z-[200] flex items-center justify-center">
+                {/* backdrop */}
+                <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={onClose}
-                    className="absolute inset-0 bg-black/95 backdrop-blur-xl"
+                    className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
                 />
 
+                {/* Main Container */}
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    initial={{ opacity: 0, scale: 0.97, y: 16 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative w-full max-w-7xl h-[95vh] bg-zinc-950 border border-white/10 rounded-[32px] overflow-hidden flex flex-col md:flex-row shadow-2xl"
+                    exit={{ opacity: 0, scale: 0.97, y: 16 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                    className="relative w-full max-w-[1600px] h-[96vh] mx-4 bg-zinc-950 border border-white/8 rounded-[28px] overflow-hidden flex shadow-2xl"
                 >
-                    {/* LEFT PANEL: 70% Iframe */}
-                    <div className="flex-1 border-r border-white/5 relative flex flex-col bg-black">
-                        <div className="h-16 border-b border-white/5 bg-zinc-900/50 flex items-center justify-between px-6 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-accent-gold/10 flex items-center justify-center border border-accent-gold/20">
-                                    <Layers size={14} className="text-accent-gold" />
+                    {/* ── LEFT: iframe canvas ── */}
+                    <div className="flex-1 flex flex-col border-r border-white/5 min-w-0">
+
+                        {/* Top bar */}
+                        <div className="h-14 shrink-0 bg-zinc-900/60 border-b border-white/5 flex items-center gap-3 px-5">
+                            {/* Lead name badge */}
+                            <div className="flex items-center gap-2.5 mr-2">
+                                <div className="w-7 h-7 rounded-xl bg-accent-gold/15 flex items-center justify-center border border-accent-gold/25">
+                                    <Layers size={13} className="text-accent-gold" />
                                 </div>
-                                <h2 className="text-sm font-black text-white uppercase tracking-widest truncate">{lead.name} • Live Preview</h2>
+                                <span className="text-[11px] font-black text-white uppercase tracking-widest truncate max-w-[180px]">
+                                    {lead.name}
+                                </span>
+                                <span className="text-[9px] text-white/20 font-black uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full">
+                                    Live Preview
+                                </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleEnableDirectEdit}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
-                                        isDirectEditEnabled 
-                                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' 
-                                        : 'bg-white/5 text-white/60 hover:text-white border-white/10 hover:bg-white/10'
-                                    }`}
-                                >
-                                    <Type size={14} /> {isDirectEditEnabled ? "Editing Enabled" : "Enable Text Editor"}
-                                </button>
+
+                            {/* Divider */}
+                            <div className="h-5 w-px bg-white/8 mx-1" />
+
+                            {/* View Code toggle */}
+                            <button
+                                onClick={() => setIsCodeEditorOpen(!isCodeEditorOpen)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border ${
+                                    isCodeEditorOpen
+                                    ? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
+                                    : 'bg-white/4 text-white/40 hover:text-white border-white/8 hover:bg-white/8'
+                                }`}
+                            >
+                                <Code2 size={12} />
+                                {isCodeEditorOpen ? 'Close Code' : 'View Code'}
+                            </button>
+
+                            {/* Direct edit toggle */}
+                            <button
+                                onClick={handleEnableDirectEdit}
+                                disabled={isCodeEditorOpen}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border disabled:opacity-25 disabled:cursor-not-allowed ${
+                                    isDirectEditEnabled
+                                    ? 'bg-sky-400/15 text-sky-400 border-sky-400/30'
+                                    : 'bg-white/4 text-white/40 hover:text-white border-white/8 hover:bg-white/8'
+                                }`}
+                            >
+                                <Type size={12} />
+                                {isDirectEditEnabled ? 'Editing On' : 'Text Editor'}
+                            </button>
+
+                            {/* Revert button (conditional) */}
+                            <AnimatePresence>
                                 {isModified && (
-                                    <button
+                                    <motion.button
+                                        initial={{ opacity: 0, scale: 0.85 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.85 }}
                                         onClick={handleRevert}
-                                        className="flex items-center gap-2 px-4 py-2 text-red-500 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
                                     >
-                                        <X size={14} /> Revert
-                                    </button>
+                                        <RotateCcw size={12} /> Revert
+                                    </motion.button>
                                 )}
-                                <button
-                                    onClick={handleSaveDirectHTML}
-                                    disabled={isSaving}
-                                    className="flex items-center gap-2 px-6 py-2 bg-accent-gold text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all"
-                                >
-                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                    Save HTML
-                                </button>
-                            </div>
+                            </AnimatePresence>
+
+                            {/* Spacer */}
+                            <div className="flex-1" />
+
+                            {/* Preview in new tab */}
+                            <button
+                                onClick={handlePreviewLive}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/4 text-white/40 hover:text-white border border-white/8 hover:bg-white/8 transition-all"
+                                title="Open in new tab"
+                            >
+                                <ExternalLink size={12} /> Preview
+                            </button>
+
+                            {/* Save button */}
+                            <button
+                                onClick={handleSaveDirectHTML}
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-5 py-2 bg-accent-gold hover:bg-yellow-300 active:scale-95 text-black rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-accent-gold/15 disabled:opacity-50"
+                            >
+                                {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                Save HTML
+                            </button>
                         </div>
 
-                        <div className="flex-1 w-full h-full relative p-4 bg-[url('/grid-pattern.svg')] lg:p-8 overflow-hidden">
-                            <div className="w-full h-full bg-white rounded-2xl md:rounded-[32px] overflow-hidden border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                        {/* iFrame + code editor area */}
+                        <div className="flex-1 relative bg-zinc-900/20 overflow-hidden">
+                            {/* Subtle dot grid bg */}
+                            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
+                            {/* Code editor overlay */}
+                            <AnimatePresence>
+                                {isCodeEditorOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute inset-0 z-50 bg-zinc-950 flex flex-col"
+                                    >
+                                        <div className="flex items-center justify-between px-6 py-3 bg-zinc-900/80 border-b border-white/5 shrink-0">
+                                            <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-widest">
+                                                <Code2 size={12} className="text-amber-400" /> Full Source Code
+                                            </div>
+                                            <button
+                                                onClick={handleCopyCode}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/8 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all text-white/50 hover:text-white"
+                                            >
+                                                <Copy size={11} /> Copy All
+                                            </button>
+                                        </div>
+                                        <textarea
+                                            value={previewHtml}
+                                            onChange={(e) => setPreviewHtml(e.target.value)}
+                                            className="flex-1 w-full bg-zinc-950 text-blue-400/80 p-6 font-mono text-xs leading-relaxed outline-none resize-none custom-scrollbar"
+                                            spellCheck={false}
+                                        />
+                                        <div className="px-6 py-3 bg-amber-500/8 border-t border-amber-500/15 flex items-center gap-2 shrink-0">
+                                            <AlertCircle size={11} className="text-amber-500" />
+                                            <span className="text-[9px] font-black text-amber-500/80 uppercase tracking-widest">Warning: Edits here overwrite all visual changes above.</span>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* iframe */}
+                            <div className="absolute inset-4 md:inset-6 rounded-2xl overflow-hidden border border-white/8 shadow-[0_8px_64px_rgba(0,0,0,0.6)] bg-white">
                                 {previewHtml ? (
-                                    <iframe 
+                                    <iframe
                                         key={revisionKey}
                                         ref={iframeRef}
                                         srcDoc={previewHtml}
@@ -214,118 +637,270 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                         title="Live Editor"
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-zinc-500 font-bold uppercase tracking-widest text-xs">No HTML Content Built Yet</div>
+                                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-zinc-600">
+                                        <Layers size={48} className="opacity-20" />
+                                        <p className="text-xs font-black uppercase tracking-widest opacity-40">No HTML Content Generated Yet</p>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* RIGHT PANEL: 30% Tools Hub */}
-                    <div className="w-full h-auto md:w-[400px] shrink-0 bg-zinc-950 flex flex-col h-full">
-                        {/* Header Panel */}
-                        <div className="h-16 border-b border-white/5 bg-zinc-900/50 flex items-center justify-between px-6 shrink-0 relative overflow-hidden">
-                            <div className="flex items-center gap-2 relative z-10">
-                                <Edit3 size={16} className="text-white/40" />
-                                <span className="text-xs font-black text-white/50 uppercase tracking-widest">Editing Center</span>
+                    {/* ── RIGHT PANEL: Tools ── */}
+                    <div className="w-[340px] shrink-0 bg-zinc-950 flex flex-col border-l border-white/5">
+
+                        {/* Panel Header */}
+                        <div className="h-14 shrink-0 flex items-center justify-between px-5 border-b border-white/5 bg-zinc-900/40">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center">
+                                    <Edit3 size={12} className="text-purple-400" />
+                                </div>
+                                <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Editing Center</span>
                             </div>
-                            <button 
+                            <button
                                 onClick={onClose}
-                                className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all z-10"
+                                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all"
                             >
-                                <X size={16} />
+                                <X size={14} />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-                            
-                            {/* SECTION: Direct Editor Info */}
-                            <div className="p-5 bg-white/[0.02] border border-white/5 rounded-[24px] space-y-3">
-                                <div className="flex items-center gap-3 text-blue-400">
-                                    <Type size={18} />
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest">Quick Text Edition</h3>
+                        {/* Scrollable body */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            {activePanel === 'tools' ? (
+                                <div className="p-5 space-y-5">
+                                    {/* Navigation to Asset Manager */}
+                                    <button 
+                                        onClick={() => setActivePanel('images')}
+                                        className="w-full p-4 bg-white/[0.03] border border-white/8 rounded-2xl flex items-center justify-between hover:bg-white/8 hover:border-white/15 transition-all group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center border border-sky-500/20">
+                                                <ImageIcon size={16} className="text-sky-400" />
+                                            </div>
+                                            <div className="text-left">
+                                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Asset Manager</h4>
+                                                <p className="text-[9px] text-white/30 italic">{detectedImages.length} images detected</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight size={14} className="text-white/20 group-hover:translate-x-1 transition-all" />
+                                    </button>
+
+                                    <hr className="border-white/5" />
+
+                                    {/* Card: Quick Text Editing */}
+                                    <div className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                                        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-white/5">
+                                            <div className="w-6 h-6 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center">
+                                                <Type size={11} className="text-sky-400" />
+                                            </div>
+                                            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Quick Text Edition</span>
+                                        </div>
+                                        <div className="px-5 py-4">
+                                            <p className="text-[11px] text-white/40 leading-relaxed">
+                                                To fix typos without AI credits, click <strong className="text-sky-400">Text Editor</strong> above, then click any text in the preview to edit it directly.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Card: AI Style Overhaul */}
+                                    <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.03] overflow-hidden">
+                                        <div className="px-5 py-4 border-b border-purple-500/10 flex items-center gap-2.5">
+                                            <div className="w-6 h-6 rounded-lg bg-purple-500/20 border border-purple-500/25 flex items-center justify-center">
+                                                <Bot size={11} className="text-purple-400" />
+                                            </div>
+                                            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">AI Style Overhaul</span>
+                                            <div className="ml-auto w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
+                                        </div>
+                                        <div className="p-5 space-y-5">
+                                            <div className="space-y-2">
+                                                <label className="flex items-center gap-1.5 text-[10px] font-black text-white/30 uppercase tracking-widest">
+                                                    <Palette size={11} className="text-purple-400/60" /> Target Style
+                                                </label>
+                                                <div className="relative">
+                                                    <select
+                                                        value={selectedStyle}
+                                                        onChange={(e) => setSelectedStyle(e.target.value)}
+                                                        className="w-full bg-black/40 border border-white/8 hover:border-purple-500/30 focus:border-purple-500/50 rounded-xl px-4 py-3 text-[11px] font-bold text-white outline-none appearance-none cursor-pointer transition-all pr-10"
+                                                    >
+                                                        <option value="" className="bg-zinc-900 italic text-white/40">None / Pure Magic Override</option>
+                                                        {styles.map(s => (
+                                                            <option key={s.id} value={s.id} className="bg-zinc-900">{s.icon} {s.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="flex items-center gap-1.5 text-[10px] font-black text-white/30 uppercase tracking-widest">
+                                                    <Wand2 size={11} className="text-purple-400/60" /> Magic Overrides
+                                                </label>
+                                                <textarea
+                                                    value={magicPrompt}
+                                                    onChange={(e) => setMagicPrompt(e.target.value)}
+                                                    rows={4}
+                                                    placeholder="e.g. Change button color to pastel pink..."
+                                                    className="w-full bg-black/40 border border-white/8 hover:border-purple-500/20 focus:border-purple-500/40 rounded-xl p-3.5 text-[11px] font-medium text-white/70 placeholder:text-white/20 outline-none resize-none transition-all leading-relaxed"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleAIRegenerate}
+                                                disabled={isRegenerating}
+                                                className={`w-full py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                                                    isRegenerating
+                                                    ? 'bg-purple-500/15 text-purple-400/60 cursor-not-allowed border border-purple-500/20'
+                                                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-900/40 hover:shadow-purple-800/40'
+                                                }`}
+                                            >
+                                                {isRegenerating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                                {isRegenerating ? 'Consulting Kie.ai...' : 'Force AI Regeneration'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {isModified && (
+                                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-4 flex items-center gap-3">
+                                            <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse shrink-0" />
+                                            <p className="text-[10px] text-amber-400/80 font-bold leading-relaxed">
+                                                You have unsaved changes. Hit <strong>Save HTML</strong> to apply.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-xs text-white/50 leading-relaxed font-medium">
-                                    To quickly fix typos or change copywriting without AI credits, use the "Enable Text Editor" button above and click directly on texts inside the live preview.
-                                </p>
-                            </div>
-
-                            <hr className="border-white/5" />
-
-                            {/* SECTION: AI Magic Tools */}
-                            <div className="space-y-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                                        <Bot size={14} className="text-purple-400" />
-                                    </div>
-                                    <h3 className="text-sm font-black text-white uppercase tracking-widest">AI Style Overhaul</h3>
-                                </div>
-
-                                <div className="p-6 bg-purple-500/[0.02] border border-purple-500/10 rounded-[28px] space-y-5 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
-                                    
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-2">
-                                            <Palette size={12} /> Target Style
-                                        </label>
-                                        <select 
-                                            value={selectedStyle}
-                                            onChange={(e) => setSelectedStyle(e.target.value)}
-                                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-purple-500/50 appearance-none cursor-pointer"
-                                        >
-                                            <option value="" className="bg-zinc-900 italic text-white/40">None / Pure Magic Override</option>
-                                            {styles.map(s => (
-                                                <option key={s.id} value={s.id} className="bg-zinc-900">{s.icon} {s.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-2">
-                                            <Wand2 size={12} /> Magic Overrides (Optional)
-                                        </label>
-                                        <textarea 
-                                            value={magicPrompt}
-                                            onChange={(e) => setMagicPrompt(e.target.value)}
-                                            rows={3}
-                                            placeholder="Example: Change button color to pastel pink, re-arrange hero to left..."
-                                            className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-xs font-medium text-white/80 outline-none focus:border-purple-500/50 resize-none"
-                                        />
-                                    </div>
-
-                                    <div className="pt-2">
+                            ) : (
+                                <div className="p-5 space-y-5 flex flex-col h-full">
+                                    <div className="flex items-center justify-between shrink-0">
                                         <button 
-                                            onClick={handleAIRegenerate}
-                                            disabled={isRegenerating}
-                                            className={`w-full py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                                                isRegenerating
-                                                ? 'bg-purple-500/20 text-purple-400 cursor-not-allowed border border-purple-500/30'
-                                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20'
-                                            }`}
+                                            onClick={() => { setActivePanel('tools'); setActiveImageId(null); }}
+                                            className="text-[10px] font-black text-white/30 uppercase tracking-widest hover:text-white transition-all flex items-center gap-1"
                                         >
-                                            {isRegenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                            {isRegenerating ? 'Consulting Kie.ai...' : 'Force AI Regeneration'}
+                                            <X size={12} /> Back to Tools
                                         </button>
-                                        <p className="text-[8px] text-white/30 text-center mt-3 uppercase tracking-widest">
-                                            Strict Constraint applied unless overridden.
-                                        </p>
+                                        <span className="text-[10px] font-black text-accent-gold uppercase tracking-widest">Detected: {detectedImages.length}</span>
                                     </div>
-                                </div>
-                            </div>
 
+                                    {isScanning ? (
+                                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                            <RefreshCw size={24} className="animate-spin text-accent-gold" />
+                                            <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Scanning Images...</span>
+                                        </div>
+                                    ) : !activeImageId ? (
+                                        <div className="grid grid-cols-2 gap-3 pb-8">
+                                            {detectedImages.map((img) => (
+                                                <button
+                                                    key={img.id}
+                                                    onMouseEnter={() => handleHighlightImage(img.id)}
+                                                    onMouseLeave={() => handleHighlightImage(null)}
+                                                    onClick={() => { setActiveImageId(img.id); setUnsplashSearch(''); setUnsplashResults([]); }}
+                                                    className="relative group aspect-video rounded-xl bg-white/[0.02] border border-white/10 overflow-hidden hover:border-accent-gold/50 transition-all text-left"
+                                                >
+                                                    <img src={img.src} alt="Detected" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" />
+                                                    {img.resolution && (
+                                                        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[8px] font-black text-white uppercase tracking-tighter">
+                                                            {img.resolution}
+                                                        </div>
+                                                    )}
+                                                    <div className="absolute inset-x-0 bottom-0 p-2 bg-black/80 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                                                        <div className="text-[8px] font-black text-white uppercase tracking-widest flex items-center gap-1">
+                                                            <ImagePlus size={10} className="text-accent-gold" /> Replace
+                                                        </div>
+                                                    </div>
+                                                    {img.type === 'bg' && (
+                                                        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-zinc-950/80 text-[8px] font-black text-accent-gold border border-accent-gold/20 uppercase tracking-widest leading-none">BG</div>
+                                                    )}
+                                                </button>
+                                            ))}
+                                            {detectedImages.length === 0 && (
+                                                <div className="col-span-2 py-12 text-center opacity-20 space-y-3">
+                                                    <ImageIcon size={32} className="mx-auto" />
+                                                    <p className="text-[10px] font-black uppercase tracking-widest">No images found</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col space-y-5 min-h-0">
+                                            <div className="p-4 bg-accent-gold/5 border border-accent-gold/20 rounded-2xl flex items-center gap-4 shrink-0">
+                                                <div className="w-14 h-14 rounded-xl overflow-hidden border border-white/10 shrink-0 bg-black">
+                                                    <img src={detectedImages.find(i => i.id === activeImageId)?.src} alt="Active" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h5 className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1 truncate">Replacing Asset</h5>
+                                                    <button onClick={() => setActiveImageId(null)} className="text-[9px] font-black text-accent-gold uppercase hover:underline flex items-center gap-1">
+                                                        <X size={10} /> Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4 flex-1 flex flex-col min-h-0">
+                                                <div className="relative shrink-0">
+                                                    <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20" />
+                                                    <input 
+                                                        type="text"
+                                                        placeholder="Search stock photos..."
+                                                        value={unsplashSearch}
+                                                        onChange={(e) => setUnsplashSearch(e.target.value)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchUnsplash()}
+                                                        className="w-full bg-black/40 border border-white/10 focus:border-accent-gold/40 rounded-xl pl-10 pr-4 py-3 text-[11px] font-bold outline-none transition-all placeholder:text-white/10 text-white"
+                                                    />
+                                                    <button 
+                                                        onClick={handleSearchUnsplash}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-accent-gold/10 text-accent-gold rounded-lg hover:bg-accent-gold hover:text-black transition-all"
+                                                    >
+                                                        {isSearchingUnsplash ? <RefreshCw size={12} className="animate-spin" /> : <Search size={12} />}
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                                                    {isSearchingUnsplash ? (
+                                                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                                            <Loader2 size={20} className="animate-spin text-accent-gold" />
+                                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Searching...</span>
+                                                        </div>
+                                                    ) : unsplashResults.length > 0 ? (
+                                                        <div className="grid grid-cols-2 gap-2 pb-6">
+                                                            {unsplashResults.map((photo) => (
+                                                                <button
+                                                                    key={photo.id}
+                                                                    onClick={() => handleReplaceImage(photo.urls.regular)}
+                                                                    className="aspect-square rounded-xl overflow-hidden relative group border border-white/5 hover:border-accent-gold transition-all bg-zinc-900"
+                                                                >
+                                                                    <img src={photo.urls.small} alt={photo.alt_description} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" />
+                                                                    <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[8px] font-black text-white uppercase tracking-tighter">
+                                                                        {photo.width}x{photo.height}
+                                                                    </div>
+                                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                                                                        <Check size={20} className="text-accent-gold" />
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-15">
+                                                            <ImageIcon size={32} />
+                                                            <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">Search professional<br/>Unsplash library</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Toast Notification */}
+                    {/* ── Toast ── */}
                     <AnimatePresence>
                         {toast && (
                             <motion.div
-                                initial={{ opacity: 0, y: 20, x: '-50%' }}
+                                key="toast"
+                                initial={{ opacity: 0, y: 16, x: '-50%' }}
                                 animate={{ opacity: 1, y: 0, x: '-50%' }}
-                                exit={{ opacity: 0, y: 20, x: '-50%' }}
-                                className="absolute bottom-6 left-1/2 z-[300] bg-zinc-900 border border-white/10 px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 whitespace-nowrap"
+                                exit={{ opacity: 0, y: 16, x: '-50%' }}
+                                className="absolute bottom-6 left-1/2 z-[300] bg-zinc-900/90 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 whitespace-nowrap"
                             >
-                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                <p className="text-xs font-black uppercase tracking-widest text-white">{toast}</p>
+                                <CheckCircle2 size={14} className={toast.type === 'success' ? 'text-green-400' : 'text-sky-400'} />
+                                <p className="text-[11px] font-black uppercase tracking-widest text-white">{toast.msg}</p>
                             </motion.div>
                         )}
                     </AnimatePresence>

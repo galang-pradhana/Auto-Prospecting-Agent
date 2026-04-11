@@ -19,14 +19,10 @@ export default function LoginPage() {
         setError(null);
 
         const formData = new FormData(e.currentTarget);
-        try {
-            const res = isLogin ? await loginUser(formData) : await registerUser(formData);
-            if (res?.error) {
-                setError(res.error);
-            }
-        } catch (err) {
-            setError('Something went wrong. Please try again.');
-        } finally {
+        const res = isLogin ? await loginUser(formData) : await registerUser(formData);
+        
+        if (res?.error) {
+            setError(res.error);
             setLoading(false);
         }
     };

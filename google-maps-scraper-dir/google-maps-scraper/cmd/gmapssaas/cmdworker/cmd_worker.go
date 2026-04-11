@@ -14,11 +14,10 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/gosom/google-maps-scraper/log"
-	"github.com/gosom/google-maps-scraper/postgres"
-	"github.com/gosom/google-maps-scraper/rqueue"
 	saas "github.com/gosom/google-maps-scraper/saas"
 	"github.com/gosom/google-maps-scraper/scraper"
+	"github.com/gosom/google-maps-scraper/pipeline"
+	apipostgres "github.com/gosom/google-maps-scraper/api/postgres"
 )
 
 // workerStats tracks runtime statistics for the health endpoint.
@@ -148,6 +147,10 @@ var Command = &cli.Command{
 
 		// Periodically promote retryable jobs for immediate retry.
 		client.StartRetryPromoter(ctx)
+
+		// Start the automated follow-up scheduler
+		apiStore := apipostgres.New(dbPool)
+		go pipeline.StartFollowupScheduler(ctx, apiStore)
 
 		// Run the scraper manager (handles scraper lifecycle with restarts)
 		log.Info("starting scraper manager")

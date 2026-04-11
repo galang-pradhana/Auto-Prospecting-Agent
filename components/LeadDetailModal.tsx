@@ -16,9 +16,10 @@ interface LeadDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     lead: any;
+    onDraftSave?: (newDraft: string) => void;
 }
 
-export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailModalProps) {
+export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: LeadDetailModalProps) {
     const [copied, setCopied] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -119,6 +120,7 @@ export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailMod
             const res = await generateOutreachDraft(lead.id, selectedPersona);
             if (res.success) {
                 setOutreachDraft(res.draft);
+                if (onDraftSave) onDraftSave(res.draft);
                 showToast("Outreach draft generated!");
             } else {
                 alert("Generation failed: " + res.message);
@@ -137,6 +139,7 @@ export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailMod
             const res = await saveOutreachDraft(lead.id, outreachDraft);
             if (res.success) {
                 showToast("Draft saved successfully!");
+                if (onDraftSave) onDraftSave(outreachDraft);
             } else {
                 alert("Save failed: " + res.message);
             }
@@ -224,6 +227,24 @@ export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailMod
                                     >
                                         <Edit2 size={14} /> Edit Data
                                     </button>
+                                )}
+                                {isEditing && (
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => setIsEditing(false)}
+                                            className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white/40 font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/10"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            onClick={handleSave}
+                                            disabled={saving}
+                                            className="flex items-center gap-2 px-6 py-3 bg-accent-gold text-black font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 disabled:opacity-50"
+                                        >
+                                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                            Save Changes
+                                        </button>
+                                    </div>
                                 )}
                                 <button 
                                     onClick={onClose}
@@ -314,6 +335,52 @@ export default function LeadDetailModal({ isOpen, onClose, lead }: LeadDetailMod
                                                             ) : (
                                                                 <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl text-white/70 text-sm leading-relaxed">
                                                                     {lead.brandData?.description || 'No description available.'}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                            )}
+
+                                            {/* Strategic Analysis (Editable) */}
+                                            {isEnriched && (
+                                                <section className="space-y-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                                                            <Lightbulb className="text-purple-400" size={18} />
+                                                        </div>
+                                                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Strategic Analysis</h3>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-4">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Pain Points</label>
+                                                            {isEditing ? (
+                                                                <textarea 
+                                                                    rows={3}
+                                                                    value={editData.painPoints}
+                                                                    onChange={(e) => setEditData({...editData, painPoints: e.target.value})}
+                                                                    className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white text-sm outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all resize-none shadow-inner"
+                                                                    placeholder="What are they struggling with?"
+                                                                />
+                                                            ) : (
+                                                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-white/70 text-sm leading-relaxed">
+                                                                    {lead.painPoints || 'No pain points analyzed yet.'}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Resolving Idea</label>
+                                                            {isEditing ? (
+                                                                <textarea 
+                                                                    rows={3}
+                                                                    value={editData.resolvingIdea}
+                                                                    onChange={(e) => setEditData({...editData, resolvingIdea: e.target.value})}
+                                                                    className="w-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 text-white text-sm outline-none focus:border-accent-gold/50 focus:bg-white/5 transition-all resize-none shadow-inner"
+                                                                    placeholder="How can we help?"
+                                                                />
+                                                            ) : (
+                                                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-white/70 text-sm leading-relaxed">
+                                                                    {lead.resolvingIdea || 'No solution blueprint generated.'}
                                                                 </div>
                                                             )}
                                                         </div>

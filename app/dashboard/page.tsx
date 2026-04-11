@@ -20,7 +20,7 @@ export default async function DashboardHome() {
         <div className="space-y-8">
             <div>
                 <h1 className="text-4xl font-black mb-2 tracking-tighter">Welcome back, Commander</h1>
-                <p className="text-white/40">Live analytics from your Supabase database.</p>
+                <p className="text-white/40">Live analytics from your database.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">

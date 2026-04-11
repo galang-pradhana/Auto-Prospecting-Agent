@@ -15,7 +15,7 @@ export async function logActivity(leadId: string, action: string, description?: 
     try {
         await prisma.activityLog.create({
             data: {
-                leadId,
+                prospectId: leadId,
                 action,
                 description,
                 metadata: metadata || {},
@@ -32,7 +32,7 @@ export async function getActivityLogs(leadId: string) {
 
     try {
         return await prisma.activityLog.findMany({
-            where: { leadId },
+            where: { prospectId: leadId },
             orderBy: { createdAt: 'desc' }
         });
     } catch (error) {
@@ -251,6 +251,15 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
     if (!session) return { success: false, message: 'Not authenticated' };
 
     try {
+        const generateToken = (length: number) => {
+            const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            let retVal = "";
+            for (let i = 0, n = charset.length; i < length; ++i) {
+                retVal += charset.charAt(Math.floor(Math.random() * n));
+            }
+            return retVal;
+        };
+
         const lead = await prisma.lead.findUnique({ where: { id: leadId } });
         if (!lead) return { success: false, message: 'Lead not found' };
 
@@ -263,16 +272,47 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
             }
         }
 
+        // [RISK-2 FIX] Use upsert instead of create so re-forging a lead
+        // generates a fresh token without hitting the unique constraint on prospect_id.
+        const token = generateToken(12);
+        await prisma.trackingToken.upsert({
+            where: { prospectId: leadId },
+            update: { token, createdAt: new Date() },
+            create: { token, prospectId: leadId },
+        });
+
+        // Inject Tracker Script before </body>.
+        // [RISK-2 FIX] Strip any existing tracker script tags first to avoid
+        // duplicate <script> injections on re-forge.
+        const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:8080';
+        const trackerPattern = /<script[^>]+tracker\.js[^>]*><\/script>\n?/g;
+        const cleanHtml = htmlCode.replace(trackerPattern, '');
+
+        const trackerScript = `\n<script src="${appBaseUrl}/tracker.js" data-token="${token}" defer></script>\n`;
+        const updatedHtml = cleanHtml.includes('</body>')
+            ? cleanHtml.replace('</body>', `${trackerScript}</body>`)
+            : `${cleanHtml}${trackerScript}`;
+
+        const nextFollowup = new Date();
+        nextFollowup.setDate(nextFollowup.getDate() + 7);
+
+        // Preserve followupCount if this is a re-forge (already LIVE)
+        const isReforge = lead.status === 'LIVE';
+
         await prisma.lead.update({
             where: { id: leadId },
             data: {
-                htmlCode,
+                htmlCode: updatedHtml,
                 status: 'LIVE',
-                slug
+                slug,
+                nextFollowupAt: isReforge ? lead.nextFollowupAt : nextFollowup,
+                lastContactAt: isReforge ? lead.lastContactAt : new Date(),
+                followupStage: isReforge ? lead.followupStage : 'sent',
+                followupCount: isReforge ? lead.followupCount : 1,
             }
         });
 
-        await logActivity(leadId, 'LIVE', `Website published to ${slug}`, { slug });
+        await logActivity(leadId, isReforge ? 'REFORGE' : 'LIVE', `Website published to ${slug}`, { slug });
 
         revalidatePath('/dashboard/enriched');
         revalidatePath('/dashboard/leads');
@@ -282,6 +322,7 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
         return { success: false, message: error.message || 'Failed to save code' };
     }
 }
+
 
 // --- Regional Data ---
 

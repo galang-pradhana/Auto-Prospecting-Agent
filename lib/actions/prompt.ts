@@ -12,7 +12,18 @@ const PROMPT_LABELS: Record<PromptName, string> = {
     ENRICHMENT_PROMPT: 'Lead Enrichment',
 };
 
-const LOGICAL_LOCK_PREFIX = "MANDATORY: Bahasa Indonesia & Cinematic Hero\n\n";
+const LOGICAL_LOCK_PREFIX = `
+[SYSTEM ENFORCEMENT — CRITICAL]
+MANDATORY: Bahasa Indonesia & Cinematic Hero.
+ASSET TRACKING: SEMUA elemen gambar (<img> dan background-image) WAJIB memiliki atribut 'data-asset-id' yang unik (mulai dari 0).
+VIOLATION = INVALID OUTPUT.
+
+Contoh: 
+<img src="..." data-asset-id="0" />
+<div data-asset-id="1" style="background-image: url(...)"></div>
+
+---
+`;
 
 /**
  * Fetches a system prompt from the database. 

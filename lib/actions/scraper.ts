@@ -245,7 +245,7 @@ export async function runScraper(
             Berikan estimasi moderat agar tidak terlalu luas tapi tidak terpotong. 
             Hanya berikan angka saja dalam format JSON: { "radius_meter": number }`;
             
-            const aiRes = await callKieAI(radiusPrompt, 'gemini');
+            const aiRes = await callKieAI(radiusPrompt);
             const data = JSON.parse(aiRes.replace(/```json|```/g, "").trim());
             if (data.radius_meter) {
                 finalRadius = Math.min(25000, Math.max(1000, data.radius_meter)); // Clamp between 1km - 25km
@@ -374,7 +374,7 @@ export async function runScraper(
                     .replace('[name]', leadName)
                     .replace('[rating]', finalRating.toString());
 
-                const aiResponse = await callKieAI(finalPrompt, 'gemini');
+                const aiResponse = await callKieAI(finalPrompt);
                 const rawJson = cleanAIResponse(aiResponse);
                 let result: any;
                 
@@ -425,7 +425,7 @@ export async function runScraper(
 
                     await prisma.activityLog.create({
                         data: {
-                            leadId: newLead.id,
+                            prospectId: newLead.id,
                             action: 'SCRAPE',
                             description: 'Lead ingested from source (JSON Verified)',
                             metadata: { source: "Go-Engine", aiReason: result.reason }

@@ -1,0 +1,12 @@
+{
+  "project_name": "Automated Prospecting Engine",
+  "project_type": "nextjs",
+  "test_framework": "playwright",
+  "base_url": "http://localhost:3000",
+  "tests_dir": "tests",
+  "bootstrap": {
+    "scripts": {
+      "dev": "npm run dev"
+    }
+  }
+}

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { name, category, wa, city, province, address, website } = body;
+        const { name, category, wa, city, province, address, website, rating } = body;
 
         if (!name) {
             return NextResponse.json({ error: 'Nama bisnis wajib diisi' }, { status: 400 });
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
                 city: city ? city.trim() : '',
                 address: address ? address.trim() : 'Manual Entry',
                 website: website ? website.trim() : 'N/A',
+                rating: rating ? parseFloat(rating) : 0,
                 status: 'FRESH',
                 brandData: {
                     sourceType: 'MANUAL',

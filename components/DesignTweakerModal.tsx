@@ -71,7 +71,7 @@ export default function DesignTweakerModal({ isOpen, onClose, lead, onSuccess }:
         try {
             const res = await refineLeadStyle(lead.id, selectedStyleId);
             if (res.success) {
-                if (onSuccess) onSuccess("");
+                if (onSuccess) onSuccess(res.masterWebsitePrompt || "");
                 onClose();
             } else {
                 alert(res.message);
