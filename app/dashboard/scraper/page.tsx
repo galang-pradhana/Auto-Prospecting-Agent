@@ -297,14 +297,20 @@ export default function ScraperPage() {
 
         let success = false;
         try {
-            const result = await runScraper(
-                selectedCategory,
-                selectedProvince,
-                selectedCity,
-                selectedDistrict || "",
-                coords?.lat,
-                coords?.lng
-            );
+            const response = await fetch('/api/scraper/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    category: selectedCategory,
+                    province: selectedProvince,
+                    city: selectedCity,
+                    district: selectedDistrict || "",
+                    lat: coords?.lat,
+                    lng: coords?.lng
+                })
+            });
+
+            const result = await response.json();
 
             if (result.success) {
                 success = true;
@@ -312,8 +318,10 @@ export default function ScraperPage() {
                 setSessionStats(result.stats); 
                 setIsDone(true); 
                 toast.success("Scraper Finished!");
+            } else {
+                toast.error(result.message || "Scraper failed");
             }
-        } catch (error) {
+        } catch (error: any) {
             toast.error("Koneksi terputus (Timeout), tapi cek database lu. Biasanya data tetep masuk.");
         } finally {
             setIsScraping(false);
