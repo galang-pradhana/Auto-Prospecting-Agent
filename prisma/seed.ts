@@ -12,6 +12,26 @@ async function main() {
   const qaPassword = 'Test1234!';
   const qaName = 'QA Tester';
 
+  // -- 1. Create Main Admin User --
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!existingAdmin) {
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+      },
+    });
+    console.log(`Admin user created: ${email}`);
+  } else {
+    console.log(`Admin user ${email} already exists.`);
+  }
+
+  // -- 2. Create QA User --
   const existingQa = await prisma.user.findUnique({
     where: { email: qaEmail },
   });
