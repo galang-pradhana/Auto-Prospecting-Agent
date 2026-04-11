@@ -97,7 +97,7 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                                             <div className="mt-2 h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
                                                 <div 
                                                     className="h-full bg-accent-gold transition-all duration-500"
-                                                    style={{ width: \`\${job.progress}%\` }}
+                                                    style={{ width: `${job.progress}%` }}
                                                 />
                                             </div>
                                         )}
