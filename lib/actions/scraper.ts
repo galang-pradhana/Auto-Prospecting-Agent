@@ -1,5 +1,7 @@
 'use server';
 
+export const maxDuration = 300; // Extend timeout to 5 minutes for long scraping tasks
+
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getSession, getCurrentUser } from '@/lib/auth';
