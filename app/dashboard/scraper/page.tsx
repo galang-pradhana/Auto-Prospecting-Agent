@@ -279,15 +279,57 @@ export default function ScraperPage() {
         return () => clearInterval(interval);
     }, [sessionStartTime]);
 
+    const [activeJobId, setActiveJobId] = useState<string | null>(null);
+    const [jobProgress, setJobProgress] = useState(0);
+
+    // Job Polling Effect
+    useEffect(() => {
+        if (!activeJobId) return;
+        
+        const pollJob = async () => {
+            try {
+                const res = await fetch(`/api/jobs/status?id=${activeJobId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.job) {
+                        setJobProgress(data.job.progress);
+                        if (data.job.data) {
+                            setStats(data.job.data);
+                            setSessionStats(data.job.data);
+                        }
+                        
+                        if (data.job.status === 'COMPLETED') {
+                            setIsDone(true);
+                            setIsScraping(false);
+                            setActiveJobId(null);
+                            toast.success("Scraper Finished!");
+                        } else if (data.job.status === 'FAILED') {
+                            setIsScraping(false);
+                            setActiveJobId(null);
+                            toast.error("Scraper Failed: " + data.job.message);
+                            setStep(scraperStages.length - 1);
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore sync errors
+            }
+        };
+
+        const interval = setInterval(pollJob, 2000);
+        return () => clearInterval(interval);
+    }, [activeJobId]);
+
     const handleScrape = async () => {
         setIsScraping(true);
         setStep(0);
+        setJobProgress(0);
         setResults([]);
         setSessionStartTime(Date.now());
         setIsDone(false);
         setSessionStats(null);
-        setCurrentRadius(null); // Reset radius
-        setStats({ new: 0, aiRejected: 0, processed: 0 }); // Reset stats dashboard
+        setCurrentRadius(null);
+        setStats({ new: 0, aiRejected: 0, processed: 0 });
 
         if (health && !health.browserReady) {
             toast.error(health.message);
@@ -295,7 +337,6 @@ export default function ScraperPage() {
             return;
         }
 
-        let success = false;
         try {
             const response = await fetch('/api/scraper/run', {
                 method: 'POST',
@@ -312,22 +353,16 @@ export default function ScraperPage() {
 
             const result = await response.json();
 
-            if (result.success) {
-                success = true;
-                setStats(result.stats);
-                setSessionStats(result.stats); 
-                setIsDone(true); 
-                toast.success("Scraper Finished!");
+            if (result.success && result.jobId) {
+                setActiveJobId(result.jobId);
+                toast.success("Background Scrape Job Started!");
             } else {
-                toast.error(result.message || "Scraper failed");
+                toast.error(result.message || "Scraper failed to start");
+                setIsScraping(false);
             }
         } catch (error: any) {
-            toast.error("Koneksi terputus (Timeout), tapi cek database lu. Biasanya data tetep masuk.");
-        } finally {
+            toast.error("Failed to start scraper job.");
             setIsScraping(false);
-            if (!success) {
-                setStep(scraperStages.length - 1);
-            }
         }
     };
 

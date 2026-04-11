@@ -216,14 +216,35 @@ export async function enrichLead(leadId: string) {
 }
 
 
-export async function batchEnrichLeads(ids: string[]) {
+import { JobRegistry } from '@/lib/jobRegistry';
+
+// ... (replacing the exact chunk carefully)
+export async function batchEnrichLeads(ids: string[], jobId?: string) {
     const session = await getSession();
-    if (!session) return { success: false, message: 'Not authenticated' };
+    if (!session) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Not authenticated' });
+        return { success: false, message: 'Not authenticated' };
+    }
+
+    let processedCount = 0;
+    let successCount = 0;
+    const total = ids.length;
 
     for (const id of ids) {
         try {
             const lead = await prisma.lead.findUnique({ where: { id } });
-            if (!lead) continue;
+            if (!lead) {
+                processedCount++;
+                continue;
+            }
+
+            if (jobId) {
+                JobRegistry.updateJob(jobId, {
+                    progress: Math.round((processedCount / total) * 100),
+                    message: `Enriching ${lead.name} (${processedCount + 1}/${total})...`,
+                    data: { processed: processedCount, total, success: successCount }
+                });
+            }
 
             // STEP 1: ENRICHMENT (Riset & Analisis JSON)
             const promptBase = ENRICHMENT_PROMPT;
@@ -243,7 +264,10 @@ export async function batchEnrichLeads(ids: string[]) {
                     .replace('[unsplashQueries]', forgeData.unsplashQueries)
             );
             
-            if (!researchRaw) continue;
+            if (!researchRaw) {
+                processedCount++;
+                continue;
+            }
 
             try {
                 const resData = JSON.parse(researchRaw.replace(/```json/g, '').replace(/```/g, '').trim());
@@ -281,6 +305,7 @@ export async function batchEnrichLeads(ids: string[]) {
                 });
 
                 await logActivity(id, 'ENRICH', `Unified Double-Step Enriched via GEMINI 3.1 PRO`);
+                successCount++;
             } catch (e) {
                 console.error(`Error parsing JSON on ${id}:`, e);
                 await prisma.lead.update({
@@ -292,6 +317,7 @@ export async function batchEnrichLeads(ids: string[]) {
                         lastLog: `Fallback: Raw Enrichment via GEMINI 3.1 PRO (JSON Parse Failed)`
                     }
                 });
+                successCount++;
             }
         } catch (error: any) {
             console.error(`[Batch Enrich Error] ${id}:`, error.message);
@@ -304,18 +330,33 @@ export async function batchEnrichLeads(ids: string[]) {
                 console.error("Failed to log error to DB:", dbErr);
             }
         }
+        
+        processedCount++;
     }
-    
-    revalidatePath('/leads');
+
+    if (jobId) {
+        JobRegistry.updateJob(jobId, {
+            status: 'COMPLETED',
+            progress: 100,
+            message: `Batch enrichment finished. Processed ${successCount}/${total} leads.`,
+            data: { processed: processedCount, total, success: successCount }
+        });
+    }
+
+    revalidatePath('/dashboard/enriched');
     revalidatePath('/dashboard/leads');
-    return { success: true };
+
+    return { success: true, message: `Batch enrichment complete. Enriched ${successCount} leads.` };
 }
 
 // --- Website Generation (Forge) ---
 
-export async function generateForgeCode(leadId: string) {
+export async function generateForgeCode(leadId: string, jobId?: string) {
     const session = await getSession();
-    if (!session) return { success: false, message: 'Not authenticated' };
+    if (!session) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Not authenticated' });
+        return { success: false, message: 'Not authenticated' };
+    }
 
     try {
         const lead = await prisma.lead.findUnique({ where: { id: leadId } });
@@ -345,9 +386,23 @@ export async function generateForgeCode(leadId: string) {
             .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
             .replace('[unsplashQueries]', forgeData.unsplashQueries);
 
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                progress: 50,
+                message: `Generating HTML code for ${lead.name}...`
+            });
+        }
+
         const htmlContent = await callKieAI(systemPrompt + "\n\n" + finalPrompt);
         
         if (!htmlContent || htmlContent.length < 500) throw new Error("Output AI korup atau terlalu pendek.");
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                progress: 90,
+                message: `Finalizing and saving Database for ${lead.name}...`
+            });
+        }
 
         // Clean & Update
         const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
@@ -365,6 +420,15 @@ export async function generateForgeCode(leadId: string) {
         revalidatePath('/dashboard/enriched');
         revalidatePath('/dashboard/live');
 
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                status: 'COMPLETED',
+                progress: 100,
+                message: `Forge successful for ${lead.name}`,
+                data: { success: true }
+            });
+        }
+
         return { success: true, html: cleanHtml };
 
     } catch (error: any) {
@@ -377,6 +441,7 @@ export async function generateForgeCode(leadId: string) {
         } catch (dbErr) {
             console.error("Failed to log error to DB:", dbErr);
         }
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: error.message });
         return { success: false, message: error.message };
     }
 }
@@ -446,9 +511,12 @@ export async function tweakLeadStyle(leadId: string, styleId: string, instructio
     }
 }
 
-export async function tweakLeadStyleStrict(leadId: string, styleId: string, instructions?: string, previewOnly: boolean = false) {
+export async function tweakLeadStyleStrict(leadId: string, styleId: string, instructions?: string, previewOnly: boolean = false, jobId?: string) {
     const session = await getSession();
-    if (!session) return { success: false, message: 'Not authenticated' };
+    if (!session) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Not authenticated' });
+        return { success: false, message: 'Not authenticated' };
+    }
 
     const lead = await prisma.lead.findUnique({ where: { id: leadId } });
     if (!lead) return { success: false, message: 'Lead not found' };
@@ -479,9 +547,23 @@ export async function tweakLeadStyleStrict(leadId: string, styleId: string, inst
             }) : "KEEP CURRENT STYLING - ONLY APPLY THE MANUAL OVERRIDES BELOW")
             .replace("[instructions]", enforcementConstraint);
 
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                progress: 40,
+                message: `Analyzing new style DNA...`
+            });
+        }
+
         const aiResponse = await callKieAI(prompt);
         
         if (!aiResponse) throw new Error("AI Re-generation failed");
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                progress: 80,
+                message: `Processing generated visual code...`
+            });
+        }
         
         // Extract HTML from markdown if present
         let htmlCode = aiResponse.trim();
@@ -511,10 +593,20 @@ export async function tweakLeadStyleStrict(leadId: string, styleId: string, inst
             revalidatePath('/dashboard/live');
             revalidatePath(`/${lead.slug || lead.id}`);
         }
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                status: 'COMPLETED',
+                progress: 100,
+                message: previewOnly ? `Preview generation complete.` : `Visual update applied successfully.`,
+                data: { success: true, htmlCode }
+            });
+        }
         
         return { success: true, htmlCode };
     } catch (error: any) {
         console.error('Strict Tweak Error:', error);
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: error.message });
         return { success: false, message: error.message || 'Strict Tweak failed' };
     }
 }

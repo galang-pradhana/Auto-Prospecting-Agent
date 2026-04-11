@@ -287,9 +287,16 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
 
     const handleBatchEnrich = async () => {
         setProcessing(true);
-        // Panggil Action-nya
-        await batchEnrichLeads(selectedIds);
-        
+        try {
+            await fetch('/api/enrich/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedIds })
+            });
+            await new Promise(r => setTimeout(r, 1000));
+        } catch (e) {
+            console.error('Failed to trigger background enrich:', e);
+        }
         setProcessing(false);
         setSelectedIds([]);
     };
@@ -298,30 +305,21 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
         if (selectedIds.length === 0) return;
         
         setProcessing(true);
-        // Add all selected ids to forging state
-        setForgingIds(new Set(selectedIds));
-        
+        // We will dispatch multiple jobs to the registry
         try {
-            // Import dynamically or ensure it's imported at top
-            const { generateForgeCode } = await import('@/lib/actions/ai');
-            
             for (const id of selectedIds) {
-                const res = await generateForgeCode(id);
-                if (!res.success) {
-                    // Tampilkan notifikasi error (toast) agar kamu tahu kenapa gagal
-                    alert(`Gagal Forge: ${res.message}`); 
-                    break; // Stop batch kalau ada yang error parah
-                }
+                await fetch('/api/forge/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ leadId: id })
+                });
             }
-
-            // Force reload to show moved leads in LIVE tab
-            window.location.reload();
+            await new Promise(r => setTimeout(r, 1500));
         } catch (e: any) {
-            console.error(e);
-            alert("Batch Forge failure: " + (e.message || "Unknown error occurred."));
+            console.error('Failed to trigger background forge:', e);
+            alert(`Gagal trigger Forge: ${e.message}`);
         } finally {
             setProcessing(false);
-            setForgingIds(new Set());
             setSelectedIds([]);
         }
     };

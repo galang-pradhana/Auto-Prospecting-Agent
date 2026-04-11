@@ -26,6 +26,8 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
     const [isSaving, setIsSaving] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
+    const [activeJobId, setActiveJobId] = useState<string | null>(null);
+    const [jobProgress, setJobProgress] = useState(0);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'info' } | null>(null);
     const [isDirectEditEnabled, setIsDirectEditEnabled] = useState(false);
     const [previewHtml, setPreviewHtml] = useState<string>(lead?.htmlCode || '');
@@ -70,6 +72,40 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
             }, 100);
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!activeJobId) return;
+
+        const pollJob = async () => {
+            try {
+                const res = await fetch(`/api/jobs/status?id=${activeJobId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.job) {
+                        setJobProgress(data.job.progress);
+
+                        if (data.job.status === 'COMPLETED') {
+                            showToast("Preview ready — hit Save HTML to apply.");
+                            setPreviewHtml(data.job.data?.htmlCode || '');
+                            setRevisionKey(r => r + 1);
+                            setTimeout(() => scanImages(data.job.data?.htmlCode || ''), 100);
+                            setIsRegenerating(false);
+                            setActiveJobId(null);
+                        } else if (data.job.status === 'FAILED') {
+                            alert("AI Regeneration failed: " + data.job.message);
+                            setIsRegenerating(false);
+                            setActiveJobId(null);
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore sync errors
+            }
+        };
+
+        const interval = setInterval(pollJob, 2000);
+        return () => clearInterval(interval);
+    }, [activeJobId]);
 
     const scanImages = async (html: string) => {
         if (!html) return;
@@ -447,19 +483,27 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
     const handleAIRegenerate = async () => {
         if (isRegenerating) return;
         setIsRegenerating(true);
+        setJobProgress(0);
         try {
-            const res = await tweakLeadStyleStrict(lead.id, selectedStyle, magicPrompt, true);
-            if (res.success) {
-                showToast("Preview ready — hit Save HTML to apply.");
-                setPreviewHtml(res.htmlCode || '');
-                setRevisionKey(r => r + 1);
-                setTimeout(() => scanImages(res.htmlCode || ''), 100);
+            const res = await fetch('/api/edit/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    leadId: lead.id, 
+                    styleId: selectedStyle, 
+                    instructions: magicPrompt, 
+                    previewOnly: true 
+                })
+            });
+            const data = await res.json();
+            if (data.success && data.jobId) {
+                setActiveJobId(data.jobId);
             } else {
-                alert("AI Regeneration failed: " + res.message);
+                alert("Failed to start AI generation: " + data.message);
+                setIsRegenerating(false);
             }
         } catch (e: any) {
             alert("Error: " + e.message);
-        } finally {
             setIsRegenerating(false);
         }
     };
@@ -752,8 +796,17 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                                     : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-900/40 hover:shadow-purple-800/40'
                                                 }`}
                                             >
-                                                {isRegenerating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                                                {isRegenerating ? 'Consulting Kie.ai...' : 'Force AI Regeneration'}
+                                                {isRegenerating ? (
+                                                    <>
+                                                        <Loader2 size={16} className="animate-spin text-accent-gold" />
+                                                        Processing {jobProgress}%
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles size={13} />
+                                                        Force AI Regeneration
+                                                    </>
+                                                )}
                                             </button>
                                         </div>
                                     </div>

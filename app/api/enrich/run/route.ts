@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runScraper } from '@/lib/actions/scraper';
+import { batchEnrichLeads } from '@/lib/actions/ai';
 import { getSession } from '@/lib/auth';
 import { JobRegistry } from '@/lib/jobRegistry';
 import { randomUUID } from 'crypto';
@@ -14,37 +14,32 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { category, province, city, district, lat, lng } = body;
+        const { ids } = body;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return NextResponse.json({ success: false, message: 'No leads provided' }, { status: 400 });
+        }
 
         const jobId = randomUUID();
-        const initialMessage = `Initializing Scrape: ${category} in ${district || city}`;
+        const initialMessage = `Initializing Batch Enrichment for ${ids.length} leads...`;
         
-        // Setup background job
-        JobRegistry.createJob(jobId, 'SCRAPER', session.userId, initialMessage);
+        JobRegistry.createJob(jobId, 'ENRICH', session.userId, initialMessage);
 
-        console.log(`[API Scraper] Firing background job ${jobId}...`);
+        console.log(`[API Enrich] Firing background job ${jobId}...`);
         
         // Fire and forget
-        runScraper(
-            category,
-            province,
-            city,
-            district || "",
-            lat,
-            lng,
-            jobId
-        ).catch(err => {
+        batchEnrichLeads(ids, jobId).catch(err => {
             console.error(`[Job ${jobId}] Failed:`, err);
             JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message });
         });
 
         // Instantly return to free up the client
-        return NextResponse.json({ success: true, jobId, message: 'Job started' });
+        return NextResponse.json({ success: true, jobId, message: 'Batch enrichment started' });
     } catch (error: any) {
-        console.error("[API Scraper Error]:", error);
+        console.error("[API Enrich Error]:", error);
         return NextResponse.json({ 
             success: false, 
-            message: error.message || 'Internal Server Error during scraping' 
+            message: error.message || 'Internal Server Error' 
         }, { status: 500 });
     }
 }

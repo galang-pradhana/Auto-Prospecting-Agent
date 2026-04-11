@@ -205,6 +205,10 @@ async function executeScraperProcess(
 
 // Removed redundant shouldSkipLead function
 
+import { JobRegistry } from '@/lib/jobRegistry';
+
+// ... (code omitted due to size, relying on actual replacement targeted precisely)
+
 // --- Main Scraper Action ---
 
 export async function runScraper(
@@ -213,10 +217,14 @@ export async function runScraper(
     city: string,
     district?: string,
     lat?: string,
-    lng?: string
+    lng?: string,
+    jobId?: string
 ) {
     const session = await getSession();
-    if (!session) return { success: false, message: 'Not authenticated' };
+    if (!session) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Not authenticated' });
+        return { success: false, message: 'Not authenticated' };
+    }
     const userId = session.userId;
 
     const binaryPath = path.join(process.cwd(), 'google-maps-scraper');
@@ -224,6 +232,7 @@ export async function runScraper(
     try {
         fs.accessSync(binaryPath, fs.constants.X_OK);
     } catch (err) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Binary not executable' });
         return { success: false, message: `[Internal Error]: Scraper binary not executable. Run chmod +x.` };
     }
 
@@ -269,6 +278,13 @@ export async function runScraper(
                 firstItemLogged = true;
             }
             totalProcessed++;
+            
+            if (jobId) {
+                JobRegistry.updateJob(jobId, { 
+                    message: `Processing leads: ${totalProcessed} scanned.`,
+                    data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }
+                });
+            }
 
             // 1. DATA EXTRACTION & INITIAL PARSING
             const leadName = item.name || item.title || item.Name || item.Title || 'N/A';
@@ -433,13 +449,16 @@ export async function runScraper(
                     });
 
                     totalInserted++;
+                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
                 } else {
                     console.log(`[Scraper] AI Decision: SKIP for ${leadName} (${reason})`);
                     aiRejectedCount++;
+                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
                 }
             } catch (err) {
                 console.error(`[Scraper] AI Error for ${leadName}:`, err);
                 aiRejectedCount++;
+                if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
             }
         };
 
@@ -452,6 +471,15 @@ export async function runScraper(
 
         revalidatePath('/dashboard/leads');
         revalidatePath('/dashboard/scraper');
+        
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                status: 'COMPLETED',
+                progress: 100,
+                message: `Scraper finished. Valid Leads: ${totalInserted}.`,
+                data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }
+            });
+        }
 
         return { 
             success: true, 
@@ -462,6 +490,7 @@ export async function runScraper(
     } catch (err: any) {
         if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
         console.error("[Scraper Main Error]:", err);
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message || 'Scraper failed' });
         return { success: false, message: err.message || 'Scraper failed' };
     }
 }

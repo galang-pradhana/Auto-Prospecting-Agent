@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runScraper } from '@/lib/actions/scraper';
+import { generateForgeCode } from '@/lib/actions/ai';
 import { getSession } from '@/lib/auth';
 import { JobRegistry } from '@/lib/jobRegistry';
 import { randomUUID } from 'crypto';
@@ -14,37 +14,32 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { category, province, city, district, lat, lng } = body;
+        const { leadId } = body;
+
+        if (!leadId) {
+            return NextResponse.json({ success: false, message: 'leadId is required' }, { status: 400 });
+        }
 
         const jobId = randomUUID();
-        const initialMessage = `Initializing Scrape: ${category} in ${district || city}`;
+        const initialMessage = `Initializing AI Forge for lead ${leadId}...`;
         
-        // Setup background job
-        JobRegistry.createJob(jobId, 'SCRAPER', session.userId, initialMessage);
+        JobRegistry.createJob(jobId, 'FORGE', session.userId, initialMessage);
 
-        console.log(`[API Scraper] Firing background job ${jobId}...`);
+        console.log(`[API Forge] Firing background job ${jobId}...`);
         
         // Fire and forget
-        runScraper(
-            category,
-            province,
-            city,
-            district || "",
-            lat,
-            lng,
-            jobId
-        ).catch(err => {
+        generateForgeCode(leadId, jobId).catch(err => {
             console.error(`[Job ${jobId}] Failed:`, err);
             JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message });
         });
 
-        // Instantly return to free up the client
-        return NextResponse.json({ success: true, jobId, message: 'Job started' });
+        // Instantly return
+        return NextResponse.json({ success: true, jobId, message: 'Forge process started' });
     } catch (error: any) {
-        console.error("[API Scraper Error]:", error);
+        console.error("[API Forge Error]:", error);
         return NextResponse.json({ 
             success: false, 
-            message: error.message || 'Internal Server Error during scraping' 
+            message: error.message || 'Internal Server Error' 
         }, { status: 500 });
     }
 }

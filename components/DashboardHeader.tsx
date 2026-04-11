@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { CreditCard, Menu } from 'lucide-react';
 import { MobileDrawer } from './MobileDrawer';
+import GlobalJobIndicator from './GlobalJobIndicator';
 
 interface DashboardHeaderProps {
     userName: string;
@@ -26,6 +27,8 @@ export function DashboardHeader({ userName, credit }: DashboardHeaderProps) {
                 </div>
 
                 <div className="flex items-center gap-3 md:gap-6">
+                    <GlobalJobIndicator className="hidden md:block" />
+                    
                     <div className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-accent-gold/10 border border-accent-gold/20">
                         <CreditCard size={16} className="text-accent-gold" />
                         <div className="flex flex-col">
