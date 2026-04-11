@@ -138,7 +138,21 @@ async function executeScraperProcess(
         }, 30 * 60 * 1000);
 
         let buffer = '';
+        let idleTimer: NodeJS.Timeout;
+
+        const resetIdleTimer = () => {
+            clearTimeout(idleTimer);
+            // If the Go Engine stops outputting data for 45 seconds, assume it's stuck or done
+            idleTimer = setTimeout(() => {
+                console.log("[Scraper System]: Idle timeout (45s). Process seems done or stuck. Forcing exit...");
+                try { scraperProcess.kill('SIGKILL'); } catch(e) {}
+            }, 45000);
+        };
+
+        resetIdleTimer(); // Initial start
+
         scraperProcess.stdout.on('data', (data) => {
+            resetIdleTimer();
             buffer += data.toString();
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
@@ -148,27 +162,19 @@ async function executeScraperProcess(
                 if (!trimmed) continue;
                 
                 // Detection for Go-Engine exit signals
-                if (trimmed.includes("scrapemate exited")) {
+                if (trimmed.includes("scrapemate exited") || trimmed.includes("scrapemate finished")) {
                     console.log("[Scraper System]: Engine signaling completion - cleaning up buffers.");
-                    
-                    // NEW: Auto-Kill Protective Logic
-                    // If the internal engine says it's done but process doesn't close in 5s, kill it.
                     setTimeout(() => {
                         try {
-                            // Check if process is still alive by sending signal 0
                             process.kill(scraperProcess.pid!, 0); 
-                            console.log("[Scraper System]: Process persistent after exit signal. Force killing...");
                             scraperProcess.kill('SIGKILL');
-                        } catch (e) {
-                            // Process is already dead, perfect.
-                        }
+                        } catch (e) {}
                     }, 5000);
                 }
 
                 if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
                     try {
                         const item = JSON.parse(trimmed);
-                        // Push promise to tracker and run in background
                         const p = onLead(item);
                         pendingLeads.push(p);
                     } catch (err) {
@@ -181,17 +187,20 @@ async function executeScraperProcess(
         });
 
         scraperProcess.stderr.on('data', (data) => {
+            resetIdleTimer();
             const msg = data.toString().trim();
             if (msg) console.error(`[Go-Engine Error]: ${msg}`);
         });
 
         scraperProcess.on('error', (err) => {
             clearTimeout(killTimer);
+            clearTimeout(idleTimer);
             reject(err);
         });
 
         scraperProcess.on('close', async (code) => {
             clearTimeout(killTimer);
+            clearTimeout(idleTimer);
             console.log(`[Scraper] Binary process closed with code ${code}. Waiting for ${pendingLeads.length} pending AI tasks...`);
             
             // CRITICAL: Wait for all AI enrichment and DB insertions to finish

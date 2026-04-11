@@ -89,15 +89,15 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                                             </div>
                                             {job.status === 'COMPLETED' ? <CheckCircle2 size={12} className="text-emerald-500" /> :
                                              job.status === 'FAILED' ? <XCircle size={12} className="text-red-500" /> :
-                                             <span className="text-[9px] font-bold text-accent-gold">{job.progress}%</span>}
+                                             <span className="text-[9px] font-bold text-accent-gold">{job.progress > 0 ? `${job.progress}%` : '• • •'}</span>}
                                         </div>
                                         <p className="text-xs text-zinc-400 leading-snug">{job.message}</p>
                                         
                                         {job.status === 'RUNNING' && (
-                                            <div className="mt-2 h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
+                                            <div className="mt-2 h-1 w-full bg-zinc-900 rounded-full overflow-hidden relative">
                                                 <div 
-                                                    className="h-full bg-accent-gold transition-all duration-500"
-                                                    style={{ width: `${job.progress}%` }}
+                                                    className={`h-full bg-accent-gold transition-all duration-500 ${job.progress === 0 && job.type === 'SCRAPER' ? 'w-full animate-pulse' : ''}`}
+                                                    style={job.progress > 0 || job.type !== 'SCRAPER' ? { width: `${job.progress}%` } : {}}
                                                 />
                                             </div>
                                         )}
