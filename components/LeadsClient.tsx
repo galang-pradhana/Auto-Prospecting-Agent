@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { 
     Zap, Globe, Phone, Star, CheckCircle2, Loader2, 
     Trash2, Building2, MapPin, ChevronDown,
@@ -91,6 +93,7 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }>
 const STATUS_FILTERS = ['ALL STATUS', 'FRESH', 'ENRICHED', 'READY', 'FINISH', 'LIVE'];
 
 export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientProps) {
+    const router = useRouter();
     const [leads, setLeads] = useState<Lead[]>(initialLeads);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [enriching, setEnriching] = useState(false);
@@ -293,7 +296,10 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: selectedIds })
             });
-            await new Promise(r => setTimeout(r, 1000));
+            toast.success("Enrichment started in background. Redirecting...");
+            setTimeout(() => {
+                router.push('/dashboard/enriched');
+            }, 1500);
         } catch (e) {
             console.error('Failed to trigger background enrich:', e);
         }
@@ -402,7 +408,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
 
     return (
         <div className="space-y-8 pb-32">
-            <div className="flex justify-between items-end">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
                     <h1 className="text-4xl font-black mb-2 tracking-tighter text-white">Lead Intelligence</h1>
                     <p className="text-white/40 italic font-medium">Database-powered repository. Filtered by status & category.</p>
@@ -713,7 +719,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                     </div>
                 ) : (
                     /* Paginated Table View */
-                    <div className="glass overflow-hidden rounded-[32px] border-white/5">
+                    <div className="glass overflow-hidden rounded-[32px] border-white/5 w-full">
                         <div className="overflow-x-auto scrollbar-hide">
                             <table className="w-full text-left border-collapse min-w-[800px]">
                                 <thead>

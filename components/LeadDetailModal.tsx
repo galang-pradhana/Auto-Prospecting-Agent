@@ -511,12 +511,12 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                                                     <div>
                                                         <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Live Preview Link</p>
                                                         <p className="text-sm font-bold text-white uppercase tracking-tight">
-                                                            {process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/preview/{lead.slug || lead.id}
+                                                            {process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/{lead.slug || lead.id}
                                                         </p>
                                                     </div>
                                                     <button 
                                                         onClick={() => {
-                                                            navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/preview/${lead.slug || lead.id}`);
+                                                            navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/${lead.slug || lead.id}`);
                                                             showToast("Link Copied!");
                                                         }}
                                                         className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/40"

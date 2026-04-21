@@ -34,7 +34,10 @@ export default function LiveEditModal({ isOpen, onClose, lead }: LiveEditModalPr
             const res = await updateLeadHtml(lead.id, html);
             if (res.success) {
                 setShowToast(true);
-                setTimeout(() => setShowToast(false), 3000);
+                setTimeout(() => {
+                    setShowToast(false);
+                    window.location.reload();
+                }, 1000);
             } else {
                 alert('Gagal menyimpan: ' + res.message);
             }

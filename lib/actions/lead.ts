@@ -246,6 +246,14 @@ export async function archiveToGSheet(leadIds: string[]) {
     }
 }
 
+function cleanHtmlString(html: string): string {
+    let cleanHtml = html;
+    cleanHtml = cleanHtml.replace(/<script\b[^>]*bis_use\s*=\s*["']true["'][^>]*>[\s\S]*?<\/script>/gi, '');
+    cleanHtml = cleanHtml.replace(/<style[^>]*>(?:(?!<\/style>)[\s\S])*?--tw-border-spacing-x(?:(?!<\/style>)[\s\S])*?<\/style>/gi, '');
+    cleanHtml = cleanHtml.replace(/\breveal\b/g, '');
+    return cleanHtml;
+}
+
 export async function saveForgeCode(leadId: string, htmlCode: string) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
@@ -286,7 +294,8 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
         // duplicate <script> injections on re-forge.
         const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:8080';
         const trackerPattern = /<script[^>]+tracker\.js[^>]*><\/script>\n?/g;
-        const cleanHtml = htmlCode.replace(trackerPattern, '');
+        const baseCleanHtml = htmlCode.replace(trackerPattern, '');
+        const cleanHtml = cleanHtmlString(baseCleanHtml);
 
         const trackerScript = `\n<script src="${appBaseUrl}/tracker.js" data-token="${token}" defer></script>\n`;
         const updatedHtml = cleanHtml.includes('</body>')
@@ -467,9 +476,10 @@ export async function updateLeadHtml(leadId: string, htmlCode: string) {
     if (!session) return { success: false, message: 'Not authenticated' };
 
     try {
+        const cleanHtml = cleanHtmlString(htmlCode);
         await prisma.lead.update({
             where: { id: leadId },
-            data: { htmlCode }
+            data: { htmlCode: cleanHtml }
         });
 
         revalidatePath('/dashboard/live');

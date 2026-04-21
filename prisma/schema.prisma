@@ -66,9 +66,14 @@ model Lead {
   qualifiedAt         DateTime?
   totalTimeOnPage     Int           @default(0)
   
+  b2bType             String?
+  b2bNotes            String?
+
   events              ProspectEvent[]
   tokens              TrackingToken[]
   followupQueue       FollowupQueue[]
+  b2bAsBuyer          B2BDeal[]     @relation("BuyerDeals")
+  b2bAsSeller         B2BDeal[]     @relation("SellerDeals")
 
   logs                ActivityLog[]
   user                User          @relation(fields: [userId], references: [id])
@@ -168,4 +173,37 @@ enum LeadStatus {
   READY
   FINISH
   LIVE
+}
+
+model B2BDeal {
+  id              String   @id @default(cuid())
+  userId          String
+  buyerLeadId     String
+  sellerLeadId    String
+  categoryLink    String   // e.g. "Laundry→Deterjen Supplier"
+  status          String   @default("DISCOVERED") // DISCOVERED | VERIFIED | INTRODUCED | NEGOTIATING | CLOSED
+  dealValue       Float?
+  brokerFee       Float?
+  notes           String?
+  locationTier    Int      @default(1) // 1=dalam kota, 2=luar kota, 3=luar pulau
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  buyer           Lead     @relation("BuyerDeals", fields: [buyerLeadId], references: [id], onDelete: Cascade)
+  seller          Lead     @relation("SellerDeals", fields: [sellerLeadId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model B2BEcosystemMap {
+  id              String   @id @default(cuid())
+  categoryFocus   String
+  connectionType  String   // "DEMAND" | "SUPPLY"
+  connectedCat    String
+  tierLevel       Int      @default(1)
+  strengthScore   Int      @default(3) // 1-5
+  createdAt       DateTime @default(now())
+
+  @@index([categoryFocus])
 }

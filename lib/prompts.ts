@@ -446,6 +446,18 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
 - ZERO YAPPING. No preamble, no explanation.
 - Keputusan SKIP jika: Website profesional sudah ada, Rating < 3.5 atau > 4.9, atau benar-benar tidak ada WA dan IG tidak bisa ditebak sama sekali.
 - Jika data tidak memenuhi kriteria, set decision ke "SKIP".
+
+### IV. DATA TO EVALUATE (DATA ASLI DARI GOOGLE MAPS — JANGAN DIABAIKAN):
+- Nama Bisnis: [name]
+- Kategori Gmaps: [category]
+- Alamat: [address]
+- Lokasi: [city], [province] ([district])
+- Rating: [rating]
+- Nomor Telepon/WA: [wa]
+- Website: [website]
+- Jumlah Review: [reviewsCount]
+
+PENTING: Gunakan DATA di atas secara LITERAL. JANGAN mengarang atau mengubah data. JANGAN mengganti nama bisnis dengan nama lain. Nama yang dioutput HARUS SAMA PERSIS dengan "Nama Bisnis" di atas (kecuali membersihkan karakter aneh/simbol berlebihan).
 `;
 
 // ============================================================

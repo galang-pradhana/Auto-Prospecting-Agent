@@ -15,13 +15,40 @@ import { getProvinces, getCities, getDistricts } from '@/lib/actions/lead';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 
-const CATEGORIES = [
-    'Barber shop', 'Cafe', 'Coffee shop', 'Dental Clinic', 'Gym',
-    'Restaurant', 'Bakery', 'Beauty Salon', 'Fabric Store', 'Paint Store',
-    'Car Accessories Store', 'Auto Detailing Service', 'Hardware Store',
-    'Law Firm', 'Interior Design', 'Wedding Organizer',
-    'Pet Shop', 'Laundry Service', 'Photography Studio'
-];
+// Kategori Google Maps Terstruktur & Dioptimalkan untuk Prospecting UMKM Indonesia
+const CATEGORY_MAP: Record<string, string[]> = {
+    'Kuliner & Makanan': [
+        'Restoran', 'Restoran Padang', 'Restoran Seafood', 'Cafe', 'Kedai Kopi', 
+        'Toko Roti & Kue (Bakery)', 'Catering', 'Toko Minuman'
+    ],
+    'Toko & Ritel': [
+        'Toko Kelontong', 'Supermarket', 'Minimarket', 'Toko Pakaian', 
+        'Toko Sepatu', 'Toko Perhiasan', 'Toko Elektronik', 'Toko Komputer', 
+        'Toko Ponsel', 'Toko Buku', 'Toko Alat Tulis', 'Toko Bunga (Florist)', 
+        'Pet Shop', 'Toko Bahan Bangunan', 'Distributor Sembako'
+    ],
+    'Jasa & Kesehatan': [
+        'Klinik Medis', 'Apotek', 'Klinik Gigi', 'Salon Kecantikan', 
+        'Klinik Kecantikan', 'Klinik Hewan', 'Barber Shop', 'Laundry Service', 
+        'Photography Studio', 'Wedding Organizer', 'Law Firm (Konsultan Hukum)'
+    ],
+    'Otomotif': [
+        'Bengkel Mobil', 'Bengkel Motor', 'Dealer Mobil Bekas', 
+        'Toko Suku Cadang', 'Tempat Cuci Mobil (Car Wash)', 'Auto Detailing'
+    ],
+    'Perumahan & Industri': [
+        'Agen Properti (Real Estat)', 'Kontraktor Umum', 'Jasa Renovasi', 
+        'Tukang Listrik', 'Tukang Ledeng', 'Desain Interior', 'Jasa Konstruksi',
+        'Peternakan', 'Perikanan', 'Pertanian', 'Pabrik', 'Gudang'
+    ],
+    'Pendidikan & Hiburan': [
+        'Sekolah Swasta', 'Taman Kanak-kanak', 'Tempat Bimbel / Kursus', 
+        'Gym & Pusat Kebugaran', 'Studio Yoga', 'Lapangan Futsal / Olahraga', 
+        'Hotel & Penginapan', 'Villa', 'Taman Wisata'
+    ]
+};
+
+const MAIN_CATEGORIES = Object.keys(CATEGORY_MAP);
 
 
 // Searchable Combobox Component
@@ -150,7 +177,8 @@ export default function ScraperPage() {
     const [selectedProvince, setSelectedProvince] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
     const [selectedDistrict, setSelectedDistrict] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]);
+    const [selectedMainCategory, setSelectedMainCategory] = useState(MAIN_CATEGORIES[0]);
+    const [selectedSubCategory, setSelectedSubCategory] = useState(CATEGORY_MAP[MAIN_CATEGORIES[0]][0]);
     const [includeDistricts, setIncludeDistricts] = useState(false);
     const [results, setResults] = useState<any[]>([]);
     const [fetchingDistricts, setFetchingDistricts] = useState(false);
@@ -179,6 +207,12 @@ export default function ScraperPage() {
     // Health State
     const [health, setHealth] = useState<any>(null);
     const [repairing, setRepairing] = useState(false);
+
+    useEffect(() => {
+        if (selectedMainCategory && CATEGORY_MAP[selectedMainCategory]) {
+            setSelectedSubCategory(CATEGORY_MAP[selectedMainCategory][0]);
+        }
+    }, [selectedMainCategory]);
 
     useEffect(() => {
         const loadProvinces = async () => {
@@ -342,7 +376,7 @@ export default function ScraperPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    category: selectedCategory,
+                    category: selectedSubCategory,
                     province: selectedProvince,
                     city: selectedCity,
                     district: selectedDistrict || "",
@@ -469,12 +503,18 @@ export default function ScraperPage() {
             {renderHealthIndicator()}
 
             <div className="glass p-4 md:p-8 rounded-[32px] md:rounded-[40px] border-white/5 relative z-30 shadow-2xl bg-zinc-950/40">
-                <form className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 items-end gap-4 md:gap-6" onSubmit={(e) => { e.preventDefault(); handleScrape(); }}>
+                <form className="relative z-10 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 items-end gap-4 md:gap-6" onSubmit={(e) => { e.preventDefault(); handleScrape(); }}>
                     <div className="md:col-span-1 lg:col-span-1 space-y-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">
-                            <Building2 size={14} /> Category
+                            <Building2 size={14} /> Bidang Utama
                         </label>
-                        <SearchCombobox value={selectedCategory} onChange={setSelectedCategory} options={CATEGORIES} placeholder="Category" />
+                        <SearchCombobox value={selectedMainCategory} onChange={setSelectedMainCategory} options={MAIN_CATEGORIES} placeholder="Bidang Usaha" />
+                    </div>
+                    <div className="md:col-span-1 lg:col-span-1 space-y-3">
+                        <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">
+                            <Building2 size={14} /> Spesifik
+                        </label>
+                        <SearchCombobox value={selectedSubCategory} onChange={setSelectedSubCategory} options={CATEGORY_MAP[selectedMainCategory] || []} placeholder="Kategori Spesifik" />
                     </div>
                     <div className="md:col-span-1 lg:col-span-1 space-y-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">

@@ -17,11 +17,11 @@ import { useTheme } from 'next-themes';
 const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Scraper', href: '/dashboard/scraper', icon: Terminal },
-    { name: 'Leads Gmaps', href: '/dashboard/leads', icon: Users },
-    // { name: 'Leads IG', href: '/dashboard/leads-ig', icon: Instagram },
-    // { name: 'Leads Manual', href: '/dashboard/leads-manual', icon: FilePlus2 },
+    { name: 'Leads Manual', href: '/dashboard/leads-manual', icon: FilePlus2 },
+    { name: 'Leads Data', href: '/dashboard/leads', icon: Users },
     { name: 'Enriched', href: '/dashboard/enriched', icon: Sparkles },
     { name: 'Live Sites', href: '/dashboard/live', icon: Globe },
+    { name: 'Linked B2B', href: '/dashboard/linked-b2b', icon: Target },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 

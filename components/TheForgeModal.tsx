@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hammer, Wand2, Eye, Save, Loader2, X, Globe, Layout, Code2 } from 'lucide-react';
 import { generateForgeCode } from '@/lib/actions/ai';
@@ -19,6 +20,7 @@ interface TheForgeModalProps {
 }
 
 export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalProps) {
+    const router = useRouter();
     const [htmlCode, setHtmlCode] = useState(lead.htmlCode || '');
     const [activeTab, setActiveTab] = useState<'manual' | 'ai'>('manual');
     const [isSaving, setIsSaving] = useState(false);
@@ -41,7 +43,10 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
             const result = await saveForgeCode(lead.id, htmlCode);
             if (result.success) {
                 showMessage('success', `Website saved for ${lead.name}! Status is now LIVE.`);
-                // We keep it open so they can see the success or preview
+                setTimeout(() => {
+                    onClose();
+                    router.push('/dashboard/live');
+                }, 1500);
             } else {
                 showMessage('error', result.message || 'Failed to save code');
             }

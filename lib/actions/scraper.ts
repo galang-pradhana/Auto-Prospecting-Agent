@@ -391,13 +391,18 @@ export async function runScraper(
             // 5. FILTER LAYER 4: AI ENRICHMENT (FINAL STEP)
             try {
                 console.log(`[Scraper] Final Step: Analyzing ${leadName} via AI...`);
+                const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || 0;
                 const finalPrompt = LEAD_EVALUATION_PROMPT
-                    .replace('[category]', category)
-                    .replace('[province]', province)
-                    .replace('[city]', city)
-                    .replace('[district]', district || 'ALL')
                     .replace('[name]', leadName)
-                    .replace('[rating]', finalRating.toString());
+                    .replace('[category]', category)
+                    .replace('[city]', city)
+                    .replace('[province]', province)
+                    .replace('[district]', district || 'ALL')
+                    .replace('[rating]', finalRating.toString())
+                    .replace('[wa]', rawPhone || 'tidak ada')
+                    .replace('[website]', website || 'N/A')
+                    .replace('[reviewsCount]', reviewCount.toString())
+                    .replace('[address]', fullAddress);
 
                 const aiResponse = await callKieAI(finalPrompt);
                 const rawJson = cleanAIResponse(aiResponse);
@@ -503,3 +508,139 @@ export async function runScraper(
         return { success: false, message: err.message || 'Scraper failed' };
     }
 }
+
+// --- Manual Single URL Scraper ---
+
+export async function scrapeSingleUrl(url: string) {
+    const session = await getSession();
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    const binaryPath = path.join(process.cwd(), 'google-maps-scraper');
+    try {
+        fs.accessSync(binaryPath, fs.constants.X_OK);
+    } catch (err) {
+        return { success: false, message: `[Internal Error]: Scraper binary not executable. Run chmod +x.` };
+    }
+
+    const queryFilePath = path.join(process.cwd(), `queries_manual_${Date.now()}.txt`);
+    
+    try {
+        fs.writeFileSync(queryFilePath, url, 'utf8');
+
+        let parsedItem: any = null;
+
+        const onLeadHandled = async (item: any) => {
+             parsedItem = item;
+             console.log("[Manual Scraper] Received Data for URL");
+        };
+
+        await executeScraperProcess(binaryPath, queryFilePath, 1000, onLeadHandled);
+        
+        if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
+
+        if (!parsedItem) {
+             return { success: false, message: "Gagal mengekstrak data dari URL tersebut. Pastikan URL valid." };
+        }
+
+        const leadName = parsedItem.name || parsedItem.title || parsedItem.Name || parsedItem.Title || 'Manual Entry';
+        const rawPhone = parsedItem.phone || parsedItem.wa || parsedItem.phone_number || parsedItem.Phone || '';
+        const sanitizedWa = sanitizeWaNumber(rawPhone) || null;
+        const website = parsedItem.website || parsedItem.web_site || parsedItem.Website || 'N/A';
+        const mapsUrl = parsedItem.url || parsedItem.link || parsedItem.Url || url;
+        const fullAddress = parsedItem.address || parsedItem.vicinity || parsedItem.Address || parsedItem.street || 'N/A';
+        
+        let category = 'Uncategorized';
+        if (parsedItem.categories && parsedItem.categories.length > 0) {
+            category = parsedItem.categories[0];
+        } else if (parsedItem.category) {
+            category = parsedItem.category;
+        }
+
+        const rawRating = parsedItem.review_rating || parsedItem.total_score || parsedItem.rating || parsedItem.stars || '0';
+        const finalRating = parseFloat(rawRating.toString());
+
+        const city = parsedItem.complete_address?.city || 'Unknown';
+        const province = parsedItem.complete_address?.state || 'Unknown';
+
+        // --- AI Filtering & Normalization Layer ---
+        const reviewCount = parsedItem.review_count || parsedItem.reviews_count || parsedItem.user_ratings_total || parsedItem.reviewsCount || 0;
+
+        const finalPrompt = LEAD_EVALUATION_PROMPT
+            .replace('[name]', leadName)
+            .replace('[category]', category)
+            .replace('[city]', city)
+            .replace('[province]', province)
+            .replace('[district]', 'ALL')
+            .replace('[rating]', finalRating.toString())
+            .replace('[wa]', rawPhone || 'tidak ada')
+            .replace('[website]', website || 'N/A')
+            .replace('[reviewsCount]', reviewCount.toString())
+            .replace('[address]', fullAddress);
+
+        let aiResult: any = null;
+        try {
+            const aiResponse = await callKieAI(finalPrompt);
+            const rawJson = cleanAIResponse(aiResponse);
+            const parsed = JSON.parse(rawJson);
+            aiResult = Array.isArray(parsed) ? parsed[0] : parsed;
+        } catch (e) {
+            console.error("[Manual Scrape] AI Error:", e);
+            // Fallback to raw if AI fails? No, user wants CLEAN data. 
+            // But let's allow fallback if it's just a JSON error but we have raw data.
+            // Actually, let's be strict as requested.
+            return { success: false, message: "AI gagal memproses dan membersihkan data ini." };
+        }
+
+        if (aiResult.decision?.toUpperCase() !== 'PROCEED') {
+            return { success: false, message: `Data ditolak oleh AI. Alasan: ${aiResult.reason || 'Tidak sesuai kriteria B2B'}` };
+        }
+
+        // Use AI Cleaned Data
+        const normalizedName = aiResult.name || leadName;
+        const normalizedCategory = aiResult.category || category;
+        const normalizedWa = aiResult.wa ? sanitizeWaNumber(aiResult.wa) : sanitizedWa;
+
+        // Check Deduplication (Re-check with potentially normalized WA)
+        const existingLead = await prisma.lead.findFirst({
+            where: {
+                OR: [
+                    normalizedWa ? { wa: normalizedWa } : undefined,
+                    mapsUrl ? { mapsUrl: mapsUrl } : undefined
+                ].filter(Boolean) as any
+            }
+        });
+
+        if (existingLead) {
+            return { success: false, message: `Bisnis "${normalizedName}" sudah ada di dalam database.` };
+        }
+
+        const newLead = await prisma.lead.create({
+            data: {
+                userId: session.userId,
+                name: normalizedName,
+                isPro: false,
+                wa: normalizedWa,
+                category: normalizedCategory,
+                province: province,
+                city: city,
+                address: fullAddress,
+                website: website,
+                mapsUrl: mapsUrl,
+                rating: finalRating,
+                status: 'FRESH',
+                brandData: { sourceType: 'MANUAL_URL', aiReason: aiResult.reason }
+            }
+        });
+
+        await logActivity(newLead.id, 'SCRAPE', 'Lead ingested via Manual URL Scrape (AI Verified)', { url, aiReason: aiResult.reason });
+
+        revalidatePath('/dashboard/leads');
+        
+        return { success: true, lead: newLead };
+    } catch (err: any) {
+        if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
+        console.error("[Manual Scrape Error]:", err);
+        return { success: false, message: err.message || 'Scraper failed' };
+    }
+}
+
