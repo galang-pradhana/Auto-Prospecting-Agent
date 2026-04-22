@@ -395,8 +395,8 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
    - SKIP jika sudah punya website custom yang profesional.
 
 2. RATING & REVIEWS (LOGIKA TRADER): 
-   - Range Rating: 3.5 - 4.9. 
-   - Justifikasi: Rating 5.0 (Seringkali sudah punya tim marketing/agency), Rating < 3.0 (Kualitas bisnis buruk/Toxic). Kita cari yang potensial tapi butuh perbaikan branding.
+   - Range Rating: 3.5 - 5.0
+   - Justifikasi: Rating < 3.0 (Kualitas bisnis buruk/Toxic). Kita cari yang potensial tapi butuh perbaikan branding.
 
 3. FOLLOW-UP ACCESS IG & WA DISCOVERY ENGINE (NEW - SUPER STRICT):
    - Jika GMaps sudah ada link IG atau WA → pakai langsung.
@@ -444,7 +444,7 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
 ### III. OUTPUT INSTRUCTION:
 - HANYA keluarkan format JSON object tunggal (bukan array).
 - ZERO YAPPING. No preamble, no explanation.
-- Keputusan SKIP jika: Website profesional sudah ada, Rating < 3.5 atau > 4.9, atau benar-benar tidak ada WA dan IG tidak bisa ditebak sama sekali.
+- Keputusan SKIP jika: Website profesional sudah ada, Rating < 3.5 atau > 5.0, atau benar-benar tidak ada WA dan IG tidak bisa ditebak sama sekali.
 - Jika data tidak memenuhi kriteria, set decision ke "SKIP".
 
 ### IV. DATA TO EVALUATE (DATA ASLI DARI GOOGLE MAPS — JANGAN DIABAIKAN):
