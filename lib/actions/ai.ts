@@ -374,7 +374,7 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
             .replace('[category]', lead.category)
             .replace('[fullAddress]', fullAddress)   // FIX: sesuai template MASTER_FORGE_PROMPT
             .replace('[address]', lead.address || 'Bali')
-            .replace('[waLink]', `https://wa.me/${lead.wa}`)  // FIX: sesuai template
+            .replace('[waLink]', `https://wa.me/${sanitizeWaNumber(lead.wa)}`)
             .replace('[phone]', lead.wa)
             .replace('[styleDNA]', lead.styleDNA || 'Modern, Professional and Premium')
             .replace('[painPoints]', lead.painPoints || 'Kurangnya digital presence yang profesional')  // FIX
@@ -462,7 +462,7 @@ export async function tweakLeadStyle(leadId: string, styleId: string, instructio
             .replace("[name]", lead.name)
             .replace("[category]", lead.category)
             .replace("[fullAddress]", fullAddress)
-            .replace("[waLink]", `https://wa.me/${lead.wa}`)
+            .replace("[waLink]", `https://wa.me/${sanitizeWaNumber(lead.wa)}`)
             .replace("[painPoints]", lead.painPoints || 'General business optimization')
             .replace("[resolvingIdea]", lead.resolvingIdea || 'Professional digital presence')
             .replace("[styleName]", styleDNA.name)
@@ -725,7 +725,9 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
             .replace('[category]', lead.category)
             .replace('{{pain_points}}', lead.painPoints || 'Kurangnya identitas digital yang kuat')
             .replace('{{idea}}', lead.masterWebsitePrompt || 'Landing page premium')
-            .replace('{{link}}', `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`)
+            .replace('{{link}}', lead.status === 'LIVE'
+                ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/${lead.slug || lead.id}`
+                : `${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/preview/${lead.slug || lead.id}`)
             .replace('{{my_business_name}}', user.businessName || '[Nama Bisnis Kamu]')
             .replace('{{my_ig}}', user.businessIg || '[IG Kamu]')
             .replace('{{my_wa}}', user.businessWa || '[WA Kamu]');

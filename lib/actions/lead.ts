@@ -302,9 +302,6 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
             ? cleanHtml.replace('</body>', `${trackerScript}</body>`)
             : `${cleanHtml}${trackerScript}`;
 
-        const nextFollowup = new Date();
-        nextFollowup.setDate(nextFollowup.getDate() + 7);
-
         // Preserve followupCount if this is a re-forge (already LIVE)
         const isReforge = lead.status === 'LIVE';
 
@@ -314,10 +311,12 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
                 htmlCode: updatedHtml,
                 status: 'LIVE',
                 slug,
-                nextFollowupAt: isReforge ? lead.nextFollowupAt : nextFollowup,
+                // PENTING: nextFollowupAt TIDAK di-set otomatis saat forge.
+                // Hanya di-set saat user klik "Pindah ke Monitoring" secara manual.
+                nextFollowupAt: isReforge ? lead.nextFollowupAt : null,
                 lastContactAt: isReforge ? lead.lastContactAt : new Date(),
                 followupStage: isReforge ? lead.followupStage : 'sent',
-                followupCount: isReforge ? lead.followupCount : 1,
+                followupCount: isReforge ? lead.followupCount : 0,
             }
         });
 

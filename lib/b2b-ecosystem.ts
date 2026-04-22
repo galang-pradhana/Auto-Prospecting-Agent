@@ -124,6 +124,51 @@ export const B2B_ECOSYSTEM: Record<string, B2BEcosystemEntry> = {
             { category: "Komunitas Pecinta Hewan", label: "Komunitas & Breeder", tier: 2, strength: 2, description: "Pasokan hewan peliharaan dari breeder", scrapeKeyword: "breeder kucing anjing" },
         ],
     },
+    "Pertanian": {
+        demand: [
+            { category: "Supplier Pupuk", label: "Distributor Pupuk & Pestisida", tier: 1, strength: 5, description: "Pupuk organik, kimia, dan pestisida untuk produksi", scrapeKeyword: "distributor pupuk pestisida pertanian" },
+            { category: "Supplier Bibit", label: "Supplier Bibit & Benih", tier: 1, strength: 5, description: "Bibit tanaman, benih unggul", scrapeKeyword: "supplier bibit benih tanaman" },
+            { category: "Rental Alat Pertanian", label: "Rental Alat & Mesin Pertanian", tier: 1, strength: 4, description: "Traktor, pompa air, sprayer sewa", scrapeKeyword: "rental traktor mesin pertanian" },
+            { category: "Jasa Kurir", label: "Jasa Logistik & Pengiriman", tier: 2, strength: 3, description: "Distribusi hasil panen ke pasar atau pembeli", scrapeKeyword: "jasa kurir logistik pengiriman" },
+        ],
+        supply: [
+            { category: "Pasar Tradisional", label: "Pasar Tradisional & Grosir", tier: 1, strength: 5, description: "Hasil panen dijual ke pasar grosir sayur dan buah", scrapeKeyword: "pasar tradisional grosir sayur" },
+            { category: "Restoran", label: "Restoran & Catering", tier: 1, strength: 5, description: "Supplai bahan baku sayur, buah, dan rempah ke dapur restoran", scrapeKeyword: "restoran catering" },
+            { category: "Supermarket", label: "Supermarket & Minimarket", tier: 1, strength: 4, description: "Distribusi produk segar ke ritel modern", scrapeKeyword: "supermarket minimarket" },
+            { category: "Hotel", label: "Hotel & Resor", tier: 2, strength: 3, description: "Supplai bahan makanan segar ke dapur hotel", scrapeKeyword: "hotel resort bintang" },
+        ],
+    },
+
+    "Perikanan": {
+        demand: [
+            { category: "Supplier Pakan Ikan", label: "Distributor Pakan & Pelet Ikan", tier: 1, strength: 5, description: "Pakan ikan budidaya berbagai ukuran dan jenis", scrapeKeyword: "distributor pakan pelet ikan budidaya" },
+            { category: "Supplier Bibit Ikan", label: "Supplier Benih & Bibit Ikan", tier: 1, strength: 5, description: "Benih ikan lele, nila, bandeng, udang", scrapeKeyword: "supplier benih bibit ikan lele nila" },
+            { category: "Supplier Obat Ikan", label: "Distributor Obat & Vitamin Ikan", tier: 1, strength: 4, description: "Vitamin, probiotik, dan obat ikan budidaya", scrapeKeyword: "distributor obat vitamin ikan tambak" },
+            { category: "Supplier Kolam", label: "Supplier Terpal & Peralatan Kolam", tier: 2, strength: 3, description: "Terpal, aerator, pompa air kolam", scrapeKeyword: "supplier terpal aerator kolam ikan" },
+        ],
+        supply: [
+            { category: "Restoran", label: "Restoran & Rumah Makan Seafood", tier: 1, strength: 5, description: "Supplai ikan dan seafood segar ke restoran", scrapeKeyword: "restoran seafood ikan bakar" },
+            { category: "Pasar Ikan", label: "Pasar Ikan & Pengepul", tier: 1, strength: 5, description: "Penjualan hasil tangkap ke pengepul dan pasar ikan", scrapeKeyword: "pasar ikan pengepul" },
+            { category: "Cold Storage", label: "Cold Storage & Pengolahan Ikan", tier: 1, strength: 4, description: "Penyimpanan dan pengolahan ikan menjadi produk beku atau olahan", scrapeKeyword: "cold storage pengolahan ikan" },
+            { category: "Supermarket", label: "Supermarket & Ritel Modern", tier: 2, strength: 3, description: "Distribusi produk seafood olahan ke supermarket", scrapeKeyword: "supermarket hypermarket" },
+        ],
+    },
+
+    "Peternakan": {
+        demand: [
+            { category: "Supplier Pakan Ternak", label: "Distributor Pakan Ternak", tier: 1, strength: 5, description: "Konsentrat, dedak, jagung, ransum pakan sapi/ayam/kambing", scrapeKeyword: "distributor pakan ternak konsentrat" },
+            { category: "Supplier Bibit Ternak", label: "Supplier Bibit & DOC", tier: 1, strength: 5, description: "DOC (Day-Old Chick) ayam, sapi bakalan, bibit kambing", scrapeKeyword: "supplier doc ayam bibit sapi kambing" },
+            { category: "Supplier Obat Hewan", label: "Distributor Obat & Vaksin Ternak", tier: 1, strength: 4, description: "Vaksin, antibiotik, vitamin untuk ternak", scrapeKeyword: "distributor obat vaksin ternak" },
+            { category: "Rental Alat Berat", label: "Jasa Transportasi Ternak", tier: 2, strength: 3, description: "Pengangkutan ternak hidup antar daerah", scrapeKeyword: "jasa transportasi ternak angkutan" },
+        ],
+        supply: [
+            { category: "RPH", label: "RPH (Rumah Potong Hewan)", tier: 1, strength: 5, description: "Penjualan ternak siap potong ke RPH", scrapeKeyword: "rumah potong hewan RPH" },
+            { category: "Restoran", label: "Restoran & Warung Makan", tier: 1, strength: 5, description: "Supplai ayam, daging sapi, kambing ke dapur restoran", scrapeKeyword: "restoran warung makan" },
+            { category: "Pasar Tradisional", label: "Pasar & Pengepul Daging", tier: 1, strength: 5, description: "Penjualan ternak dan hasil ternak ke pasar tradisional", scrapeKeyword: "pasar daging pengepul" },
+            { category: "Industri Olahan", label: "Industri Pengolahan Daging", tier: 2, strength: 3, description: "Supplai bahan baku ke pabrik sosis, bakso, atau nugget", scrapeKeyword: "pabrik pengolahan daging sosis bakso" },
+        ],
+    },
+
 };
 
 export const B2B_CATEGORIES = Object.keys(B2B_ECOSYSTEM);

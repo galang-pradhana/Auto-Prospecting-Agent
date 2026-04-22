@@ -9,7 +9,7 @@ import {
     Target, Layout, Palette, Code2, AlertCircle, Save, Edit2,
     Instagram, MessageCircle, ExternalLink, ChevronRight,
     LayoutDashboard, Terminal, Package, Users, Settings, LogOut,
-    ChevronLeft, Sun, Moon, FilePlus2
+    ChevronLeft, Sun, Moon, FilePlus2, Activity
 } from 'lucide-react';
 import { logoutUser } from '@/lib/auth';
 import { useTheme } from 'next-themes';
@@ -21,6 +21,7 @@ const navItems = [
     { name: 'Leads Data', href: '/dashboard/leads', icon: Users },
     { name: 'Enriched', href: '/dashboard/enriched', icon: Sparkles },
     { name: 'Live Sites', href: '/dashboard/live', icon: Globe },
+    { name: 'Monitoring', href: '/dashboard/monitoring', icon: Activity },
     { name: 'Linked B2B', href: '/dashboard/linked-b2b', icon: Target },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];

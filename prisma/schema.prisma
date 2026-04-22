@@ -68,6 +68,7 @@ model Lead {
   
   b2bType             String?
   b2bNotes            String?
+  prospectNotes       String?
 
   events              ProspectEvent[]
   tokens              TrackingToken[]

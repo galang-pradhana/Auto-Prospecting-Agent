@@ -39,7 +39,17 @@ const CATEGORY_MAP: Record<string, string[]> = {
     'Perumahan & Industri': [
         'Agen Properti (Real Estat)', 'Kontraktor Umum', 'Jasa Renovasi', 
         'Tukang Listrik', 'Tukang Ledeng', 'Desain Interior', 'Jasa Konstruksi',
-        'Peternakan', 'Perikanan', 'Pertanian', 'Pabrik', 'Gudang'
+        'Pabrik', 'Gudang'
+    ],
+    'Agrikultur & Peternakan': [
+        'Pertanian', 'Perkebunan', 'Pertanian Organik',
+        'Peternakan Sapi', 'Peternakan Ayam', 'Peternakan Kambing', 'Peternakan Babi',
+        'Perikanan Tambak', 'Perikanan Laut', 'Budidaya Ikan Lele', 'Budidaya Udang',
+        'Distributor Pupuk', 'Toko Pupuk & Pestisida', 'Supplier Bibit Tanaman',
+        'Distributor Pakan Ternak', 'Distributor Pakan Ikan', 'Supplier DOC Ayam',
+        'Distributor Obat Hewan & Vaksin', 'Kios Pertanian', 'Toko Alat Pertanian',
+        'Rental Traktor & Alat Pertanian', 'Pengepul Hasil Pertanian',
+        'Cold Storage & Pengolahan Ikan', 'Pengolahan Hasil Ternak'
     ],
     'Pendidikan & Hiburan': [
         'Sekolah Swasta', 'Taman Kanak-kanak', 'Tempat Bimbel / Kursus', 

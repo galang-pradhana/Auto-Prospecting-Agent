@@ -162,6 +162,16 @@ export async function generateWaLink(leadId: string, templateId?: string) {
 
         let message = '';
         let activeTemplateName = '';
+        const settings = await getUserSettings();
+
+        // Helper untuk link: Jika status LIVE, pakai link bersih, jika tidak pakai /preview/
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const finalLink = lead.status === 'LIVE' 
+            ? `${baseUrl}/${lead.slug || lead.id}`
+            : `${baseUrl}/preview/${lead.slug || lead.id}`;
+
+        const footer = `\n\n---\nBest regards,\n*${settings?.businessName || 'Indie Dev'}*\nWA: ${settings?.businessWa || '-'}\nIG: ${settings?.businessIg || '-'}`;
+
         if (template) {
             activeTemplateName = template.title;
             message = template.content
@@ -169,13 +179,17 @@ export async function generateWaLink(leadId: string, templateId?: string) {
                 .replace(/{{category}}/g, lead.category)
                 .replace(/{{idea}}/g, lead.resolvingIdea || 'solusi digital')
                 .replace(/{{pain_points}}/g, lead.painPoints || 'kebutuhan bisnis')
-                .replace(/{{link}}/g, `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`)
-                .replace(/{{my_business_name}}/g, (await getUserSettings())?.businessName || '')
-                .replace(/{{my_ig}}/g, (await getUserSettings())?.businessIg || '')
-                .replace(/{{my_wa}}/g, (await getUserSettings())?.businessWa || '');
+                .replace(/{{link}}/g, finalLink)
+                .replace(/{{my_business_name}}/g, settings?.businessName || '')
+                .replace(/{{my_ig}}/g, settings?.businessIg || '')
+                .replace(/{{my_wa}}/g, settings?.businessWa || '');
+            
+            // Tambahkan footer otomatis jika belum ada identitas di dalam template
+            if (!message.includes(settings?.businessName || '###')) {
+                message += footer;
+            }
         } else {
             activeTemplateName = 'AI Generated (Fallback)';
-            const settings = await getUserSettings();
             const model = settings?.aiEngine || 'gemini-3.1-pro';
             const apiKey = settings?.kieAiApiKey || process.env.KIE_AI_API_KEY;
             const endpoint = `https://api.kie.ai/${model}/v1/chat/completions`;
@@ -187,7 +201,7 @@ export async function generateWaLink(leadId: string, templateId?: string) {
                 .replace("{{name}}", lead.name)
                 .replace("{{pain_points}}", lead.painPoints || 'kebutuhan bisnis')
                 .replace("{{idea}}", lead.resolvingIdea || 'solusi digital')
-                .replace("{{link}}", `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/preview/${lead.slug || lead.id}`);
+                .replace("{{link}}", finalLink);
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -200,9 +214,9 @@ export async function generateWaLink(leadId: string, templateId?: string) {
 
             if (response.ok) {
                 const data = await response.json();
-                message = data.choices?.[0]?.message?.content || 'Halo!';
+                message = (data.choices?.[0]?.message?.content || 'Halo!') + footer;
             } else {
-                message = `Halo ${lead.name}, saya punya solusi digital untuk ${lead.category} Anda.`;
+                message = `Halo ${lead.name}, saya punya solusi digital untuk ${lead.category} Anda.\n\nCek di sini: ${finalLink}${footer}`;
             }
         }
 

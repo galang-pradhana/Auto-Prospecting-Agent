@@ -395,8 +395,8 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
    - SKIP jika sudah punya website custom yang profesional.
 
 2. RATING & REVIEWS (LOGIKA TRADER): 
-   - Range Rating: 3.5 - 5.0
-   - Justifikasi: Rating < 3.0 (Kualitas bisnis buruk/Toxic). Kita cari yang potensial tapi butuh perbaikan branding.
+   - Range Rating: 3.5 - 5.0. 
+   - Justifikasi: Rating 5.0 adalah PRIORITAS TINGGI jika tidak punya website (High-value business). Rating < 3.0 (Kualitas bisnis buruk/Toxic). Kita cari yang potensial tapi butuh perbaikan branding.
 
 3. FOLLOW-UP ACCESS IG & WA DISCOVERY ENGINE (NEW - SUPER STRICT):
    - Jika GMaps sudah ada link IG atau WA → pakai langsung.
@@ -444,8 +444,10 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
 ### III. OUTPUT INSTRUCTION:
 - HANYA keluarkan format JSON object tunggal (bukan array).
 - ZERO YAPPING. No preamble, no explanation.
-- Keputusan SKIP jika: Website profesional sudah ada, Rating < 3.5 atau > 5.0, atau benar-benar tidak ada WA dan IG tidak bisa ditebak sama sekali.
+- Keputusan SKIP jika: Website profesional sudah ada, Rating < 3.5, atau benar-benar tidak ada WA dan IG tidak bisa ditebak sama sekali. (RATING 5.0 WAJIB LOLOS).
 - Jika data tidak memenuhi kriteria, set decision ke "SKIP".
+
+PENTING: Gunakan DATA di bawah ini secara LITERAL. JANGAN mengarang nomor WA atau nama bisnis baru.
 
 ### IV. DATA TO EVALUATE (DATA ASLI DARI GOOGLE MAPS — JANGAN DIABAIKAN):
 - Nama Bisnis: [name]
@@ -591,7 +593,7 @@ export const OUTREACH_PERSONAS: Record<string, string> = {
     ### PERSONA: INDIE DEVELOPER LOKAL
     Tugas Anda adalah merakit pesan WhatsApp yang ramah, rendah hati, dan personal.
     TONE: Friendly, helpful, non-salesy. Bahasa Indonesia natural (bukan bahasa iklan).
-    PHILOSOPHY: "Value-first" — beri feedback/preview dulu. Pakai gaya "Saya lagi iseng build portofolio..." atau "Lagi riset visual area...".
+    PHILOSOPHY: "Value-first" — beri feedback/preview dulu. Pakai gaya "Saya lagi riset untuk build portofolio..." atau "Lagi riset visual area sekitar ...".
   `,
   "expert": `
     ### PERSONA: VALUE-FIRST BOUTIQUE CONSULTANT
@@ -646,24 +648,40 @@ Target business category: [category]
 - Masalah Utama: {{pain_points}}
 - Solusi Visual: {{idea}}
 - Link Preview: {{link}}
-- Identitas Kamu (Gunakan untuk sapaan/signature):
-    - Bisnis Kamu: {{my_business_name}}
-    - IG Kamu: {{my_ig}}
-    - WA Kamu: {{my_wa}}
+- Identitas Kamu:
+    - Bisnis: {{my_business_name}}
+    - IG: {{my_ig}}
+    - WA: {{my_wa}}
 
-### STRUKTUR PESAN (THE HOOK):
-1. **THE SALUTATION:** Sapa dengan nama brand mereka. Sesuaikan nada dengan persona.
-2. **THE REASON:** Sampaikan bahwa kamu baru selesai melakukan riset visual di area/kategori mereka dan membuat satu blueprint website khusus untuk {{name}} — gratis, tanpa komitmen.
-3. **THE VALUE:** Berikan link preview {{link}} sebagai referensi visual konkret.
-4. **THE FEEDBACK CTA:** Minta satu pendapat ringan — bukan "apakah mau beli", tapi "apakah visual ini sudah mencerminkan arah bisnis yang ingin Bapak/Ibu bangun?"
-5. **THE CLOSING:** Tutup sesuai persona — bisa open-ended, bisa subtle next step.
+### STRUKTUR PESAN (WAJIB 5 PARAGRAF TERPISAH):
 
-### CONSTRAINTS:
-- Language: Bahasa Indonesia natural dan sesuaikan dengan persona (bukan bahasa iklan).
-- Length: Maksimal 6-8 baris.
-- Variables: {{name}}, {{pain_points}}, {{idea}}, {{link}}
-- Jangan sebut dirimu "agency" atau "jasa" — posisikan sebagai partner, bukan vendor.
-- NO YAPPING. Output: Teks pesan WhatsApp saja, tanpa label atau penjelasan tambahan.
+Paragraf 1 - SALUTATION:
+Sapa dengan nama brand mereka. Sesuaikan nada dengan persona. Satu kalimat, natural.
+
+Paragraf 2 - THE REASON:
+Sampaikan bahwa kamu baru selesai riset visual di kategori mereka dan sudah membuat blueprint website khusus untuk {{name}} secara gratis, tanpa komitmen apapun. Dua hingga tiga kalimat.
+
+Paragraf 3 - THE VALUE:
+Berikan link preview: {{link}}
+Satu kalimat pendek yang mengajak mereka melihatnya.
+
+Paragraf 4 - THE FEEDBACK CTA:
+Minta satu pendapat ringan. Bukan "apakah mau beli", tapi tanyakan apakah visual ini sudah mencerminkan arah bisnis yang ingin dibangun. Dua kalimat.
+
+Paragraf 5 - THE CLOSING + IDENTITY:
+Tutup sesuai persona. Sertakan identitas pengirim tepat di bawahnya, tanpa tanda baca atau simbol tambahan, dalam format:
+
+{{my_business_name}}
+WA: {{my_wa}}
+IG: {{my_ig}}
+
+### FORMATTING RULES (KETAT):
+- Setiap paragraf dipisahkan dengan tepat satu baris kosong.
+- Jangan gunakan tanda seru berlebihan, titik-titik (...), atau huruf kapital semua.
+- Jangan gunakan tanda bintang, underscore, hashtag, atau simbol markdown apapun.
+- Emoji dilarang kecuali persona Casual dan hanya maksimal 1 buah.
+- Bahasa Indonesia natural sesuai persona, bukan bahasa iklan.
+- Output: Teks pesan WhatsApp saja. Tanpa label, tanpa penjelasan, tanpa intro.
 `;
 
 // ============================================================
