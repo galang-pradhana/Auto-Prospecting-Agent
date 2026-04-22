@@ -8,7 +8,7 @@ import {
     Trash2, Building2, MapPin, ChevronDown,
     Search, Square, CheckSquare, Sparkles, X, AlertTriangle,
     Check, Copy, Image as ImageIcon, Lightbulb, Settings2, Sliders, ChevronRight,
-    Download, CircleDashed, Code2, Navigation
+    Download, CircleDashed, Code2, Navigation, RefreshCw
 } from 'lucide-react';
 import { getStyleModels } from '@/lib/actions/ai';
 import { 
@@ -132,6 +132,13 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
     const [searchTerm, setSearchTerm] = useState('');
     const isSearching = searchTerm !== ''; // Requested alias
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        router.refresh();
+        setTimeout(() => setIsRefreshing(false), 1000); // Visual feedback
+    };
 
     // Pagination State
     const [page, setPage] = useState(1);
@@ -500,10 +507,14 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-3 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 shrink-0 ml-4">
-                        <Clock size={14} className="text-accent-gold" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Auto-Refresh {view === 'table' ? 'Active' : 'Live'}</span>
-                    </div>
+                    <button 
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 shrink-0 ml-4 transition-all"
+                    >
+                        <RefreshCw size={12} className={`text-accent-gold ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white">Refresh Data</span>
+                    </button>
                 </div>
                 
                 {/* Status Tabs (New) */}

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
     Globe, ExternalLink, MapPin, Building2, 
     Calendar, Sliders, Send, X, Loader2, Activity,
-    LayoutGrid, List, Clock, Star
+    LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, ChevronDown
 } from 'lucide-react';
 import Link from 'next/link';
 import DownloadButton from '@/components/DownloadButton';
@@ -39,6 +40,34 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [sendingId, setSendingId] = useState<string | null>(null);
 
+    const router = useRouter();
+
+    // Filter & UI States
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterCategory, setFilterCategory] = useState('ALL CATEGORIES');
+    const [filterCity, setFilterCity] = useState('ALL CITIES');
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Compute dynamic lists
+    const dynamicCategories = useMemo(() => {
+        const cats = new Set(initialLeads.map(l => l.category).filter(Boolean));
+        return ['ALL CATEGORIES', ...Array.from(cats)].sort();
+    }, [initialLeads]);
+
+    const dynamicCities = useMemo(() => {
+        const cities = new Set(initialLeads.map(l => {
+            const match = l.address?.match(/Kota ([a-zA-Z0-9\s]+)/i);
+            return match ? match[1].trim() : 'Unknown';
+        }).filter(c => c !== 'Unknown'));
+        return ['ALL CITIES', ...Array.from(cities)].sort();
+    }, [initialLeads]);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        router.refresh();
+        setTimeout(() => setIsRefreshing(false), 1000); // Visual feedback
+    };
+
     // Modal state for notes before sending to monitoring
     const [monitoringModal, setMonitoringModal] = useState<LiveLead | null>(null);
     const [monitoringNote, setMonitoringNote] = useState('');
@@ -59,27 +88,109 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
         setSendingId(null);
     };
 
-    const notSentLeads = leads.filter(l => !l.nextFollowupAt);
-    const sentLeads = leads.filter(l => !!l.nextFollowupAt);
+    // Apply filters
+    const filteredLeads = leads.filter(l => {
+        if (filterCategory !== 'ALL CATEGORIES' && l.category !== filterCategory) return false;
+        
+        if (filterCity !== 'ALL CITIES') {
+            const match = l.address?.match(/Kota ([a-zA-Z0-9\s]+)/i);
+            const city = match ? match[1].trim() : 'Unknown';
+            if (city !== filterCity) return false;
+        }
+
+        if (searchTerm) {
+            const search = searchTerm.toLowerCase();
+            return (
+                l.name?.toLowerCase().includes(search) || 
+                l.address?.toLowerCase().includes(search) ||
+                l.category?.toLowerCase().includes(search)
+            );
+        }
+
+        return true;
+    });
+
+    const notSentLeads = filteredLeads.filter(l => !l.nextFollowupAt);
+    const sentLeads = filteredLeads.filter(l => !!l.nextFollowupAt);
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Live Digital Assets</h1>
-                    <p className="text-white/40 font-medium italic text-sm">Your fleet of deployed websites, optimized and active.</p>
+            <div className="flex flex-col gap-1 text-center md:text-left">
+                <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Live Digital Assets</h1>
+                <p className="text-white/40 font-medium italic text-sm">Your fleet of deployed websites, optimized and active.</p>
+            </div>
+
+            {/* Reactive Filter Bar */}
+            <div className="glass p-6 rounded-[32px] border-white/5 bg-zinc-950/40 sticky top-4 z-30 backdrop-blur-2xl shadow-2xl">
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                    <div className="relative flex-1 group w-full">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-accent-gold transition-colors" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Quick Search Business or Address..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-accent-gold/40 focus:ring-4 focus:ring-accent-gold/5 transition-all text-sm font-medium"
+                        />
+                    </div>
+
+                    <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+                        <div className="relative group/filter min-w-[180px] shrink-0">
+                            <Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/filter:text-accent-gold transition-colors" />
+                            <select 
+                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                value={filterCategory}
+                                onChange={(e) => setFilterCategory(e.target.value)}
+                            >
+                                {dynamicCategories.map(cat => (
+                                    <option key={cat} value={cat} className="bg-zinc-950">{cat}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                        </div>
+
+                        <div className="relative group/city min-w-[160px] shrink-0">
+                            <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/city:text-accent-gold transition-colors" />
+                            <select 
+                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                value={filterCity}
+                                onChange={(e) => setFilterCity(e.target.value)}
+                            >
+                                {dynamicCities.map(city => (
+                                    <option key={city} value={city} className="bg-zinc-950">{city}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                        </div>
+                    </div>
                 </div>
-                {/* View Toggle */}
-                <div className="flex gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
-                    <button onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-accent-gold text-black' : 'text-white/30 hover:text-white'}`}>
-                        <LayoutGrid size={16} />
+            </div>
+
+            {/* Content View Toggle & Refresh */}
+            <div className="flex items-center justify-between mb-8 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
+                    <button 
+                        onClick={() => setViewMode('grid')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'grid' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                    >
+                        <Sliders size={12} /> Grid
                     </button>
-                    <button onClick={() => setViewMode('table')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'table' ? 'bg-accent-gold text-black' : 'text-white/30 hover:text-white'}`}>
-                        <List size={16} />
+                    <button 
+                        onClick={() => setViewMode('table')}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'table' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                    >
+                        <Square size={12} /> Table
                     </button>
                 </div>
+
+                <button 
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 shrink-0 ml-4 transition-all"
+                >
+                    <RefreshCw size={12} className={`text-accent-gold ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white">Refresh Live</span>
+                </button>
             </div>
 
             {leads.length > 0 ? (
