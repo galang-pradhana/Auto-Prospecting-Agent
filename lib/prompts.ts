@@ -661,15 +661,20 @@ Target business category: [category]
 
 ### STRUKTUR PESAN (WAJIB 5 PARAGRAF TERPISAH):
 
-Paragraf 1 - SALUTATION:
-Sapa dengan nama brand mereka. Sesuaikan nada dengan persona. Satu kalimat, natural.
+Paragraf 1 - SALUTATION (DENGAN SPINTAX VARIASI):
+Mulai dengan greeting yang sesuai waktu pengiriman: [greeting_time]
+Gunakan variasi kalimat pembuka — PILIH SATU secara acak dari opsi berikut:
+{Permisi mengganggu sebentar|Halo, semoga bisnis lancar ya|Selamat [greeting_time], izin menyapa}
+Sapa dengan nama brand mereka setelah greeting. Satu kalimat, natural.
 
-Paragraf 2 - THE REASON:
+Paragraf 2 - THE REASON (PAKAI VARIASI — BUKAN JUALAN LANGSUNG):
 Sampaikan bahwa kamu baru selesai riset visual di kategori mereka dan sudah membuat blueprint website khusus untuk {{name}} secara gratis, tanpa komitmen apapun. Dua hingga tiga kalimat.
+Gunakan variasi pembuka seperti: {Saya sempat|Saya iseng|Kebetulan saya} riset di kategori ini dan...
+PENTING: JANGAN langsung sebut link atau harga di paragraf ini. Tujuan paragraf ini adalah membuat mereka penasaran dulu.
 
-Paragraf 3 - THE VALUE:
+Paragraf 3 - THE VALUE (SOFT DELIVERY):
 Berikan link preview: {{link}}
-Satu kalimat pendek yang mengajak mereka melihatnya.
+Satu kalimat pendek yang mengajak mereka melihatnya. Framing-nya adalah "kasih lihat dulu", bukan promosi.
 
 Paragraf 4 - THE FEEDBACK CTA:
 Minta satu pendapat ringan. Bukan "apakah mau beli", tapi tanyakan apakah visual ini sudah mencerminkan arah bisnis yang ingin dibangun. Dua kalimat.
@@ -687,6 +692,7 @@ IG: {{my_ig}}
 - Jangan gunakan tanda bintang, underscore, hashtag, atau simbol markdown apapun.
 - Emoji dilarang kecuali persona Casual dan hanya maksimal 1 buah.
 - Bahasa Indonesia natural sesuai persona, bukan bahasa iklan.
+- Gunakan variasi kata kunci dari {opsi1|opsi2|opsi3} untuk beberapa frasa agar pesan tidak 100% identik antar penerima.
 - Output: Teks pesan WhatsApp saja. Tanpa label, tanpa penjelasan, tanpa intro.
 `;
 
@@ -795,19 +801,56 @@ Aturan:
 - Nomor harus UNIK di seluruh halaman (tidak boleh ada 2 elemen dengan data-asset-id yang sama)
 - Jangan skip nomor
 
-[CORE ARCHITECTURE]
+[CORE ARCHITECTURE — 7-8 SECTION MANDATORY STRUCTURE]
 - 100% Standalone index.html.
 - Tailwind CSS & Framer Motion (reveal animations).
 - LANGUAGE LOCK: 100% Professional Bahasa Indonesia. Zero English on UI.
 
-[VISUAL ENFORCEMENT]
-- Bento Grid: All services and features sections MUST use a non-standard Bento Grid layout.
-- Asymmetry: Use absolute elements or col-span variations to break the grid flow.
-- Color palette MUST align dengan kombinasi styleDNA + industryColorMood — DO NOT use default generic colors.
-- Typography: Sesuai archetype yang ditentukan.
+WAJIB buat SEMUA section berikut secara berurutan (minimal 7 section):
 
-[LEAD CONVERSION FAB]
-- Persistent WhatsApp FAB: Bottom right, #25D366, pulse animation, "Konsultasi Sekarang".
+SECTION 1 — HERO (CINEMATIC, min-h-screen)
+Full screen hero dengan background image berkualitas tinggi + overlay gradien.
+Headline utama (H1) yang besar dan emosional, subheadline, dan CTA primary (tombol WA).
+Animasi entrance: fade-in + translateY pada teks.
+
+SECTION 2 — SOCIAL PROOF / TRUST BAR
+Bar horizontal berisi: jumlah pelanggan, tahun berdiri, rating, atau penghargaan.
+Gunakan angka counter animasi saat section terscroll masuk viewport.
+Desain: 3-4 metric card dalam satu baris, background berbeda dari hero.
+
+SECTION 3 — ABOUT / OUR STORY
+Narasi singkat tentang identitas dan visi bisnis (2-3 paragraf pendek).
+Sertakan gambar ilustratif di samping teks (layout 2-kolom: teks kiri, gambar kanan).
+Gunakan pull-quote atau highlight kalimat kunci untuk emphasis.
+
+SECTION 4 — SERVICES / PRODUCTS (BENTO GRID)
+Gunakan layout Bento Grid (12-kolom, non-uniform) untuk menampilkan layanan/produk.
+Setiap card memiliki: ikon Lucide, nama layanan, deskripsi singkat 1 kalimat.
+Hover effect: scale + shadow elevation.
+
+SECTION 5 — GALLERY / PORTFOLIO
+Grid foto galeri 3-4 kolom (masonry atau uniform).
+Gunakan foto Unsplash relevan dengan fallback protocol.
+Lightbox atau hover-zoom effect pada setiap foto.
+
+SECTION 6 — TESTIMONIALS
+Slider atau grid testimonial dari pelanggan (buat 3-4 testimonial fiktif yang relevan).
+Setiap testimonial: nama, avatar inisial, rating bintang, dan kutipan.
+Animasi: auto-scroll carousel atau fade-in saat muncul.
+
+SECTION 7 — WHY US / COMPETITIVE ADVANTAGE
+Bandingkan keunggulan bisnis ini vs pendekatan umum pesaing.
+Gunakan checklist atau split-layout (Kami vs Lainnya).
+Desain yang tegas, membangun kepercayaan.
+
+SECTION 8 — CONTACT / FINAL CTA
+Form kontak sederhana (nama, no. WA, pesan) ATAU langsung tombol WA besar.
+Alamat bisnis lengkap + Google Maps embed (gunakan placeholder/iframe dummy).
+Repeat CTA yang kuat: "Konsultasi Gratis Sekarang".
+
+[PERSISTENT ELEMENT]
+- Floating WhatsApp FAB: Bottom right, #25D366, pulse animation, "Konsultasi Sekarang".
+- Sticky Navbar: Logo kiri, navigasi anchor ke setiap section, transparan → solid saat scroll.
 
 Output harus berupa HTML5 yang valid dan semantik.
 DILARANG KERAS:
@@ -1078,3 +1121,28 @@ Di dalam field 'masterWebsitePrompt', instruksikan AI Coder untuk:
 
 PENTING: Jangan berikan teks lain selain JSON.
 `;
+
+// ============================================================
+// ANTI_BAN_TIPS — WA Blast Safety Strategy Guide
+// ============================================================
+export const ANTI_BAN_TIPS = [
+  { title: "Jangan Langsung Jualan", icon: "shield", description: "Pesan pertama BUKAN untuk closing. Kirim pembuka dulu: 'Halo, apa benar ini dengan [Nama Toko]?' dan tunggu balasan sebelum mengirim link. Begitu mereka membalas, skor kepercayaan nomormu naik drastis.", priority: "HIGH" },
+  { title: "Rotasi Nomor (Jika Ada Budget)", icon: "rotate-cw", description: "Hubungkan 2-3 nomor WA ke Fonnte dan aktifkan rotasi. Bagi beban pengiriman merata (mis. A: 30, B: 30, C: 30 pesan). Jauh lebih aman daripada 1 nomor mengirim 100 pesan.", priority: "MEDIUM" },
+  { title: "Delay Ekstrim untuk Cold Leads", icon: "clock", description: "Untuk cold leads, set delay MINIMAL 60-120 detik per pesan di Fonnte. 100 pesan bisa 2-3 jam, tapi ini jauh lebih aman agar nomormu tetap hidup.", priority: "HIGH" },
+  { title: "Warming Up Nomor Baru Dulu", icon: "flame", description: "Sebelum blast: masukkan nomor baru ke grup WA, chat normal dengan nomor lain, aktifkan minimal 3-5 hari dengan aktivitas manusiawi sebelum disambungkan ke gateway.", priority: "HIGH" },
+  { title: "Gunakan Variasi Pesan (Spintax)", icon: "shuffle", description: "Jangan kirim teks 100% identik ke 100 orang. Gunakan variasi: '{Halo|Permisi|Selamat pagi} Kak...' agar setiap pesan sedikit berbeda di mata algoritma WA.", priority: "MEDIUM" },
+];
+
+// ============================================================
+// getGreetingTime — Time-appropriate Bahasa Indonesia greeting (WIB UTC+7)
+// ============================================================
+export function getGreetingTime(): string {
+  const now = new Date();
+  const wibOffset = 7 * 60;
+  const wibTime = new Date(now.getTime() + (wibOffset - now.getTimezoneOffset()) * 60000);
+  const hour = wibTime.getHours();
+  if (hour >= 5 && hour < 11) return 'pagi';
+  if (hour >= 11 && hour < 15) return 'siang';
+  if (hour >= 15 && hour < 19) return 'sore';
+  return 'malam';
+}

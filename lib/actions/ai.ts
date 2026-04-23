@@ -19,6 +19,7 @@ import {
     OUTREACH_GENERATOR_PROMPT,
     OUTREACH_PERSONAS,
     buildForgeData,
+    getGreetingTime,
 } from '@/lib/prompts';
 import { getEffectivePrompt } from './prompt';
 import { getUserSettings } from './settings';
@@ -716,6 +717,7 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
         if (!lead) throw new Error("Lead not found");
 
         const personaDefinition = OUTREACH_PERSONAS[persona] || OUTREACH_PERSONAS['professional'];
+        const greetingTime = getGreetingTime();
 
         // Pakai variabel yang sudah ada dari hasil Enrichment
         const finalPrompt = OUTREACH_GENERATOR_PROMPT
@@ -723,6 +725,7 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
             .replace('[category]', lead.category)
             .replace('{{name}}', lead.name)
             .replace('[category]', lead.category)
+            .replace('[greeting_time]', `Selamat ${greetingTime}`)
             .replace('{{pain_points}}', lead.painPoints || 'Kurangnya identitas digital yang kuat')
             .replace('{{idea}}', lead.masterWebsitePrompt || 'Landing page premium')
             .replace('{{link}}', lead.status === 'LIVE'
