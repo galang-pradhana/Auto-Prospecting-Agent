@@ -1122,16 +1122,6 @@ Di dalam field 'masterWebsitePrompt', instruksikan AI Coder untuk:
 PENTING: Jangan berikan teks lain selain JSON.
 `;
 
-// ============================================================
-// ANTI_BAN_TIPS — WA Blast Safety Strategy Guide
-// ============================================================
-export const ANTI_BAN_TIPS = [
-  { title: "Jangan Langsung Jualan", icon: "shield", description: "Pesan pertama BUKAN untuk closing. Kirim pembuka dulu: 'Halo, apa benar ini dengan [Nama Toko]?' dan tunggu balasan sebelum mengirim link. Begitu mereka membalas, skor kepercayaan nomormu naik drastis.", priority: "HIGH" },
-  { title: "Rotasi Nomor (Jika Ada Budget)", icon: "rotate-cw", description: "Hubungkan 2-3 nomor WA ke Fonnte dan aktifkan rotasi. Bagi beban pengiriman merata (mis. A: 30, B: 30, C: 30 pesan). Jauh lebih aman daripada 1 nomor mengirim 100 pesan.", priority: "MEDIUM" },
-  { title: "Delay Ekstrim untuk Cold Leads", icon: "clock", description: "Untuk cold leads, set delay MINIMAL 60-120 detik per pesan di Fonnte. 100 pesan bisa 2-3 jam, tapi ini jauh lebih aman agar nomormu tetap hidup.", priority: "HIGH" },
-  { title: "Warming Up Nomor Baru Dulu", icon: "flame", description: "Sebelum blast: masukkan nomor baru ke grup WA, chat normal dengan nomor lain, aktifkan minimal 3-5 hari dengan aktivitas manusiawi sebelum disambungkan ke gateway.", priority: "HIGH" },
-  { title: "Gunakan Variasi Pesan (Spintax)", icon: "shuffle", description: "Jangan kirim teks 100% identik ke 100 orang. Gunakan variasi: '{Halo|Permisi|Selamat pagi} Kak...' agar setiap pesan sedikit berbeda di mata algoritma WA.", priority: "MEDIUM" },
-];
 
 // ============================================================
 // getGreetingTime — Time-appropriate Bahasa Indonesia greeting (WIB UTC+7)
