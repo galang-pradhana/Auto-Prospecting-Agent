@@ -11,8 +11,7 @@ import Link from 'next/link';
 import DownloadButton from '@/components/DownloadButton';
 import EditPageModal from '@/components/EditPageModal';
 import LeadDetailModal from '@/components/LeadDetailModal';
-import { sendToMonitoring } from '@/lib/actions/monitoring';
-import { toast } from 'react-hot-toast';
+import BlastPanel from '@/components/BlastPanel';
 
 interface LiveLead {
     id: string;
@@ -38,7 +37,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [detailLead, setDetailLead] = useState<any>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [sendingId, setSendingId] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'sites' | 'blast'>('sites');
 
     const router = useRouter();
 
@@ -66,26 +65,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
         setIsRefreshing(true);
         router.refresh();
         setTimeout(() => setIsRefreshing(false), 1000); // Visual feedback
-    };
-
-    // Modal state for notes before sending to monitoring
-    const [monitoringModal, setMonitoringModal] = useState<LiveLead | null>(null);
-    const [monitoringNote, setMonitoringNote] = useState('');
-
-    const handleSendToMonitoring = async (lead: LiveLead) => {
-        setSendingId(lead.id);
-        const t = toast.loading(`Memindahkan ${lead.name} ke Monitoring...`);
-        const res = await sendToMonitoring(lead.id, monitoringNote || undefined);
-        if (res.success) {
-            toast.success('Berhasil! Lead masuk ke menu Monitoring.', { id: t });
-            // Remove from live list view or mark as already sent
-            setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, nextFollowupAt: new Date(Date.now() + 7*24*60*60*1000).toISOString() } : l));
-            setMonitoringModal(null);
-            setMonitoringNote('');
-        } else {
-            toast.error('Gagal memindahkan.', { id: t });
-        }
-        setSendingId(null);
     };
 
     // Apply filters
@@ -120,8 +99,32 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                 <p className="text-white/40 font-medium italic text-sm">Your fleet of deployed websites, optimized and active.</p>
             </div>
 
-            {/* Reactive Filter Bar */}
-            <div className="glass p-6 rounded-[32px] border-white/5 bg-zinc-950/40 sticky top-4 z-30 backdrop-blur-2xl shadow-2xl">
+            {/* Top Navigation Tabs */}
+            <div className="flex gap-4 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide">
+                <button 
+                    onClick={() => setActiveTab('sites')}
+                    className={`text-sm font-black uppercase tracking-widest px-6 py-3 rounded-2xl transition-all whitespace-nowrap ${activeTab === 'sites' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                >
+                    <Globe size={16} className="inline-block mr-2 -mt-1" />
+                    Live Sites
+                </button>
+                <button 
+                    onClick={() => setActiveTab('blast')}
+                    className={`text-sm font-black uppercase tracking-widest px-6 py-3 rounded-2xl transition-all whitespace-nowrap ${activeTab === 'blast' ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'}`}
+                >
+                    <Send size={16} className="inline-block mr-2 -mt-1" />
+                    WA Pitching Blast
+                </button>
+            </div>
+
+            {activeTab === 'blast' ? (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <BlastPanel leads={leads as any} onStatusUpdate={handleRefresh} />
+                </div>
+            ) : (
+                <>
+                    {/* Reactive Filter Bar */}
+                    <div className="glass p-6 rounded-[32px] border-white/5 bg-zinc-950/40 sticky top-4 z-30 backdrop-blur-2xl shadow-2xl">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
                     <div className="relative flex-1 group w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-accent-gold transition-colors" size={18} />
@@ -207,8 +210,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                         <LeadCard key={lead.id} lead={lead}
                                             onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
                                             onOpenEdit={() => { setEditingHtmlLead(lead); setIsEditModalOpen(true); }}
-                                            onSendToMonitoring={() => setMonitoringModal(lead)}
-                                            sending={sendingId === lead.id}
                                         />
                                     ))}
                                 </div>
@@ -216,8 +217,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                 <LeadTable leads={notSentLeads}
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
                                     onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
-                                    onSendToMonitoring={(l) => setMonitoringModal(l)}
-                                    sendingId={sendingId}
                                 />
                             )}
                         </div>
@@ -235,8 +234,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                         <LeadCard key={lead.id} lead={lead}
                                             onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
                                             onOpenEdit={() => { setEditingHtmlLead(lead); setIsEditModalOpen(true); }}
-                                            onSendToMonitoring={() => setMonitoringModal(lead)}
-                                            sending={sendingId === lead.id}
                                             alreadySent
                                         />
                                     ))}
@@ -245,8 +242,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                 <LeadTable leads={sentLeads}
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
                                     onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
-                                    onSendToMonitoring={(l) => setMonitoringModal(l)}
-                                    sendingId={sendingId}
                                     allSent
                                 />
                             )}
@@ -272,58 +267,10 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                     </Link>
                 </div>
             )}
-
-            {/* Send to Monitoring Modal */}
-            {monitoringModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setMonitoringModal(null)} />
-                    <div className="relative bg-zinc-950 border border-white/10 rounded-3xl p-8 w-full max-w-md space-y-6 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20">
-                                    <Send size={16} className="text-emerald-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-black text-white">Pindah ke Monitoring</h3>
-                                    <p className="text-xs text-white/30">{monitoringModal.name}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setMonitoringModal(null)} className="p-2 hover:bg-white/5 rounded-xl text-white/30">
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4 text-xs text-emerald-400/70 space-y-1">
-                            <p>WA pertama dianggap sudah terkirim.</p>
-                            <p>Follow up berikutnya otomatis dijadwalkan <strong className="text-emerald-400">7 hari</strong> dari sekarang.</p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase tracking-widest text-white/40">Catatan (Opsional)</label>
-                            <textarea
-                                value={monitoringNote}
-                                onChange={e => setMonitoringNote(e.target.value)}
-                                placeholder="Contoh: Bilang lihat nanti, atau sudah ada respon singkat..."
-                                rows={3}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm outline-none focus:border-emerald-500/50 resize-none placeholder:text-white/20"
-                            />
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button onClick={() => setMonitoringModal(null)}
-                                className="flex-1 py-3 border border-white/10 rounded-2xl text-white/40 hover:text-white text-xs font-black uppercase transition-all">
-                                Batal
-                            </button>
-                            <button onClick={() => handleSendToMonitoring(monitoringModal)}
-                                disabled={sendingId === monitoringModal.id}
-                                className="flex-1 py-3 bg-emerald-500 text-black font-black text-xs uppercase rounded-2xl hover:bg-emerald-400 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                                {sendingId === monitoringModal.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                                Konfirmasi
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            </>
             )}
+
+            {/* Send to Monitoring Modal (Removed) */}
 
             {/* Lead Detail Modal */}
             {detailLead && (
@@ -347,12 +294,10 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
 }
 
 // ─── Lead Card Component ─────────────────────────────────────────────────────
-function LeadCard({ lead, onOpenDetail, onOpenEdit, onSendToMonitoring, sending, alreadySent }: {
+function LeadCard({ lead, onOpenDetail, onOpenEdit, alreadySent }: {
     lead: LiveLead;
     onOpenDetail: () => void;
     onOpenEdit: () => void;
-    onSendToMonitoring: () => void;
-    sending: boolean;
     alreadySent?: boolean;
 }) {
     return (
@@ -431,33 +376,16 @@ function LeadCard({ lead, onOpenDetail, onOpenEdit, onSendToMonitoring, sending,
                 >
                     <Sliders size={16} className="text-accent-gold" />
                 </button>
-
-                {/* Send to Monitoring Button */}
-                <button
-                    onClick={(e) => { e.stopPropagation(); onSendToMonitoring(); }}
-                    disabled={alreadySent || sending}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                        alreadySent 
-                            ? 'bg-emerald-500/5 border border-emerald-500/20 text-emerald-500/40 cursor-not-allowed'
-                            : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                    }`}
-                    title={alreadySent ? 'Sudah di Monitoring' : 'Sudah Kirim WA? Pindah ke Monitoring'}
-                >
-                    {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                    {alreadySent ? 'Terkirim' : 'Monitoring'}
-                </button>
             </div>
         </div>
     );
 }
 
 // ─── Table View Component ─────────────────────────────────────────────────────
-function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingId, allSent }: {
+function LeadTable({ leads, onOpenDetail, onOpenEdit, allSent }: {
     leads: LiveLead[];
     onOpenDetail: (l: LiveLead) => void;
     onOpenEdit: (l: LiveLead) => void;
-    onSendToMonitoring: (l: LiveLead) => void;
-    sendingId: string | null;
     allSent?: boolean;
 }) {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -508,16 +436,6 @@ function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendin
                                     <button onClick={() => onOpenEdit(lead)}
                                         className="h-8 w-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center justify-center transition-all">
                                         <Sliders size={12} className="text-accent-gold" />
-                                    </button>
-                                    <button onClick={() => onSendToMonitoring(lead)}
-                                        disabled={allSent || sendingId === lead.id}
-                                        className={`h-8 px-2.5 rounded-lg text-[10px] font-black flex items-center gap-1 transition-all ${
-                                            allSent
-                                                ? 'bg-emerald-500/5 border border-emerald-500/20 text-emerald-500/40 cursor-not-allowed'
-                                                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                                        }`}>
-                                        {sendingId === lead.id ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
-                                        {allSent ? 'Sent' : 'Monitor'}
                                     </button>
                                 </div>
                             </td>

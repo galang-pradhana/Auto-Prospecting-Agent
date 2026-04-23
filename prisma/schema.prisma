@@ -66,6 +66,11 @@ model Lead {
   qualifiedAt         DateTime?
   totalTimeOnPage     Int           @default(0)
   
+  blastStatus         BlastStatus?
+  blastSentAt         DateTime?
+  blastScheduledAt    DateTime?
+  blastError          String?
+  
   b2bType             String?
   b2bNotes            String?
   prospectNotes       String?
@@ -174,6 +179,13 @@ enum LeadStatus {
   READY
   FINISH
   LIVE
+}
+
+enum BlastStatus {
+  PENDING
+  SENT
+  FAILED
+  SCHEDULED
 }
 
 model B2BDeal {

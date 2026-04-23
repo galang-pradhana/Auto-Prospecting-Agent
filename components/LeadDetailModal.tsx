@@ -261,20 +261,29 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                                 {/* Left Column: Intelligence / Preview */}
                                 <div className={`${isLive ? 'lg:col-span-12' : 'lg:col-span-8'} p-8 space-y-10 border-r border-white/5`}>
                                     
-                                    {/* LIVE PREVIEW (Exclusive for LIVE) */}
-                                    {isLive && lead.htmlCode && (
+                                    {/* PROMPT (Exclusive for LIVE) */}
+                                    {isLive && lead.masterWebsitePrompt && (
                                         <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
-                                                    <Layout className="text-accent-gold" size={18} />
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
+                                                        <Code2 className="text-accent-gold" size={18} />
+                                                    </div>
+                                                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Master Website Prompt</h3>
                                                 </div>
-                                                <h3 className="text-sm font-black text-white uppercase tracking-widest">Final Website Blueprint</h3>
+                                                <button 
+                                                    onClick={handleCopy}
+                                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white font-black rounded-xl transition-all text-[10px] uppercase tracking-widest border border-white/10"
+                                                >
+                                                    {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                                    {copied ? 'Copied!' : 'Copy Prompt'}
+                                                </button>
                                             </div>
-                                            <div className="w-full h-[600px] bg-white rounded-[40px] overflow-hidden border-8 border-zinc-900 shadow-2xl relative">
-                                                <iframe 
-                                                    srcDoc={lead.htmlCode}
-                                                    className="w-full h-full border-none"
-                                                    title="Live Preview"
+                                            <div className="w-full h-[600px] bg-zinc-900 rounded-[40px] overflow-hidden border border-white/10 shadow-2xl relative p-6">
+                                                <textarea 
+                                                    readOnly
+                                                    value={lead.masterWebsitePrompt}
+                                                    className="w-full h-full bg-transparent text-sm text-zinc-300 font-mono outline-none resize-none custom-scrollbar"
                                                 />
                                             </div>
                                         </section>

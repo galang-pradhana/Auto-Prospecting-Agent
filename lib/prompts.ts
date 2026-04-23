@@ -413,7 +413,7 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
        5. [normalized_name]id
        6. [normalized_name]_[category_short] (contoh: cafe → "warung_kopi_cafe")
      • Cross-check dengan CATEGORY & KOTA:
-       - Jika nama terlalu generik (contoh: "Warung Makan", "Bengkel", "Toko") → confidence rendah → SKIP.
+       - Jika nama terlalu generik (contoh: "Warung Makan", "Bengkel", "Toko") → confidence rendah.
        - Hanya pilih username yang Paling Mungkin Valid berdasarkan pola lokal bisnis di kota tersebut.
      • INTERNAL CONFIDENCE SCORING (jangan tampilkan ke user):
        - +40 jika exact match normalized_name
@@ -422,7 +422,9 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
        - +15 jika kombinasi category
        - -30 jika nama terlalu pendek (<4 char) atau terlalu generik
        - Hanya boleh set "ig" jika confidence ≥ 70%.
-     • Jika confidence < 70% → JANGAN masukkan IG apapun, set decision = "SKIP".
+     • ⚠️ ATURAN KRITIS: Jika confidence < 70% → set ig = null (kosongkan saja).
+       JANGAN ubah decision menjadi SKIP hanya karena IG tidak bisa ditebak.
+       Keputusan PROCEED vs SKIP HANYA ditentukan oleh: Website, Rating, dan ketersediaan WA.
 
 ### II. DATA FIELDS (MANDATORY JSON):
 {
@@ -444,8 +446,12 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
 ### III. OUTPUT INSTRUCTION:
 - HANYA keluarkan format JSON object tunggal (bukan array).
 - ZERO YAPPING. No preamble, no explanation.
-- Keputusan SKIP jika: Website profesional sudah ada, Rating < 3.5, atau benar-benar tidak ada WA dan IG tidak bisa ditebak sama sekali. (RATING 5.0 WAJIB LOLOS).
-- Jika data tidak memenuhi kriteria, set decision ke "SKIP".
+- ⚠️ DECISION RULES (ABSOLUT — TIDAK BOLEH DILANGGAR):
+  • PROCEED jika: Rating 3.5–5.0 AND tidak punya website profesional. WA boleh kosong.
+  • PROCEED jika: Rating 5.0 (WAJIB LOLOS apapun kondisinya, kecuali website profesional sudah ada).
+  • SKIP hanya jika: (A) sudah punya website custom/profesional, ATAU (B) rating < 3.5.
+  • IG yang tidak bisa ditebak = set ig ke null. TIDAK MEMPENGARUHI keputusan PROCEED/SKIP.
+- Jika data tidak memenuhi kriteria di atas, set decision ke "SKIP".
 
 PENTING: Gunakan DATA di bawah ini secara LITERAL. JANGAN mengarang nomor WA atau nama bisnis baru.
 
