@@ -38,6 +38,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [detailLead, setDetailLead] = useState<any>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'sites' | 'blast'>('sites');
+    const [sendingId, setSendingId] = useState<string | null>(null);
 
     const router = useRouter();
 
@@ -65,6 +66,20 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
         setIsRefreshing(true);
         router.refresh();
         setTimeout(() => setIsRefreshing(false), 1000); // Visual feedback
+    };
+
+    const handleSendToMonitoring = async (lead: LiveLead) => {
+        try {
+            setSendingId(lead.id);
+            const res = await fetch(`/api/leads/${lead.id}/monitoring`, { method: 'POST' });
+            if (!res.ok) throw new Error('Failed to send to monitoring');
+            handleRefresh();
+        } catch (error) {
+            console.error(error);
+            alert('Failed to move to monitoring');
+        } finally {
+            setSendingId(null);
+        }
     };
 
     // Apply filters
@@ -210,6 +225,8 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                         <LeadCard key={lead.id} lead={lead}
                                             onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
                                             onOpenEdit={() => { setEditingHtmlLead(lead); setIsEditModalOpen(true); }}
+                                            onSendToMonitoring={() => handleSendToMonitoring(lead)}
+                                            sendingId={sendingId}
                                         />
                                     ))}
                                 </div>
@@ -217,6 +234,8 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                 <LeadTable leads={notSentLeads}
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
                                     onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
+                                    onSendToMonitoring={handleSendToMonitoring}
+                                    sendingId={sendingId}
                                 />
                             )}
                         </div>
@@ -294,10 +313,12 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
 }
 
 // ─── Lead Card Component ─────────────────────────────────────────────────────
-function LeadCard({ lead, onOpenDetail, onOpenEdit, alreadySent }: {
+function LeadCard({ lead, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingId, alreadySent }: {
     lead: LiveLead;
     onOpenDetail: () => void;
     onOpenEdit: () => void;
+    onSendToMonitoring?: () => void;
+    sendingId?: string | null;
     alreadySent?: boolean;
 }) {
     return (
@@ -376,16 +397,34 @@ function LeadCard({ lead, onOpenDetail, onOpenEdit, alreadySent }: {
                 >
                     <Sliders size={16} className="text-accent-gold" />
                 </button>
+
+                {onSendToMonitoring && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onSendToMonitoring(); }}
+                        disabled={alreadySent || sendingId === lead.id}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                            alreadySent 
+                                ? 'bg-emerald-500/5 border border-emerald-500/20 text-emerald-500/40 cursor-not-allowed'
+                                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                        }`}
+                        title={alreadySent ? 'Sudah di Monitoring' : 'Sudah Kirim WA? Pindah ke Monitoring'}
+                    >
+                        {sendingId === lead.id ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                        {alreadySent ? 'Terkirim' : 'Monitoring'}
+                    </button>
+                )}
             </div>
         </div>
     );
 }
 
 // ─── Table View Component ─────────────────────────────────────────────────────
-function LeadTable({ leads, onOpenDetail, onOpenEdit, allSent }: {
+function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingId, allSent }: {
     leads: LiveLead[];
     onOpenDetail: (l: LiveLead) => void;
     onOpenEdit: (l: LiveLead) => void;
+    onSendToMonitoring?: (l: LiveLead) => void;
+    sendingId?: string | null;
     allSent?: boolean;
 }) {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -437,6 +476,18 @@ function LeadTable({ leads, onOpenDetail, onOpenEdit, allSent }: {
                                         className="h-8 w-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center justify-center transition-all">
                                         <Sliders size={12} className="text-accent-gold" />
                                     </button>
+                                    {onSendToMonitoring && (
+                                        <button onClick={() => onSendToMonitoring(lead)}
+                                            disabled={allSent || sendingId === lead.id}
+                                            className={`h-8 px-2.5 rounded-lg text-[10px] font-black flex items-center gap-1 transition-all ${
+                                                allSent
+                                                    ? 'bg-emerald-500/5 border border-emerald-500/20 text-emerald-500/40 cursor-not-allowed'
+                                                    : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                                            }`}>
+                                            {sendingId === lead.id ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                                            {allSent ? 'Sent' : 'Monitor'}
+                                        </button>
+                                    )}
                                 </div>
                             </td>
                         </tr>
