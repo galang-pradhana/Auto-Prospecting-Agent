@@ -12,7 +12,6 @@ export default function ImportLeadsSection() {
     const [file, setFile] = useState<File | null>(null);
     const [parsedData, setParsedData] = useState<any[]>([]);
     const [isImporting, setIsImporting] = useState(false);
-    const [defaultStatus, setDefaultStatus] = useState('FRESH');
 
     const expectedHeaders = ['name', 'wa', 'category', 'city', 'address', 'status', 'outreachDraft', 'htmlCode'];
 
@@ -70,11 +69,8 @@ export default function ImportLeadsSection() {
         setIsImporting(true);
         const loadingToast = toast.loading(`Mengimpor ${parsedData.length} leads...`);
 
-        // Map status if not provided in CSV
-        const finalData = parsedData.map(row => ({
-            ...row,
-            status: row.status || defaultStatus
-        }));
+        // Use status directly from file data — no override
+        const finalData = parsedData;
 
         try {
             const res = await fetch('/api/leads/import', {
@@ -132,7 +128,7 @@ export default function ImportLeadsSection() {
                             ))}
                         </div>
                         <p className="text-zinc-500 text-xs mt-3 italic">
-                            * Kolom 'name' wajib. Jika 'status' kosong, menggunakan default. <br/>
+                            * Kolom <code className="text-blue-400 font-bold">name</code> wajib diisi. Kolom <code className="text-blue-400 font-bold">status</code> wajib diisi dengan <code className="text-warmTerracotta">FRESH</code> atau <code className="text-warmTerracotta">LIVE</code> — data LIVE langsung masuk ke WA Blast, FRESH masuk ke pipeline AI. <br/>
                             <span className="text-warmTerracotta font-bold">PENTING:</span> Jika data kamu mengandung HTML/Teks panjang dengan baris baru (seperti htmlCode), <b>sangat disarankan menggunakan format .json</b> agar struktur file tidak rusak.
                         </p>
                         <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl">
@@ -189,20 +185,8 @@ export default function ImportLeadsSection() {
                         )}
                     </div>
 
-                    {/* Settings & Import Action */}
-                    <div className="space-y-4 flex flex-col justify-end">
-                        <div className="space-y-2">
-                            <label className="text-xs text-white/50 font-bold uppercase tracking-widest">Default Status (Bypass AI)</label>
-                            <select 
-                                value={defaultStatus}
-                                onChange={(e) => setDefaultStatus(e.target.value)}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 outline-none transition-all appearance-none cursor-pointer"
-                            >
-                                <option value="FRESH">FRESH (Data mentah, butuh follow up / AI)</option>
-                                <option value="LIVE">LIVE (Bypass AI penuh, langsung siap WA Blast!)</option>
-                            </select>
-                        </div>
-
+                    {/* Import Action */}
+                    <div className="flex flex-col justify-end">
                         <button
                             onClick={handleImport}
                             disabled={isImporting || parsedData.length === 0}

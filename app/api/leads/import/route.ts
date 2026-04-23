@@ -43,16 +43,35 @@ export async function POST(req: Request) {
       };
     });
 
-    // Use transaction to insert all leads
-    const result = await prisma.lead.createMany({
-      data: dataToInsert,
-      skipDuplicates: true, // Prevents crashing if there are unique constraint violations (e.g., duplicate WA if unique)
+    // Use transaction to insert or update all leads
+    let count = 0;
+    await prisma.$transaction(async (tx) => {
+      for (const data of dataToInsert) {
+        if (data.wa) {
+          // If wa is present, try to upsert to update existing data
+          await tx.lead.upsert({
+            where: { wa: data.wa },
+            update: {
+              ...data,
+              // don't overwrite slug if it already exists, unless you want to
+              slug: undefined // keep existing slug on update
+            },
+            create: data,
+          });
+        } else {
+          // If no wa, just create
+          await tx.lead.create({
+            data: data
+          });
+        }
+        count++;
+      }
     });
 
     return NextResponse.json({ 
       success: true, 
-      message: `Successfully imported ${result.count} leads`,
-      count: result.count
+      message: `Successfully imported/updated ${count} leads`,
+      count: count
     });
 
   } catch (error: any) {
