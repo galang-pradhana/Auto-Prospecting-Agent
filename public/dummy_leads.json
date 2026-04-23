@@ -1,0 +1,20 @@
+[
+  {
+    "name": "PT Nusantara Konstruksi",
+    "wa": "6281234567890",
+    "category": "Construction",
+    "city": "Jakarta",
+    "address": "Jl. Sudirman No 12",
+    "status": "READY",
+    "outreachDraft": "Halo, kami dari penyedia alat berat. Ingin menawarkan katalog kami.",
+    "htmlCode": "<html>\n  <body>...</body>\n</html>"
+  },
+  {
+    "name": "CV Berkah Sejahtera",
+    "wa": "6289876543210",
+    "category": "Retail",
+    "city": "Bandung",
+    "address": "Jl. Asia Afrika 1",
+    "status": "FRESH"
+  }
+]

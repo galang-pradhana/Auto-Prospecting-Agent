@@ -4,11 +4,13 @@ import React, { useState } from 'react';
 import { FilePlus2, Search, Loader2, AlertCircle, MapPin } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import ImportLeadsSection from '@/components/ImportLeadsSection';
 
 export default function LeadsManualPage() {
     const router = useRouter();
     const [isScraping, setIsScraping] = useState(false);
     const [url, setUrl] = useState('');
+    const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,26 +48,57 @@ export default function LeadsManualPage() {
 
     return (
         <div className="flex flex-col gap-8 pb-32 animate-in fade-in duration-500 max-w-4xl mx-auto pt-12">
-            {/* Header */}
-            <div className="flex justify-between items-end bg-premium-800/20 p-6 rounded-3xl border border-white/5">
+            {/* Header & Tabs */}
+            <div className="flex flex-col gap-6">
                 <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 bg-accent-gold/10 rounded-xl flex items-center justify-center border border-accent-gold/20">
-                            <MapPin className="text-accent-gold shrink-0" size={20} />
-                        </div>
-                        <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Single URL Scrape</h1>
-                    </div>
+                    <h1 className="text-4xl font-black mb-2 tracking-tighter text-white uppercase">Leads Input Manual</h1>
                     <p className="text-white/40 text-sm font-bold uppercase tracking-widest mt-2">
-                        Ekstrak satu titik lokasi Google Maps ke Database
+                        Pilih metode input manual untuk database Leads
                     </p>
+                </div>
+                
+                <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 w-fit">
+                    <button 
+                        onClick={() => setActiveTab('single')}
+                        className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                            activeTab === 'single' 
+                            ? 'bg-accent-gold text-black shadow-lg' 
+                            : 'text-white/40 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        Single URL Scrape
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('bulk')}
+                        className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                            activeTab === 'bulk' 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                            : 'text-white/40 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        Bulk Import (CSV)
+                    </button>
                 </div>
             </div>
 
-            {/* Form */}
-            <div className="bg-zinc-950/40 border border-white/5 rounded-[32px] p-8 relative overflow-hidden glass shadow-2xl">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-accent-gold/5 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2"></div>
-                
-                <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
+            {/* Single Scrape Tab */}
+            {activeTab === 'single' && (
+                <div className="bg-zinc-950/40 border border-white/5 rounded-[32px] p-8 relative overflow-hidden glass shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-accent-gold/5 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2"></div>
+                    
+                    <div className="flex items-center gap-3 mb-8 relative z-10">
+                        <div className="w-10 h-10 bg-accent-gold/10 rounded-xl flex items-center justify-center border border-accent-gold/20">
+                            <MapPin className="text-accent-gold shrink-0" size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Single URL Scrape</h2>
+                            <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">
+                                Ekstrak satu titik lokasi Google Maps ke Database
+                            </p>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
                     
                     <div className="bg-accent-gold/5 border border-accent-gold/20 p-4 rounded-2xl flex items-start gap-3 mb-6">
                         <AlertCircle className="text-accent-gold shrink-0 mt-0.5" size={18} />
@@ -107,6 +140,14 @@ export default function LeadsManualPage() {
                     </div>
                 </form>
             </div>
+            )}
+
+            {/* Bulk Import Section */}
+            {activeTab === 'bulk' && (
+                <div className="animate-in slide-in-from-bottom-4 duration-300">
+                    <ImportLeadsSection />
+                </div>
+            )}
         </div>
     );
 }

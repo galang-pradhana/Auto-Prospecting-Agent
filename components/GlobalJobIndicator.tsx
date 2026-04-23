@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, ServerCog, Sparkles, Navigation, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, ServerCog, Sparkles, Navigation, ChevronRight, CheckCircle2, XCircle, Send } from 'lucide-react';
 import { Job } from '@/lib/jobRegistry';
 
 export default function GlobalJobIndicator({ className }: { className?: string }) {
@@ -52,7 +52,7 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                 )}
                 
                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">
-                    {activeCount > 0 ? `AI Jobs (${activeCount})` : `Jobs OK`}
+                    {activeCount > 0 ? `Active Tasks (${activeCount})` : `System OK`}
                 </span>
             </button>
 
@@ -74,7 +74,7 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                         <div className="max-h-[300px] overflow-y-auto">
                             {jobs.length === 0 ? (
                                 <div className="p-6 text-center text-zinc-500 text-xs italic">
-                                    No active AI tasks running.
+                                    No background tasks running.
                                 </div>
                             ) : (
                                 jobs.map(job => (
@@ -85,6 +85,7 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                                                 {job.type === 'ENRICH' && <Sparkles size={12} className={job.status === 'RUNNING' ? 'text-purple-400' : 'text-zinc-500'} />}
                                                 {job.type === 'FORGE' && <ServerCog size={12} className={job.status === 'RUNNING' ? 'text-blue-400' : 'text-zinc-500'} />}
                                                 {job.type === 'EDIT' && <Sparkles size={12} className={job.status === 'RUNNING' ? 'text-emerald-400' : 'text-zinc-500'} />}
+                                                {job.type === 'BLAST' && <Send size={12} className={job.status === 'RUNNING' ? 'text-green-400' : 'text-zinc-500'} />}
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-zinc-200">{job.type}</span>
                                             </div>
                                             {job.status === 'COMPLETED' ? <CheckCircle2 size={12} className="text-emerald-500" /> :

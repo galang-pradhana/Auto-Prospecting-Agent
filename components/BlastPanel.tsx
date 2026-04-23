@@ -58,7 +58,7 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
 
   const previewLead = leads.find((l) => l.id === previewLeadId);
 
-  // Polling logic
+  // Polling logic to track background process on VPS
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isBlasting && selectedLeadIds.length > 0) {
@@ -110,11 +110,18 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
           body: JSON.stringify({ leadIds: selectedLeadIds, delaySeconds: delay }),
         });
         const data = await res.json();
+        
         if (!res.ok) {
           alert(`Error: ${data.error}`);
           setIsBlasting(false);
         } else {
-          // Polling will handle the rest
+          // Immediately set all selected leads to PENDING locally
+          const newStatuses: Record<string, any> = {};
+          selectedLeadIds.forEach(id => {
+             newStatuses[id] = { status: "PENDING", error: null };
+          });
+          setLocalStatuses(prev => ({ ...prev, ...newStatuses }));
+          // Polling will handle the rest of the updates as the server works in the background
         }
       } catch (error) {
         alert("Terjadi kesalahan jaringan.");

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendMessage } from '@/lib/fonnte';
 import { getSession } from '@/lib/auth';
+import { JobRegistry } from '@/lib/jobRegistry';
+import { randomUUID } from 'crypto';
+import { sendMessage } from '@/lib/fonnte';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -40,76 +42,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No valid leads found for the provided IDs' }, { status: 404 });
     }
 
-    let successCount = 0;
-    let failedCount = 0;
-    const errors: any[] = [];
+    // Set all leads to PENDING immediately
+    await prisma.lead.updateMany({
+      where: { id: { in: leads.map(l => l.id) } },
+      data: { blastStatus: 'PENDING', blastError: null }
+    });
 
-    for (let i = 0; i < leads.length; i++) {
-      const lead = leads[i];
+    const jobId = randomUUID();
+    const initialMessage = `Menyiapkan pengiriman pesan ke ${leads.length} tujuan...`;
+    JobRegistry.createJob(jobId, 'BLAST', session.userId, initialMessage);
 
-      // Delay between messages (but not before the first one)
-      if (i > 0) {
-        await sleep(delay * 1000);
-      }
-
-      if (!lead.wa || !lead.outreachDraft) {
-        await prisma.$transaction(async (tx) => {
-          await tx.lead.update({
-            where: { id: lead.id },
-            data: {
-              blastStatus: 'FAILED',
-              blastError: 'Missing WhatsApp number or outreach draft',
-            }
-          });
-        });
-        failedCount++;
-        errors.push({ id: lead.id, error: 'Missing WhatsApp number or outreach draft' });
-        continue;
-      }
-
-      // Send via Fonnte
-      const response = await sendMessage(lead.wa, lead.outreachDraft);
-
-      if (response.status) {
-        const now = new Date();
-        const nextFollowup = new Date(now);
-        nextFollowup.setDate(nextFollowup.getDate() + 7);
-
-        await prisma.$transaction(async (tx) => {
-          await tx.lead.update({
-            where: { id: lead.id },
-            data: {
-              blastStatus: 'SENT',
-              blastSentAt: now,
-              blastError: null,
-              // Auto-move to monitoring
-              followupStage: 'sent',
-              followupCount: 1,
-              lastContactAt: now,
-              nextFollowupAt: nextFollowup,
-            }
-          });
-        });
-        successCount++;
-      } else {
-        await prisma.$transaction(async (tx) => {
-          await tx.lead.update({
-            where: { id: lead.id },
-            data: {
-              blastStatus: 'FAILED',
-              blastError: response.message || 'Unknown Fonnte error',
-            }
-          });
-        });
-        failedCount++;
-        errors.push({ id: lead.id, error: response.message || 'Unknown Fonnte error' });
-      }
-    }
+    // Fire and forget background process
+    processBackgroundBlast(leads, delay, jobId).catch((err) => {
+      console.error(err);
+      JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message });
+    });
 
     return NextResponse.json({
-      success: successCount,
-      failed: failedCount,
-      errors
+      success: true,
+      jobId,
+      message: "Batch processing started in background"
     });
 
   } catch (error: any) {
@@ -119,4 +71,74 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+async function processBackgroundBlast(leads: any[], delay: number, jobId: string) {
+  let successCount = 0;
+  let failCount = 0;
+  const total = leads.length;
+
+  for (let i = 0; i < leads.length; i++) {
+    const lead = leads[i];
+
+    JobRegistry.updateJob(jobId, {
+      progress: Math.round((i / total) * 100),
+      message: `Mengirim pesan ke ${lead.name || 'nomor WA'} (${i + 1}/${total})...`
+    });
+
+    // Delay between messages (but not before the first one)
+    if (i > 0) {
+      await sleep(delay * 1000);
+    }
+
+    if (!lead.wa || !lead.outreachDraft) {
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          blastStatus: 'FAILED',
+          blastError: 'Missing WhatsApp number or outreach draft',
+        }
+      });
+      failCount++;
+      continue;
+    }
+
+    // Send via Fonnte
+    const response = await sendMessage(lead.wa, lead.outreachDraft);
+
+    if (response.status) {
+      const now = new Date();
+      const nextFollowup = new Date(now);
+      nextFollowup.setDate(nextFollowup.getDate() + 7);
+
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          blastStatus: 'SENT',
+          blastSentAt: now,
+          blastError: null,
+          followupStage: 'sent',
+          followupCount: { increment: 1 },
+          lastContactAt: now,
+          nextFollowupAt: nextFollowup
+        }
+      });
+      successCount++;
+    } else {
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          blastStatus: 'FAILED',
+          blastError: response.reason || 'Failed to send WhatsApp message'
+        }
+      });
+      failCount++;
+    }
+  }
+
+  JobRegistry.updateJob(jobId, {
+    status: 'COMPLETED',
+    progress: 100,
+    message: `Selesai! Terkirim: ${successCount}, Gagal: ${failCount}.`
+  });
 }
