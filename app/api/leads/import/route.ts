@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { slugify } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+
+
 export async function POST(req: Request) {
   try {
     const session = await getSession();

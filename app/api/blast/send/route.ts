@@ -5,6 +5,9 @@ import { JobRegistry } from '@/lib/jobRegistry';
 import { randomUUID } from 'crypto';
 import { sendMessage } from '@/lib/fonnte';
 
+export const dynamic = 'force-dynamic';
+
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(req: Request) {
