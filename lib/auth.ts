@@ -60,21 +60,12 @@ export async function registerUser(formData: FormData) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
-        data: { email, password: hashedPassword, name }
+    await prisma.user.create({
+        data: { email, password: hashedPassword, name, isApproved: false }
     });
 
-    // Set session cookie
-    const token = encodeSession(user.id);
-    cookies().set(SESSION_COOKIE, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/',
-    });
-
-    redirect('/dashboard');
+    // We do NOT log them in immediately. They must wait for approval.
+    return { error: 'Registration complete. Your account is pending admin approval.' };
 }
 
 export async function loginUser(formData: FormData) {
@@ -95,6 +86,10 @@ export async function loginUser(formData: FormData) {
         return { error: 'Invalid credentials' };
     }
 
+    if (!user.isApproved) {
+        return { error: 'Account pending admin approval. Please contact Galang.' };
+    }
+
     const token = encodeSession(user.id);
     cookies().set(SESSION_COOKIE, token, {
         httpOnly: true,
@@ -104,10 +99,11 @@ export async function loginUser(formData: FormData) {
         path: '/',
     });
 
-    redirect('/dashboard');
+    return { success: true };
 }
 
 export async function logoutUser() {
     cookies().delete(SESSION_COOKIE);
     redirect('/login');
 }
+

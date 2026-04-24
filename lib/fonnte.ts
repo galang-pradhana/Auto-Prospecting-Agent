@@ -19,11 +19,21 @@ function formatPhone(phone: string): string {
 
 /**
  * Sends an immediate message via Fonnte
+ * Supports token rotation if an array of tokens is provided
  */
-export async function sendMessage(phone: string, message: string, delay?: number): Promise<FonnteResponse> {
+export async function sendMessage(phone: string, message: string, delay?: number, tokens?: string[]): Promise<FonnteResponse> {
   try {
     const formattedPhone = formatPhone(phone);
-    const token = process.env.FONNTE_TOKEN;
+    let token = process.env.FONNTE_TOKEN;
+    
+    // Token rotation logic
+    if (tokens && tokens.length > 0) {
+      const validTokens = tokens.filter(t => t && t.trim() !== '');
+      if (validTokens.length > 0) {
+        const randomIndex = Math.floor(Math.random() * validTokens.length);
+        token = validTokens[randomIndex];
+      }
+    }
     
     if (!token) {
       throw new Error("FONNTE_TOKEN is not configured in environment variables.");
@@ -60,10 +70,19 @@ export async function sendMessage(phone: string, message: string, delay?: number
 /**
  * Schedules a message to be sent via Fonnte at a specific time
  */
-export async function scheduleMessage(phone: string, message: string, scheduledAt: Date): Promise<FonnteResponse> {
+export async function scheduleMessage(phone: string, message: string, scheduledAt: Date, tokens?: string[]): Promise<FonnteResponse> {
   try {
     const formattedPhone = formatPhone(phone);
-    const token = process.env.FONNTE_TOKEN;
+    let token = process.env.FONNTE_TOKEN;
+    
+    // Token rotation logic
+    if (tokens && tokens.length > 0) {
+      const validTokens = tokens.filter(t => t && t.trim() !== '');
+      if (validTokens.length > 0) {
+        const randomIndex = Math.floor(Math.random() * validTokens.length);
+        token = validTokens[randomIndex];
+      }
+    }
     
     if (!token) {
       throw new Error("FONNTE_TOKEN is not configured in environment variables.");

@@ -68,16 +68,37 @@ export async function getMonitoringStats() {
     if (!session) return null;
 
     const now = new Date();
+    
+    // Time boundaries for "today" and "yesterday"
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    
+    const yesterdayEnd = new Date(todayStart);
 
-    const [total, clicked, qualified, dueToday, closedLost] = await Promise.all([
+    const [
+        total, clicked, qualified, dueToday, closedLost,
+        sentToday, sentYesterday, totalBlasted
+    ] = await Promise.all([
         prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', nextFollowupAt: { not: null } } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'clicked', nextFollowupAt: { not: null } } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'qualified', nextFollowupAt: { not: null } } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', nextFollowupAt: { lte: now, not: null } } }),
+        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'clicked' } }),
+        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'qualified' } }),
+        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', nextFollowupAt: { lte: now, not: null }, followupStage: { not: 'closed_lost' } } }),
         prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'closed_lost' } }),
+        
+        // NEW: Sent today
+        prisma.lead.count({ where: { userId: session.userId, lastContactAt: { gte: todayStart } } }),
+        
+        // NEW: Sent yesterday
+        prisma.lead.count({ where: { userId: session.userId, lastContactAt: { gte: yesterdayStart, lt: yesterdayEnd } } }),
+        
+        // NEW: Total blasted
+        prisma.lead.count({ where: { userId: session.userId, blastSentAt: { not: null } } }),
     ]);
 
-    return { total, clicked, qualified, dueToday, closedLost };
+    return { total, clicked, qualified, dueToday, closedLost, sentToday, sentYesterday, totalBlasted };
 }
 
 // ─── Update prospect notes ────────────────────────────────────────────────────

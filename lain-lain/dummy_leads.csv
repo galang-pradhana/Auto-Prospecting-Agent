@@ -1,0 +1,222 @@
+name,wa,category,city,address,status,outreachDraft,htmlCode
+Cv Berkah Sadawira Utama,628113492005,Animal feed store,Sidoarjo Regency,RT.06/RW.02, Masangan Wetan, Masanganwetan, Kec. Sukodono, Kabupaten Sidoarjo, Jawa Timur 61258,"Halo pengelola Cv Berkah Sadawira Utama, salam kenal dari saya.
+
+Kebetulan saya web developer lokal yang sedang riset visual toko pakan hewan di daerah sekitar untuk membangun portofolio. Saya sudah mencoba membuatkan satu blueprint website khusus untuk toko Anda yang menonjolkan kualitas penyimpanan pakan dan kemudahan cek stok bagi pelanggan. Pembuatan rancangan ini murni gratis dari saya sebagai bahan portofolio dan sama sekali tidak ada ikatan komitmen apapun.
+
+Jika sedang ada waktu luang, hasil jadinya bisa langsung dilihat lewat tautan http://localhost:3000/preview/cv-berkah-sadawira-utama ini.
+
+Saya akan sangat senang jika bisa mendapat sedikit masukan dari sudut pandang pemilik usaha langsung. Kira-kira apakah tampilan visual ini sudah mencerminkan arah bisnis yang ingin dibangun oleh toko Anda ke depannya.
+
+Terima kasih banyak atas waktunya dan semoga penjualan hari ini berjalan lancar.
+Ano Creation
+WA: 6285765846549
+IG: @Anocreation",<!DOCTYPE html>
+<html lang="id" class="scroll-smooth"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cv Berkah Sadawira Utama | Premium Feed &amp; Storage</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&amp;family=Playfair+Display:wght@700;900&amp;display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        deepZinc: '#18181B',
+                        sageGreen: '#2D3E33',
+                        warmTerracotta: '#C05C41',
+                        cleanWhite: '#FFFFFF',
+                    },
+                    fontFamily: {
+                        playfair: ['Playfair Display', 'serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        . { opacity: 0; transform: translateY(20px); transition: all 0.8s ease-out; }
+        ..active { opacity: 1; transform: translateY(0); }
+        .bento-item { transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .bento-item:hover { transform: translateY(-8px) scale(1.01); }
+    </style>
+</head>
+<body class="bg-cleanWhite text-deepZinc font-outfit antialiased" bis_status="ok" bis_frame_id="131" bis_body_id="fr_ytybhgikrgm23ocol635mu" bis_depth="0" bis_chainid="8" bis_size="{&quot;x&quot;:0,&quot;y&quot;:0,&quot;w&quot;:1187,&quot;h&quot;:2846,&quot;abs_x&quot;:80,&quot;abs_y&quot;:114}">
+
+    <nav class="fixed w-full z-50 bg-cleanWhite/80 backdrop-blur-md border-b border-zinc-100" bis_size="{&quot;x&quot;:0,&quot;y&quot;:877,&quot;w&quot;:1187,&quot;h&quot;:69,&quot;abs_x&quot;:80,&quot;abs_y&quot;:991}">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center" bis_size="{&quot;x&quot;:0,&quot;y&quot;:877,&quot;w&quot;:1187,&quot;h&quot;:67,&quot;abs_x&quot;:80,&quot;abs_y&quot;:991}">
+            <span class="font-playfair text-2xl font-black tracking-tighter text-sageGreen" bis_size="{&quot;x&quot;:23,&quot;y&quot;:895,&quot;w&quot;:49,&quot;h&quot;:31,&quot;abs_x&quot;:103,&quot;abs_y&quot;:1009}" style="outline: none;">BSU<span class="text-warmTerracotta" bis_size="{&quot;x&quot;:68,&quot;y&quot;:894,&quot;w&quot;:5,&quot;h&quot;:32,&quot;abs_x&quot;:148,&quot;abs_y&quot;:1008}" style="outline: none;">.</span></span>
+            <div class="hidden md:flex space-x-8 text-sm font-semibold uppercase tracking-widest" bis_size="{&quot;x&quot;:397,&quot;y&quot;:901,&quot;w&quot;:328,&quot;h&quot;:20,&quot;abs_x&quot;:477,&quot;abs_y&quot;:1015}">
+                <a href="#produk" class="hover:text-warmTerracotta transition" bis_size="{&quot;x&quot;:397,&quot;y&quot;:901,&quot;w&quot;:66,&quot;h&quot;:20,&quot;abs_x&quot;:477,&quot;abs_y&quot;:1015}" style="outline: none;">Produk</a>
+                <a href="#layanan" class="hover:text-warmTerracotta transition" bis_size="{&quot;x&quot;:495,&quot;y&quot;:901,&quot;w&quot;:110,&quot;h&quot;:20,&quot;abs_x&quot;:575,&quot;abs_y&quot;:1015}" style="outline: none;">Keunggulan</a>
+                <a href="#testimoni" class="hover:text-warmTerracotta transition" bis_size="{&quot;x&quot;:638,&quot;y&quot;:901,&quot;w&quot;:87,&quot;h&quot;:20,&quot;abs_x&quot;:718,&quot;abs_y&quot;:1015}" style="outline: none;">Testimoni</a>
+            </div>
+            <a href="https://wa.me/your-number" class="bg-deepZinc text-white px-6 py-2 text-sm font-bold hover:bg-sageGreen transition duration-300" bis_size="{&quot;x&quot;:1048,&quot;y&quot;:893,&quot;w&quot;:114,&quot;h&quot;:35,&quot;abs_x&quot;:1128,&quot;abs_y&quot;:1007}" style="outline: none;">CEK STOK</a>
+        </div>
+    </nav>
+
+    <section class="relative h-screen flex items-center overflow-hidden" bis_size="{&quot;x&quot;:0,&quot;y&quot;:0,&quot;w&quot;:1187,&quot;h&quot;:641,&quot;abs_x&quot;:80,&quot;abs_y&quot;:114}">
+        <div class="absolute inset-0 z-0" bis_size="{&quot;x&quot;:0,&quot;y&quot;:0,&quot;w&quot;:1187,&quot;h&quot;:641,&quot;abs_x&quot;:80,&quot;abs_y&quot;:114}">
+            <img src="https://images.unsplash.com/photo-1594302954323-7846bf62b5a6?crop=entropy&amp;cs=tinysrgb&amp;fit=max&amp;fm=jpg&amp;ixid=M3w5MjE1Nzl8MHwxfHNlYXJjaHwxfHxzYXBpfGVufDB8fHx8MTc3NjgzMTg0Nnww&amp;ixlib=rb-4.1.0&amp;q=80&amp;w=1080" alt="Premium Storage Texture" class="w-full h-full object-cover" bis_size="{&quot;x&quot;:0,&quot;y&quot;:0,&quot;w&quot;:1187,&quot;h&quot;:641,&quot;abs_x&quot;:80,&quot;abs_y&quot;:114}">
+            <div class="absolute inset-0 bg-deepZinc/70 mix-blend-multiply" bis_size="{&quot;x&quot;:0,&quot;y&quot;:0,&quot;w&quot;:1187,&quot;h&quot;:641,&quot;abs_x&quot;:80,&quot;abs_y&quot;:114}"></div>
+        </div>
+        
+        <div class="relative z-10 max-w-7xl mx-auto px-6 pt-20" bis_size="{&quot;x&quot;:185,&quot;y&quot;:83,&quot;w&quot;:815,&quot;h&quot;:474,&quot;abs_x&quot;:265,&quot;abs_y&quot;:197}">
+            <div class="max-w-3xl " bis_size="{&quot;x&quot;:209,&quot;y&quot;:163,&quot;w&quot;:767,&quot;h&quot;:394,&quot;abs_x&quot;:289,&quot;abs_y&quot;:277}">
+                <h1 class="font-playfair text-5xl md:text-7xl text-white leading-tight mb-6" bis_size="{&quot;x&quot;:209,&quot;y&quot;:163,&quot;w&quot;:767,&quot;h&quot;:215,&quot;abs_x&quot;:289,&quot;abs_y&quot;:277}" style="outline: none;">
+                    Standar Baru <br bis_size="{&quot;x&quot;:650,&quot;y&quot;:150,&quot;w&quot;:0,&quot;h&quot;:95,&quot;abs_x&quot;:730,&quot;abs_y&quot;:264}"><span class="italic text-warmTerracotta" bis_size="{&quot;x&quot;:209,&quot;y&quot;:222,&quot;w&quot;:495,&quot;h&quot;:95,&quot;abs_x&quot;:289,&quot;abs_y&quot;:336}" style="outline: none;">Kualitas Pakan</span> di Sidoarjo.
+                </h1>
+                <p class="text-zinc-300 text-lg md:text-xl mb-10 leading-relaxed font-light" bis_size="{&quot;x&quot;:209,&quot;y&quot;:403,&quot;w&quot;:767,&quot;h&quot;:56,&quot;abs_x&quot;:289,&quot;abs_y&quot;:517}" style="outline: none;">
+                    Cv Berkah Sadawira Utama: Menjamin ketersediaan pakan berkualitas di Masangan Wetan dengan sistem penyimpanan kelas dunia untuk kesehatan hewan ternak Anda.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4" bis_size="{&quot;x&quot;:209,&quot;y&quot;:499,&quot;w&quot;:767,&quot;h&quot;:58,&quot;abs_x&quot;:289,&quot;abs_y&quot;:613}">
+                    <a href="#produk" class="bg-warmTerracotta text-white px-10 py-4 text-center font-bold hover:bg-opacity-90 transition shadow-xl" bis_size="{&quot;x&quot;:209,&quot;y&quot;:499,&quot;w&quot;:178,&quot;h&quot;:58,&quot;abs_x&quot;:289,&quot;abs_y&quot;:613}" style="outline: none;">Lihat Katalog</a>
+                    <a href="#layanan" class="border border-white/30 text-white px-10 py-4 text-center font-bold hover:bg-white hover:text-deepZinc transition" bis_size="{&quot;x&quot;:403,&quot;y&quot;:499,&quot;w&quot;:181,&quot;h&quot;:58,&quot;abs_x&quot;:483,&quot;abs_y&quot;:613}" style="outline: none;">Kualitas Kami</a>
+                </div>
+            </div>
+        </div>
+        <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-sageGreen/20 rounded-full blur-3xl" bis_size="{&quot;x&quot;:899,&quot;y&quot;:353,&quot;w&quot;:383,&quot;h&quot;:383,&quot;abs_x&quot;:979,&quot;abs_y&quot;:467}"></div>
+    </section>
+
+    <section id="produk" class="py-24 bg-cleanWhite" bis_size="{&quot;x&quot;:0,&quot;y&quot;:641,&quot;w&quot;:1187,&quot;h&quot;:1091,&quot;abs_x&quot;:80,&quot;abs_y&quot;:755}">
+        <div class="max-w-7xl mx-auto px-6" bis_size="{&quot;x&quot;:0,&quot;y&quot;:737,&quot;w&quot;:1187,&quot;h&quot;:899,&quot;abs_x&quot;:80,&quot;abs_y&quot;:851}">
+            <div class="mb-16 " bis_size="{&quot;x&quot;:23,&quot;y&quot;:737,&quot;w&quot;:1139,&quot;h&quot;:67,&quot;abs_x&quot;:103,&quot;abs_y&quot;:851}">
+                <h2 class="font-playfair text-4xl md:text-5xl mb-4 text-sageGreen font-bold" bis_size="{&quot;x&quot;:23,&quot;y&quot;:737,&quot;w&quot;:1139,&quot;h&quot;:48,&quot;abs_x&quot;:103,&quot;abs_y&quot;:851}" style="outline: none;">Koleksi Pakan &amp; Solusi</h2>
+                <div class="w-24 h-1 bg-warmTerracotta" bis_size="{&quot;x&quot;:23,&quot;y&quot;:801,&quot;w&quot;:95,&quot;h&quot;:3,&quot;abs_x&quot;:103,&quot;abs_y&quot;:915}"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[240px]" bis_size="{&quot;x&quot;:23,&quot;y&quot;:869,&quot;w&quot;:1139,&quot;h&quot;:767,&quot;abs_x&quot;:103,&quot;abs_y&quot;:983}">
+                <div class="md:col-span-8 md:row-span-2 relative overflow-hidden bg-zinc-100 bento-item group shadow-sm border border-zinc-100" bis_size="{&quot;x&quot;:23,&quot;y&quot;:869,&quot;w&quot;:751,&quot;h&quot;:503,&quot;abs_x&quot;:103,&quot;abs_y&quot;:983}">
+                    <img src="https://images.unsplash.com/photo-1642403949949-620a7d07aace?crop=entropy&amp;cs=tinysrgb&amp;fit=max&amp;fm=jpg&amp;ixid=M3w5MjE1Nzl8MHwxfHNlYXJjaHw1fHx1bmdnYXN8ZW58MHx8fHwxNzc2ODMxOTM4fDA&amp;ixlib=rb-4.1.0&amp;q=80&amp;w=1080" class="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-700" alt="Poultry Feed" bis_size="{&quot;x&quot;:25,&quot;y&quot;:870,&quot;w&quot;:749,&quot;h&quot;:501,&quot;abs_x&quot;:105,&quot;abs_y&quot;:984}">
+                    <div class="absolute inset-0 bg-gradient-to-t from-deepZinc via-transparent to-transparent opacity-80" bis_size="{&quot;x&quot;:25,&quot;y&quot;:870,&quot;w&quot;:749,&quot;h&quot;:501,&quot;abs_x&quot;:105,&quot;abs_y&quot;:984}"></div>
+                    <div class="absolute bottom-8 left-8 text-white" bis_size="{&quot;x&quot;:57,&quot;y&quot;:1224,&quot;w&quot;:383,&quot;h&quot;:115,&quot;abs_x&quot;:137,&quot;abs_y&quot;:1338}">
+                        <span class="text-xs font-bold uppercase tracking-widest text-warmTerracotta mb-2 block" bis_size="{&quot;x&quot;:57,&quot;y&quot;:1224,&quot;w&quot;:383,&quot;h&quot;:15,&quot;abs_x&quot;:137,&quot;abs_y&quot;:1338}" style="outline: none;">Best Seller</span>
+                        <h3 class="font-playfair text-3xl mb-2 font-bold" bis_size="{&quot;x&quot;:57,&quot;y&quot;:1248,&quot;w&quot;:383,&quot;h&quot;:35,&quot;abs_x&quot;:137,&quot;abs_y&quot;:1362}" style="outline: none;">Pakan Unggas Premium</h3>
+                        <p class="text-zinc-300 max-w-sm" bis_size="{&quot;x&quot;:57,&quot;y&quot;:1291,&quot;w&quot;:383,&quot;h&quot;:47,&quot;abs_x&quot;:137,&quot;abs_y&quot;:1405}" style="outline: none;">Nutrisi optimal yang diproses dengan teknologi terbaru untuk pertumbuhan maksimal.</p>
+                    </div>
+                </div>
+
+                <div class="md:col-span-4 md:row-span-1 bg-sageGreen p-8 text-white flex flex-col justify-between bento-item" bis_size="{&quot;x&quot;:799,&quot;y&quot;:869,&quot;w&quot;:363,&quot;h&quot;:240,&quot;abs_x&quot;:879,&quot;abs_y&quot;:983}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="shield-check" aria-hidden="true" class="lucide lucide-shield-check w-10 h-10 text-warmTerracotta" bis_size="{&quot;x&quot;:831,&quot;y&quot;:901,&quot;w&quot;:40,&quot;h&quot;:40,&quot;abs_x&quot;:911,&quot;abs_y&quot;:1015}"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" bis_size="{&quot;x&quot;:838,&quot;y&quot;:904,&quot;w&quot;:26,&quot;h&quot;:33,&quot;abs_x&quot;:918,&quot;abs_y&quot;:1018}"></path><path d="m9 12 2 2 4-4" bis_size="{&quot;x&quot;:846,&quot;y&quot;:917,&quot;w&quot;:10,&quot;h&quot;:6,&quot;abs_x&quot;:926,&quot;abs_y&quot;:1031}"></path></svg>
+                    <div bis_size="{&quot;x&quot;:831,&quot;y&quot;:1005,&quot;w&quot;:299,&quot;h&quot;:71,&quot;abs_x&quot;:911,&quot;abs_y&quot;:1119}">
+                        <h3 class="font-playfair text-xl font-bold mb-1" bis_size="{&quot;x&quot;:831,&quot;y&quot;:1005,&quot;w&quot;:299,&quot;h&quot;:28,&quot;abs_x&quot;:911,&quot;abs_y&quot;:1119}" style="outline: none;">Anti-Lembab</h3>
+                        <p class="text-sm text-zinc-300" bis_size="{&quot;x&quot;:831,&quot;y&quot;:1037,&quot;w&quot;:299,&quot;h&quot;:40,&quot;abs_x&quot;:911,&quot;abs_y&quot;:1151}" style="outline: none;">Gudang bersirkulasi udara khusus menjamin pakan tetap kering &amp; nutrisi terjaga.</p>
+                    </div>
+                </div>
+
+                <div class="md:col-span-4 md:row-span-2 relative overflow-hidden bg-zinc-100 bento-item group shadow-sm" bis_size="{&quot;x&quot;:799,&quot;y&quot;:1133,&quot;w&quot;:363,&quot;h&quot;:503,&quot;abs_x&quot;:879,&quot;abs_y&quot;:1247}">
+                     <img src="https://images.unsplash.com/photo-1758612153921-9525532663d6?crop=entropy&amp;cs=tinysrgb&amp;fit=max&amp;fm=jpg&amp;ixid=M3w5MjE1Nzl8MHwxfHNlYXJjaHwxMHx8cGFrYW58ZW58MHx8fHwxNzc2ODMxOTg4fDA&amp;ixlib=rb-4.1.0&amp;q=80&amp;w=1080" class="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition duration-700" alt="Pet Food" bis_size="{&quot;x&quot;:799,&quot;y&quot;:1133,&quot;w&quot;:363,&quot;h&quot;:503,&quot;abs_x&quot;:879,&quot;abs_y&quot;:1247}">
+                    <div class="absolute inset-0 p-8 flex flex-col justify-end" bis_size="{&quot;x&quot;:799,&quot;y&quot;:1133,&quot;w&quot;:363,&quot;h&quot;:503,&quot;abs_x&quot;:879,&quot;abs_y&quot;:1247}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="package-search" aria-hidden="true" class="lucide lucide-package-search w-12 h-12 text-warmTerracotta mb-4" bis_size="{&quot;x&quot;:831,&quot;y&quot;:1461,&quot;w&quot;:47,&quot;h&quot;:47,&quot;abs_x&quot;:911,&quot;abs_y&quot;:1575}"><path d="M12 22V12" bis_size="{&quot;x&quot;:855,&quot;y&quot;:1485,&quot;w&quot;:0,&quot;h&quot;:19,&quot;abs_x&quot;:935,&quot;abs_y&quot;:1599}"></path><path d="M20.27 18.27 22 20" bis_size="{&quot;x&quot;:872,&quot;y&quot;:1497,&quot;w&quot;:3,&quot;h&quot;:3,&quot;abs_x&quot;:952,&quot;abs_y&quot;:1611}"></path><path d="M21 10.498V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l.98-.559" bis_size="{&quot;x&quot;:837,&quot;y&quot;:1465,&quot;w&quot;:35,&quot;h&quot;:39,&quot;abs_x&quot;:917,&quot;abs_y&quot;:1579}"></path><path d="M3.29 7 12 12l8.71-5" bis_size="{&quot;x&quot;:838,&quot;y&quot;:1475,&quot;w&quot;:34,&quot;h&quot;:9,&quot;abs_x&quot;:918,&quot;abs_y&quot;:1589}"></path><path d="m7.5 4.27 8.997 5.148" bis_size="{&quot;x&quot;:846,&quot;y&quot;:1469,&quot;w&quot;:17,&quot;h&quot;:10,&quot;abs_x&quot;:926,&quot;abs_y&quot;:1583}"></path><circle cx="18.5" cy="16.5" r="2.5" bis_size="{&quot;x&quot;:863,&quot;y&quot;:1489,&quot;w&quot;:9,&quot;h&quot;:9,&quot;abs_x&quot;:943,&quot;abs_y&quot;:1603}"></circle></svg>
+                        <h3 class="font-playfair text-2xl font-bold text-deepZinc mb-2" bis_size="{&quot;x&quot;:831,&quot;y&quot;:1525,&quot;w&quot;:299,&quot;h&quot;:31,&quot;abs_x&quot;:911,&quot;abs_y&quot;:1639}" style="outline: none;">Manajemen Stok Real-time</h3>
+                        <p class="text-zinc-600 text-sm" bis_size="{&quot;x&quot;:831,&quot;y&quot;:1565,&quot;w&quot;:299,&quot;h&quot;:40,&quot;abs_x&quot;:911,&quot;abs_y&quot;:1679}" style="outline: none;">Hentikan kekhawatiran stok habis. Kami kelola inventaris dengan sistematis untuk Anda.</p>
+                    </div>
+                </div>
+
+                <div class="md:col-span-4 md:row-span-1 bg-deepZinc p-8 text-white bento-item flex items-center gap-4" bis_size="{&quot;x&quot;:23,&quot;y&quot;:1397,&quot;w&quot;:363,&quot;h&quot;:240,&quot;abs_x&quot;:103,&quot;abs_y&quot;:1511}">
+                    <div class="text-4xl font-playfair font-bold text-warmTerracotta" bis_size="{&quot;x&quot;:55,&quot;y&quot;:1497,&quot;w&quot;:49,&quot;h&quot;:40,&quot;abs_x&quot;:135,&quot;abs_y&quot;:1611}">0%</div>
+                    <div class="text-xs uppercase tracking-widest font-bold" bis_size="{&quot;x&quot;:121,&quot;y&quot;:1501,&quot;w&quot;:129,&quot;h&quot;:31,&quot;abs_x&quot;:201,&quot;abs_y&quot;:1615}">Kutu &amp; Jamur<br bis_size="{&quot;x&quot;:220,&quot;y&quot;:1501,&quot;w&quot;:0,&quot;h&quot;:15,&quot;abs_x&quot;:300,&quot;abs_y&quot;:1615}">Garansi Kualitas</div>
+                </div>
+
+                <div class="hidden lg:block md:col-span-4 md:row-span-1 relative" bis_size="{&quot;x&quot;:411,&quot;y&quot;:1397,&quot;w&quot;:363,&quot;h&quot;:240,&quot;abs_x&quot;:491,&quot;abs_y&quot;:1511}">
+                    <div class="absolute -top-12 -left-12 p-8 bg-warmTerracotta text-white shadow-2xl z-20" bis_size="{&quot;x&quot;:363,&quot;y&quot;:1349,&quot;w&quot;:411,&quot;h&quot;:108,&quot;abs_x&quot;:443,&quot;abs_y&quot;:1463}">
+                        <p class="font-playfair italic text-lg leading-tight" bis_size="{&quot;x&quot;:395,&quot;y&quot;:1381,&quot;w&quot;:347,&quot;h&quot;:45,&quot;abs_x&quot;:475,&quot;abs_y&quot;:1495}" style="outline: none;">"Distribusi terpercaya untuk seluruh indonesia."</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="testimoni" class="py-24 bg-zinc-50 overflow-hidden relative" bis_size="{&quot;x&quot;:0,&quot;y&quot;:1733,&quot;w&quot;:1187,&quot;h&quot;:572,&quot;abs_x&quot;:80,&quot;abs_y&quot;:1847}">
+        <div class="max-w-7xl mx-auto px-6" bis_size="{&quot;x&quot;:0,&quot;y&quot;:1829,&quot;w&quot;:1187,&quot;h&quot;:380,&quot;abs_x&quot;:80,&quot;abs_y&quot;:1943}">
+            <div class="grid md:grid-cols-2 gap-16 items-center" bis_size="{&quot;x&quot;:23,&quot;y&quot;:1829,&quot;w&quot;:1139,&quot;h&quot;:380,&quot;abs_x&quot;:103,&quot;abs_y&quot;:1943}">
+                <div class="" bis_size="{&quot;x&quot;:23,&quot;y&quot;:1829,&quot;w&quot;:537,&quot;h&quot;:380,&quot;abs_x&quot;:103,&quot;abs_y&quot;:1943}">
+                    <h2 class="font-playfair text-4xl md:text-5xl mb-8 font-bold leading-tight" bis_size="{&quot;x&quot;:23,&quot;y&quot;:1829,&quot;w&quot;:537,&quot;h&quot;:144,&quot;abs_x&quot;:103,&quot;abs_y&quot;:1943}" style="outline: none;">Dipercaya Oleh Ratusan Peternak &amp; Pecinta Hewan.</h2>
+                    <div class="space-y-8" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2005,&quot;w&quot;:537,&quot;h&quot;:204,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2119}">
+                        <div class="flex gap-6 items-start" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2005,&quot;w&quot;:537,&quot;h&quot;:113,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2119}">
+                            <div class="bg-white p-4 shadow-sm border border-zinc-100" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2005,&quot;w&quot;:58,&quot;h&quot;:58,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2119}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="quote" aria-hidden="true" class="lucide lucide-quote text-warmTerracotta w-6 h-6" bis_size="{&quot;x&quot;:41,&quot;y&quot;:2022,&quot;w&quot;:23,&quot;h&quot;:23,&quot;abs_x&quot;:121,&quot;abs_y&quot;:2136}"><path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" bis_size="{&quot;x&quot;:55,&quot;y&quot;:2025,&quot;w&quot;:6,&quot;h&quot;:17,&quot;abs_x&quot;:135,&quot;abs_y&quot;:2139}"></path><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" bis_size="{&quot;x&quot;:44,&quot;y&quot;:2025,&quot;w&quot;:6,&quot;h&quot;:17,&quot;abs_x&quot;:124,&quot;abs_y&quot;:2139}"></path></svg>
+                            </div>
+                            <p class="text-zinc-600 italic leading-relaxed" bis_size="{&quot;x&quot;:106,&quot;y&quot;:2005,&quot;w&quot;:455,&quot;h&quot;:113,&quot;abs_x&quot;:186,&quot;abs_y&quot;:2119}" style="outline: none;">
+                                "Akses ke Masangan Wetan sangat mudah, tapi yang paling penting adalah stok pakan mereka selalu stabil. Tidak pernah kecewa datang jauh dari Sukodono."
+                                <span class="block mt-4 font-bold text-deepZinc not-italic text-sm" bis_size="{&quot;x&quot;:106,&quot;y&quot;:2099,&quot;w&quot;:455,&quot;h&quot;:20,&quot;abs_x&quot;:186,&quot;abs_y&quot;:2213}" style="outline: none;">— Pak Aris, Peternak Lokal</span>
+                            </p>
+                        </div>
+                        <div class="flex gap-6 items-start" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2151,&quot;w&quot;:537,&quot;h&quot;:58,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2265}">
+                            <div class="bg-white p-4 shadow-sm border border-zinc-100" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2151,&quot;w&quot;:58,&quot;h&quot;:58,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2265}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="check-circle-2" aria-hidden="true" class="lucide lucide-check-circle-2 text-sageGreen w-6 h-6" bis_size="{&quot;x&quot;:41,&quot;y&quot;:2168,&quot;w&quot;:23,&quot;h&quot;:23,&quot;abs_x&quot;:121,&quot;abs_y&quot;:2282}"><circle cx="12" cy="12" r="10" bis_size="{&quot;x&quot;:43,&quot;y&quot;:2170,&quot;w&quot;:19,&quot;h&quot;:19,&quot;abs_x&quot;:123,&quot;abs_y&quot;:2284}"></circle><path d="m9 12 2 2 4-4" bis_size="{&quot;x&quot;:50,&quot;y&quot;:2178,&quot;w&quot;:5,&quot;h&quot;:3,&quot;abs_x&quot;:130,&quot;abs_y&quot;:2292}"></path></svg>
+                            </div>
+                            <div bis_size="{&quot;x&quot;:106,&quot;y&quot;:2151,&quot;w&quot;:384,&quot;h&quot;:43,&quot;abs_x&quot;:186,&quot;abs_y&quot;:2265}">
+                                <h4 class="font-bold text-deepZinc" bis_size="{&quot;x&quot;:106,&quot;y&quot;:2151,&quot;w&quot;:384,&quot;h&quot;:23,&quot;abs_x&quot;:186,&quot;abs_y&quot;:2265}" style="outline: none;">Layanan Prima</h4>
+                                <p class="text-zinc-600 text-sm" bis_size="{&quot;x&quot;:106,&quot;y&quot;:2175,&quot;w&quot;:384,&quot;h&quot;:20,&quot;abs_x&quot;:186,&quot;abs_y&quot;:2289}" style="outline: none;">Konsultasi pakan gratis sesuai kebutuhan spesifik hewan Anda.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative " bis_size="{&quot;x&quot;:625,&quot;y&quot;:1840,&quot;w&quot;:537,&quot;h&quot;:358,&quot;abs_x&quot;:705,&quot;abs_y&quot;:1954}">
+                    <img src="https://images.unsplash.com/photo-1597214840472-aa1eaf0e1fac?crop=entropy&amp;cs=tinysrgb&amp;fit=max&amp;fm=jpg&amp;ixid=M3w5MjE1Nzl8MHwxfHNlYXJjaHw3fHxhbmltYWwlMjBicmVlZGVyfGVufDB8fHx8MTc3NjgzMjExMnww&amp;ixlib=rb-4.1.0&amp;q=80&amp;w=1080" class="rounded-sm shadow-2xl relative z-10" alt="Customer Service" bis_size="{&quot;x&quot;:625,&quot;y&quot;:1840,&quot;w&quot;:537,&quot;h&quot;:358,&quot;abs_x&quot;:705,&quot;abs_y&quot;:1954}">
+                    <div class="absolute -bottom-8 -left-8 w-48 h-48 bg-sageGreen z-0" bis_size="{&quot;x&quot;:593,&quot;y&quot;:2038,&quot;w&quot;:191,&quot;h&quot;:191,&quot;abs_x&quot;:673,&quot;abs_y&quot;:2152}"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-warmTerracotta py-20" bis_size="{&quot;x&quot;:0,&quot;y&quot;:2305,&quot;w&quot;:1187,&quot;h&quot;:396,&quot;abs_x&quot;:80,&quot;abs_y&quot;:2419}">
+        <div class="max-w-5xl mx-auto px-6 text-center text-white " bis_size="{&quot;x&quot;:81,&quot;y&quot;:2385,&quot;w&quot;:1023,&quot;h&quot;:236,&quot;abs_x&quot;:161,&quot;abs_y&quot;:2499}">
+            <h2 class="font-playfair text-4xl md:text-5xl mb-6 font-bold" bis_size="{&quot;x&quot;:105,&quot;y&quot;:2385,&quot;w&quot;:976,&quot;h&quot;:48,&quot;abs_x&quot;:185,&quot;abs_y&quot;:2499}" style="outline: none;">Butuh Cek Stok &amp; Harga Hari Ini?</h2>
+            <p class="text-white/80 text-lg mb-10 max-w-2xl mx-auto font-light" bis_size="{&quot;x&quot;:257,&quot;y&quot;:2457,&quot;w&quot;:671,&quot;h&quot;:56,&quot;abs_x&quot;:337,&quot;abs_y&quot;:2571}" style="outline: none;">
+                Jangan buang waktu untuk datang hanya untuk mengecek ketersediaan. Hubungi admin kami sekarang untuk konfirmasi real-time.
+            </p>
+            <div class="inline-flex flex-col sm:flex-row items-center gap-6" bis_size="{&quot;x&quot;:343,&quot;y&quot;:2553,&quot;w&quot;:501,&quot;h&quot;:68,&quot;abs_x&quot;:423,&quot;abs_y&quot;:2667}">
+                <a href="https://wa.me/6281234567890" class="bg-deepZinc text-white px-12 py-5 font-black text-lg tracking-widest hover:bg-sageGreen transition shadow-2xl flex items-center gap-3" bis_size="{&quot;x&quot;:343,&quot;y&quot;:2553,&quot;w&quot;:316,&quot;h&quot;:68,&quot;abs_x&quot;:423,&quot;abs_y&quot;:2667}" style="outline: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="message-circle" aria-hidden="true" class="lucide lucide-message-circle" bis_size="{&quot;x&quot;:391,&quot;y&quot;:2575,&quot;w&quot;:23,&quot;h&quot;:23,&quot;abs_x&quot;:471,&quot;abs_y&quot;:2689}"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" bis_size="{&quot;x&quot;:393,&quot;y&quot;:2577,&quot;w&quot;:19,&quot;h&quot;:19,&quot;abs_x&quot;:473,&quot;abs_y&quot;:2691}"></path></svg> WHATSAPP ADMIN
+                </a>
+                <div class="text-sm font-bold opacity-70" bis_size="{&quot;x&quot;:683,&quot;y&quot;:2577,&quot;w&quot;:160,&quot;h&quot;:20,&quot;abs_x&quot;:763,&quot;abs_y&quot;:2691}">AKTIF: 08.00 - 17.00 WIB</div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-deepZinc text-zinc-500 py-12 border-t border-zinc-800" bis_size="{&quot;x&quot;:0,&quot;y&quot;:2701,&quot;w&quot;:1187,&quot;h&quot;:145,&quot;abs_x&quot;:80,&quot;abs_y&quot;:2815}">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:row-reverse md:flex-row justify-between items-center gap-8" bis_size="{&quot;x&quot;:0,&quot;y&quot;:2750,&quot;w&quot;:1187,&quot;h&quot;:47,&quot;abs_x&quot;:80,&quot;abs_y&quot;:2864}">
+            <div class="text-center md:text-right" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2750,&quot;w&quot;:246,&quot;h&quot;:47,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2864}">
+                <p class="text-white font-bold mb-1" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2750,&quot;w&quot;:246,&quot;h&quot;:23,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2864}" style="outline: none;">Cv Berkah Sadawira Utama</p>
+                <p class="text-sm" bis_size="{&quot;x&quot;:23,&quot;y&quot;:2778,&quot;w&quot;:246,&quot;h&quot;:20,&quot;abs_x&quot;:103,&quot;abs_y&quot;:2892}" style="outline: none;">Masangan Wetan, Sidoarjo, Jawa Timur</p>
+            </div>
+            <div class="text-sm" bis_size="{&quot;x&quot;:820,&quot;y&quot;:2764,&quot;w&quot;:342,&quot;h&quot;:20,&quot;abs_x&quot;:900,&quot;abs_y&quot;:2878}">
+                © 2026 Cv Berkah Sadawira Utama. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Inisialisasi Ikon Lucide
+        lucide.createIcons();
+
+        // Reveal Animation Logic (Simple Interaction Observer)
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Smooth Hover Effect Logic for Bento
+        // (Handled via CSS transitions for performance)
+    </script>
+
+<script src="http://localhost:8080/tracker.js" data-token="AOnNUWV0Cufx" defer=""></script>
+
+</body></html>

@@ -6,7 +6,7 @@ import { getSession, getCurrentUser } from '@/lib/auth';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as fsPromises from 'fs/promises';
-import { cleanAIResponse, isValidWhatsApp, sanitizeWaNumber } from '@/lib/utils';
+import { cleanAIResponse, isValidWhatsApp, sanitizeWaNumber, generateRandomBait } from '@/lib/utils';
 import { logActivity } from './lead';
 import { 
     TONE_MAP,
@@ -739,10 +739,16 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
 
         if (!draft) throw new Error("AI failed to generate draft");
 
+        // Generate baitDraft instantly
+        const baitDraft = generateRandomBait(lead.name, lead.city || "");
+
         // SIMPAN KE DB
         await prisma.lead.update({
             where: { id: leadId },
-            data: { outreachDraft: draft }
+            data: { 
+                outreachDraft: draft,
+                baitDraft: baitDraft
+            }
         });
 
         revalidatePath('/leads');

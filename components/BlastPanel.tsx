@@ -8,6 +8,7 @@ export type BlastLead = {
   id: string;
   name: string;
   wa: string | null;
+  baitDraft?: string | null;
   outreachDraft: string | null;
   blastStatus: string | null;
   blastSentAt: Date | string | null;
@@ -28,7 +29,6 @@ interface BlastPanelProps {
 export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [mode, setMode] = useState<"send_now" | "schedule">("send_now");
-  const [delay, setDelay] = useState<number>(45);
   const [scheduledAt, setScheduledAt] = useState<string>("");
   const [previewLeadId, setPreviewLeadId] = useState<string | null>(null);
   const [isBlasting, setIsBlasting] = useState(false);
@@ -107,7 +107,7 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
         const res = await fetch("/api/blast/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadIds: selectedLeadIds, delaySeconds: delay }),
+          body: JSON.stringify({ leadIds: selectedLeadIds }),
         });
         const data = await res.json();
         
@@ -177,6 +177,10 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
     switch (currentStatus) {
       case "PENDING":
         return <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">Pending</span>;
+      case "BAIT_SENT":
+        return <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">Bait Sent</span>;
+      case "REPLIED":
+        return <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">Replied</span>;
       case "SENT":
         return <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md bg-green-500/10 text-green-400 border border-green-500/20">Sent</span>;
       case "FAILED":
@@ -221,18 +225,14 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
 
         {mode === "send_now" && (
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-3">
-              Delay antar pesan: <span className="text-accent-gold">{delay} detik</span>
-            </label>
-            <input
-              type="range"
-              min="30"
-              max="120"
-              value={delay}
-              onChange={(e) => setDelay(Number(e.target.value))}
-              className="w-full accent-accent-gold h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
-            />
-            <p className="text-[10px] text-white/30 mt-2 font-medium">Min. 30 detik untuk menghindari ban WA.</p>
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 mb-1 flex items-center gap-2">
+                <Loader2 size={12} className="animate-spin" /> Extreme Delay Active
+              </h4>
+              <p className="text-[11px] text-amber-500/70 leading-relaxed font-medium">
+                Sistem otomatis mengatur jeda acak 60 - 120 detik antar pengiriman dan akan mengirim pesan Pancingan (Bait) terlebih dahulu untuk mencegah Ban WA.
+              </p>
+            </div>
           </div>
         )}
 
@@ -320,7 +320,12 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
                       {lead.wa || <span className="text-red-400/50 italic">Kosong</span>}
                     </td>
                     <td className="px-6 py-4">
-                      {getStatusBadge(lead)}
+                      <div className="flex flex-col gap-1">
+                        {getStatusBadge(lead)}
+                        {lead.baitDraft && (
+                          <span className="text-[8px] font-black uppercase tracking-tighter text-accent-gold/40">Bait Ready</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
@@ -349,9 +354,28 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
                     <tr className="bg-zinc-950/60 border-b border-white/5">
                       <td colSpan={5} className="px-8 py-6">
                         <div className="space-y-4 animate-in slide-in-from-top-2 fade-in duration-300">
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-accent-gold">Preview Pesan Draf AI</h4>
-                          <div className="bg-zinc-900 border border-white/5 p-5 rounded-2xl whitespace-pre-wrap text-xs text-zinc-300 font-mono shadow-inner leading-relaxed">
-                            {lead.outreachDraft ? lead.outreachDraft : <span className="text-white/20 italic">Belum ada draf pesan AI (outreachDraft kosong).</span>}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-accent-gold flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-accent-gold text-black flex items-center justify-center text-[8px]">1</span> 
+                                Pesan Pancingan (Bait)
+                              </h4>
+                              <div className="bg-zinc-900 border border-white/5 p-4 rounded-2xl whitespace-pre-wrap text-[11px] text-zinc-300 font-mono shadow-inner leading-relaxed">
+                                {lead.baitDraft ? lead.baitDraft : <span className="text-red-400/40 italic">Bait kosong! Sistem akan langsung kirim Outreach (Risiko Ban Tinggi).</span>}
+                              </div>
+                              <p className="text-[9px] text-white/20 italic font-medium">Hanya dikirim sekali untuk memancing balasan.</p>
+                            </div>
+
+                            <div className="space-y-3">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400 flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[8px]">2</span> 
+                                Pesan Penawaran (Outreach)
+                              </h4>
+                              <div className="bg-zinc-900 border border-white/5 p-4 rounded-2xl whitespace-pre-wrap text-[11px] text-zinc-300 font-mono shadow-inner leading-relaxed">
+                                {lead.outreachDraft ? lead.outreachDraft : <span className="text-white/20 italic">Belum ada draf pesan AI (outreachDraft kosong).</span>}
+                              </div>
+                              <p className="text-[9px] text-white/20 italic font-medium">Otomatis dikirim via Webhook setelah klien membalas Pesan 1.</p>
+                            </div>
                           </div>
                         </div>
                       </td>

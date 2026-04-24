@@ -662,10 +662,8 @@ Target business category: [category]
 ### STRUKTUR PESAN (WAJIB 5 PARAGRAF TERPISAH):
 
 Paragraf 1 - SALUTATION (DENGAN SPINTAX VARIASI):
-Mulai dengan greeting yang sesuai waktu pengiriman: [greeting_time]
-Gunakan variasi kalimat pembuka — PILIH SATU secara acak dari opsi berikut:
-{Permisi mengganggu sebentar|Halo, semoga bisnis lancar ya|Selamat [greeting_time], izin menyapa}
-Sapa dengan nama brand mereka setelah greeting. Satu kalimat, natural.
+Gunakan variasi kalimat sapaan — PILIH SATU secara acak dari opsi berikut:
+{Halo lagi,|Halo,|Salam,} {{name}}. Satu kalimat pendek, natural. JANGAN mengulang salam pembuka yang formal (Selamat Pagi/Siang/Malam) karena ini adalah pesan lanjutan.
 
 Paragraf 2 - THE REASON (PAKAI VARIASI — BUKAN JUALAN LANGSUNG):
 Sampaikan bahwa kamu baru selesai riset visual di kategori mereka dan sudah membuat blueprint website khusus untuk {{name}} secara gratis, tanpa komitmen apapun. Dua hingga tiga kalimat.

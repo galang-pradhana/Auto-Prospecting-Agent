@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
     Globe, ExternalLink, MapPin, Building2, 
     Calendar, Sliders, Send, X, Loader2, Activity,
-    LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, ChevronDown
+    LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, CheckSquare, ChevronDown, Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import DownloadButton from '@/components/DownloadButton';
@@ -16,13 +16,20 @@ import BlastPanel from '@/components/BlastPanel';
 interface LiveLead {
     id: string;
     name: string;
+    wa: string | null;
     category: string;
     address: string;
+    city?: string | null;
     updatedAt: Date | string;
     slug: string | null;
     htmlCode: string | null;
     status: string;
     nextFollowupAt?: string | null;
+    baitDraft?: string | null;
+    outreachDraft?: string | null;
+    blastStatus?: string | null;
+    blastError?: string | null;
+    lastContactAt?: string | null;
 }
 
 interface LiveClientProps {
@@ -47,6 +54,33 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [filterCategory, setFilterCategory] = useState('ALL CATEGORIES');
     const [filterCity, setFilterCity] = useState('ALL CITIES');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // Batch Action States
+    const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+    const [isGeneratingOutreach, setIsGeneratingOutreach] = useState(false);
+    const [outreachPersona, setOutreachPersona] = useState<string>('professional');
+    const [generateProgress, setGenerateProgress] = useState({ done: 0, total: 0 });
+
+    // Handle Refresh Logic
+    useEffect(() => {
+        if (refreshKey === 0) return;
+        const fetchLeads = async () => {
+            setIsRefreshing(true);
+            try {
+                const res = await fetch('/api/leads/live');
+                if (res.ok) {
+                    const data = await res.json();
+                    setLeads(data.leads);
+                }
+            } catch (error) {
+                console.error("Refresh failed:", error);
+            } finally {
+                setIsRefreshing(false);
+            }
+        };
+        fetchLeads();
+    }, [refreshKey]);
 
     // Compute dynamic lists
     const dynamicCategories = useMemo(() => {
@@ -63,20 +97,62 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     }, [initialLeads]);
 
     const handleRefresh = () => {
-        setIsRefreshing(true);
-        router.refresh();
-        setTimeout(() => setIsRefreshing(false), 1000); // Visual feedback
+        setRefreshKey(prev => prev + 1);
+    };
+
+    const toggleSelectLead = (id: string) => {
+        setSelectedLeadIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleBatchGenerateOutreach = async () => {
+        if (selectedLeadIds.length === 0) return;
+        setIsGeneratingOutreach(true);
+        setGenerateProgress({ done: 0, total: selectedLeadIds.length });
+
+        for (let i = 0; i < selectedLeadIds.length; i++) {
+            const id = selectedLeadIds[i];
+            try {
+                const res = await fetch('/api/outreach/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ leadId: id, persona: outreachPersona })
+                });
+                if (!res.ok) throw new Error(`Failed for lead ${id}`);
+            } catch (e) {
+                console.error(e);
+            }
+            setGenerateProgress({ done: i + 1, total: selectedLeadIds.length });
+        }
+
+        setIsGeneratingOutreach(false);
+        setSelectedLeadIds([]);
+        setRefreshKey(prev => prev + 1); // Refresh data to show drafts
+        alert('Outreach drafts generated successfully!');
     };
 
     const handleSendToMonitoring = async (lead: LiveLead) => {
         try {
             setSendingId(lead.id);
+            
+            // Optimistic update: instantly move to "Sent" section locally
+            setLeads(prev => prev.map(l => 
+                l.id === lead.id ? { ...l, nextFollowupAt: new Date().toISOString() } : l
+            ));
+
             const res = await fetch(`/api/leads/${lead.id}/monitoring`, { method: 'POST' });
-            if (!res.ok) throw new Error('Failed to send to monitoring');
-            handleRefresh();
+            if (!res.ok) {
+                // Rollback if server fails
+                setLeads(prev => prev.map(l => 
+                    l.id === lead.id ? { ...l, nextFollowupAt: null } : l
+                ));
+                throw new Error('Failed to send to monitoring');
+            }
+            // No full refresh needed, UI is already updated
         } catch (error) {
             console.error(error);
-            alert('Failed to move to monitoring');
+            alert('Failed to move to monitoring. Please try again.');
         } finally {
             setSendingId(null);
         }
@@ -236,6 +312,8 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                     onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
                                     onSendToMonitoring={handleSendToMonitoring}
                                     sendingId={sendingId}
+                                    selectedIds={selectedLeadIds}
+                                    onToggleSelect={toggleSelectLead}
                                 />
                             )}
                         </div>
@@ -262,6 +340,8 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
                                     onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
                                     allSent
+                                    selectedIds={selectedLeadIds}
+                                    onToggleSelect={toggleSelectLead}
                                 />
                             )}
                         </div>
@@ -307,6 +387,64 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                     onClose={() => { setIsEditModalOpen(false); setEditingHtmlLead(null); }}
                     lead={editingHtmlLead}
                 />
+            )}
+            {/* Batch Action Bar */}
+            {selectedLeadIds.length > 0 && viewMode === 'table' && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 duration-500">
+                    <div className="bg-zinc-900/90 backdrop-blur-xl border border-white/10 px-8 py-6 rounded-[32px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] flex items-center gap-8">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-accent-gold">{selectedLeadIds.length} Selected</span>
+                            <span className="text-xs text-white/40 font-bold uppercase tracking-tight">Batch Outreach Mode</span>
+                        </div>
+
+                        <div className="h-10 w-px bg-white/10" />
+
+                        <div className="flex items-center gap-4">
+                            <div className="relative group">
+                                <Sparkles size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-gold" />
+                                <select 
+                                    value={outreachPersona}
+                                    onChange={(e) => setOutreachPersona(e.target.value)}
+                                    className="bg-white/5 border border-white/10 rounded-2xl pl-10 pr-10 py-3 text-[11px] font-black uppercase tracking-widest text-white outline-none focus:border-accent-gold/40 cursor-pointer appearance-none min-w-[200px]"
+                                >
+                                    <option value="professional" className="bg-zinc-900 text-white">👔 Professional</option>
+                                    <option value="casual" className="bg-zinc-900 text-white">🎨 Indie Casual</option>
+                                    <option value="expert" className="bg-zinc-900 text-white">🧠 Growth Expert</option>
+                                    <option value="disruptor" className="bg-zinc-900 text-white">🚀 Disruptor</option>
+                                    <option value="storyteller" className="bg-zinc-900 text-white">📖 Storyteller</option>
+                                    <option value="pragmatist" className="bg-zinc-900 text-white">📊 Pragmatist</option>
+                                    <option value="connector" className="bg-zinc-900 text-white">🤝 Connector</option>
+                                </select>
+                                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20" />
+                            </div>
+
+                            <button 
+                                onClick={handleBatchGenerateOutreach}
+                                disabled={isGeneratingOutreach}
+                                className="h-12 px-8 bg-accent-gold hover:bg-yellow-500 text-black rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-accent-gold/20 flex items-center gap-3 disabled:opacity-50"
+                            >
+                                {isGeneratingOutreach ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        <span>Generating {generateProgress.done}/{generateProgress.total}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles size={16} />
+                                        <span>Generate Outreach</span>
+                                    </>
+                                )}
+                            </button>
+
+                            <button 
+                                onClick={() => setSelectedLeadIds([])}
+                                className="h-12 w-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center transition-all group"
+                            >
+                                <X size={18} className="text-white/20 group-hover:text-white" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -419,13 +557,15 @@ function LeadCard({ lead, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingI
 }
 
 // ─── Table View Component ─────────────────────────────────────────────────────
-function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingId, allSent }: {
+function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingId, allSent, selectedIds = [], onToggleSelect }: {
     leads: LiveLead[];
     onOpenDetail: (l: LiveLead) => void;
     onOpenEdit: (l: LiveLead) => void;
     onSendToMonitoring?: (l: LiveLead) => void;
     sendingId?: string | null;
     allSent?: boolean;
+    selectedIds?: string[];
+    onToggleSelect?: (id: string) => void;
 }) {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -434,6 +574,17 @@ function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendin
             <table className="w-full text-xs">
                 <thead>
                     <tr className="border-b border-white/5 text-white/30 font-black uppercase tracking-widest">
+                        <th className="py-3 px-4 w-10">
+                            <div className="cursor-pointer" onClick={(e) => {
+                                e.stopPropagation();
+                                if (onToggleSelect) {
+                                    if (selectedIds.length === leads.length) leads.forEach(l => onToggleSelect(l.id));
+                                    else leads.forEach(l => { if(!selectedIds.includes(l.id)) onToggleSelect(l.id); });
+                                }
+                            }}>
+                                {selectedIds.length === leads.length && leads.length > 0 ? <CheckSquare size={16} className="text-accent-gold" /> : <Square size={16} />}
+                            </div>
+                        </th>
                         <th className="text-left py-3 px-4">Bisnis</th>
                         <th className="text-left py-3 px-4">Kategori</th>
                         <th className="text-left py-3 px-4 hidden md:table-cell">Alamat</th>
@@ -446,7 +597,12 @@ function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendin
                     {leads.map((lead) => (
                         <tr key={lead.id}
                             onClick={() => onOpenDetail(lead)}
-                            className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors group">
+                            className={`border-b border-white/5 hover:bg-white/[0.02] cursor-pointer transition-colors group ${selectedIds.includes(lead.id) ? 'bg-accent-gold/[0.03]' : ''}`}>
+                            <td className="py-3 px-4">
+                                <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); if(onToggleSelect) onToggleSelect(lead.id); }}>
+                                    {selectedIds.includes(lead.id) ? <CheckSquare size={16} className="text-accent-gold" /> : <Square size={16} className="text-white/10 group-hover:text-white/30" />}
+                                </div>
+                            </td>
                             <td className="py-3 px-4">
                                 <div className="flex items-center gap-2">
                                     <div className="w-7 h-7 bg-orange-500/10 rounded-lg flex items-center justify-center border border-orange-500/20 shrink-0">

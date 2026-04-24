@@ -133,11 +133,12 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
     const isSearching = searchTerm !== ''; // Requested alias
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
-        router.refresh();
-        setTimeout(() => setIsRefreshing(false), 1000); // Visual feedback
+        setRefreshKey(prev => prev + 1);
+        setTimeout(() => setIsRefreshing(false), 1500);
     };
 
     // Pagination State
@@ -251,17 +252,8 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
             setIsLoading(false);
         };
 
-        // Skip fetch on initial mount if initialLeads matches
-        if (page === 1 && filterCategory === 'ALL CATEGORIES' && filterStatus === (forceStatus || 'FRESH') && !searchTerm) {
-            getLeadsCount({ 
-                status: filterStatus === 'ALL STATUS' as any ? undefined : (filterStatus as any), 
-                category: filterCategory === 'ALL CATEGORIES' ? undefined : filterCategory, 
-                search: searchTerm 
-            }).then(setTotalLeads);
-        } else {
-            fetchData();
-        }
-    }, [page, filterCategory, filterStatus, searchTerm, filterCity, forceStatus]); 
+        fetchData();
+    }, [page, filterCategory, filterStatus, searchTerm, filterCity, forceStatus, refreshKey]); 
 
     useEffect(() => {
         // JANGAN GANTI TAB JIKA MODAL EDIT ATAU DETAIL SEDANG TERBUKA

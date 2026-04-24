@@ -20,6 +20,8 @@ model User {
   kieAiApiKey   String?
   byocMode      Boolean       @default(false)
   aiEngine      String        @default("gemini-3-flash")
+  fonnteTokens  Json?         // Array of up to 5 Fonnte tokens
+  isApproved    Boolean       @default(false)
   createdAt     DateTime      @default(now())
   leads         Lead[]
   sandboxLeads  LeadSandbox[]
@@ -55,6 +57,7 @@ model Lead {
   htmlCode            String?
   lastLog             String?
   slug                String?       @unique
+  baitDraft           String?
   outreachDraft       String?
   ig                  String?
   styleDNA            String?
@@ -183,6 +186,8 @@ enum LeadStatus {
 
 enum BlastStatus {
   PENDING
+  BAIT_SENT
+  REPLIED
   SENT
   FAILED
   SCHEDULED

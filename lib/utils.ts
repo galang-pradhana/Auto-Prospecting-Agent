@@ -93,3 +93,43 @@ export function serializeLeadSandbox(lead: any) {
         createdAt: lead.createdAt instanceof Date ? lead.createdAt.toISOString() : lead.createdAt,
     };
 }
+
+/**
+ * ANTI-BAN STRATEGY UTILITIES
+ */
+
+export function processSpintax(text: string): string {
+    if (!text) return text;
+    // Replace patterns like {option1|option2|option3}
+    return text.replace(/\{([^{}]+)\}/g, (match, p1) => {
+        const options = p1.split('|');
+        const randomIndex = Math.floor(Math.random() * options.length);
+        return options[randomIndex];
+    });
+}
+
+export function generateRandomBait(leadName: string, leadCity: string): string {
+    const templates = [
+        "Halo, apa benar ini dengan [Nama Toko]? 🙏",
+        "Permisi, ini toko [Nama Toko] ya?",
+        "Halo kak, betul ini [Nama Toko]?",
+        "Halo, ini [Nama Toko] di [Kota] bukan ya?",
+        "Halo, ini tim [Nama Toko]?",
+        "Permisi, apa ini kontak resmi [Nama Toko]?",
+        "Halo kak! Ini [Nama Toko] yang di [Kota] ya?",
+        "Halo, ini bisa dihubungi untuk [Nama Toko]?",
+        "Halo, apa ini WA aktif [Nama Toko]?",
+        "Permisi, ini admin [Nama Toko]?"
+    ];
+    
+    const randomIndex = Math.floor(Math.random() * templates.length);
+    const template = templates[randomIndex];
+    
+    const cityText = leadCity && leadCity.trim() !== '' ? leadCity : "sini";
+    const nameText = leadName || "kakak";
+    
+    return processSpintax(template
+        .replace(/\[Nama Toko\]/g, nameText)
+        .replace(/\[Kota\]/g, cityText));
+}
+

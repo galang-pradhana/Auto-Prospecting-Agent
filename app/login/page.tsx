@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { loginUser, registerUser } from '@/lib/auth';
 import { 
     Zap, Mail, Lock, User, ArrowRight, Loader2, 
@@ -13,6 +14,8 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const router = useRouter();
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
@@ -24,6 +27,9 @@ export default function LoginPage() {
         if (res?.error) {
             setError(res.error);
             setLoading(false);
+        } else if (res?.success) {
+            router.push('/dashboard');
+            // Do not set loading to false so the UI remains in a "loading" state during redirect
         }
     };
 

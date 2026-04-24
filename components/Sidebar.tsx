@@ -22,7 +22,6 @@ const navItems = [
     { name: 'Enriched', href: '/dashboard/enriched', icon: Sparkles },
     { name: 'Live Sites', href: '/dashboard/live', icon: Globe },
     { name: 'Monitoring', href: '/dashboard/monitoring', icon: Activity },
-    { name: 'Linked B2B', href: '/dashboard/linked-b2b', icon: Target },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 

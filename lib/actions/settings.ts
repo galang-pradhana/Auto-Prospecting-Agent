@@ -243,7 +243,8 @@ export async function getUserSettings() {
             aiEngine: true,
             businessName: true,
             businessIg: true,
-            businessWa: true
+            businessWa: true,
+            fonnteTokens: true
         }
     });
 }
@@ -252,7 +253,8 @@ export async function updateUserSettings(data: {
     kieAiApiKey?: string,
     businessName?: string,
     businessIg?: string,
-    businessWa?: string
+    businessWa?: string,
+    fonnteTokens?: string[]
 }) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
@@ -264,7 +266,8 @@ export async function updateUserSettings(data: {
                 kieAiApiKey: data.kieAiApiKey,
                 businessName: data.businessName,
                 businessIg: data.businessIg,
-                businessWa: data.businessWa
+                businessWa: data.businessWa,
+                fonnteTokens: data.fonnteTokens
             }
         });
 

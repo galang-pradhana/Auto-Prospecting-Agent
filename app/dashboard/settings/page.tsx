@@ -17,7 +17,7 @@ import { getKieCredit } from '@/lib/actions/ai';
 import { cleanupOldLeads } from '@/lib/actions/lead';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'ai' | 'identity' | 'health'>('ai');
+    const [activeTab, setActiveTab] = useState<'ai' | 'identity' | 'fonnte' | 'health'>('ai');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     
@@ -29,6 +29,9 @@ export default function SettingsPage() {
     const [businessName, setBusinessName] = useState('');
     const [businessIg, setBusinessIg] = useState('');
     const [businessWa, setBusinessWa] = useState('');
+
+    // --- Fonnte API State ---
+    const [fonnteTokens, setFonnteTokens] = useState<string[]>(['', '', '', '', '']);
 
     // --- System Health State ---
     const [health, setHealth] = useState<any>(null);
@@ -68,6 +71,15 @@ export default function SettingsPage() {
             setBusinessName(settings.businessName || '');
             setBusinessIg(settings.businessIg || '');
             setBusinessWa(settings.businessWa || '');
+            
+            // Load Fonnte Tokens
+            let loadedTokens = ['', '', '', '', ''];
+            if (settings.fonnteTokens && Array.isArray(settings.fonnteTokens)) {
+                for (let i = 0; i < 5; i++) {
+                    loadedTokens[i] = settings.fonnteTokens[i] || '';
+                }
+            }
+            setFonnteTokens(loadedTokens);
         }
         setEstimatedUsage(usage.toString());
         setHealth(healthData);
@@ -118,6 +130,18 @@ export default function SettingsPage() {
         setSaving(false);
     };
 
+    const handleSaveFonnte = async () => {
+        setSaving(true);
+        const cleanTokens = fonnteTokens.map(t => t.trim());
+        const res = await updateUserSettings({ fonnteTokens: cleanTokens });
+        if (res.success) {
+            showToast("Fonnte API tokens updated");
+        } else {
+            showToast(res.message || "Failed to update", "error");
+        }
+        setSaving(false);
+    };
+
     // --- Health Actions ---
     const handleRepairPermissions = async () => {
         setRepairing(true);
@@ -160,6 +184,7 @@ export default function SettingsPage() {
                 {[
                     { id: 'ai', label: 'AI & API', icon: Cpu },
                     { id: 'identity', label: 'Identity', icon: Building2 },
+                    { id: 'fonnte', label: 'Fonnte API', icon: MessageCircle },
                     { id: 'health', label: 'System Health', icon: Flame },
                 ].map((tab) => (
                     <button
@@ -421,6 +446,79 @@ export default function SettingsPage() {
                                     >
                                         {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                                         Save Business Identity
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Section 3: Fonnte API Configuration */}
+                    {activeTab === 'fonnte' && (
+                        <motion.div
+                            key="fonnte"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                        >
+                            <div className="glass p-8 rounded-[40px] border-white/5 bg-zinc-950/40 shadow-2xl space-y-8">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div>
+                                        <h3 className="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+                                            <MessageCircle className="text-accent-gold" size={16} /> Fonnte Token Rotation
+                                        </h3>
+                                        <p className="text-[10px] text-white/40 font-medium mt-1 italic">
+                                            Masukkan hingga 5 token Fonnte untuk mengaktifkan fitur Anti-Ban (Token Rotation).
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        {[0, 1, 2, 3, 4].map((index) => (
+                                            <div key={index} className="space-y-2">
+                                                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest px-1">
+                                                    Token {index + 1}
+                                                </label>
+                                                <div className="relative group">
+                                                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-accent-gold transition-colors" size={16} />
+                                                    <input 
+                                                        type="password"
+                                                        placeholder={`Masukkan Token Fonnte ${index + 1}`}
+                                                        value={fonnteTokens[index] || ''}
+                                                        onChange={(e) => {
+                                                            const newTokens = [...fonnteTokens];
+                                                            newTokens[index] = e.target.value;
+                                                            setFonnteTokens(newTokens);
+                                                        }}
+                                                        className="w-full bg-zinc-900 border border-white/5 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-accent-gold/40 transition-all text-sm font-mono text-white"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex gap-4">
+                                            <AlertTriangle className="text-amber-400 shrink-0" size={20} />
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-black text-white uppercase tracking-widest">Anti-Ban Strategy</p>
+                                                <p className="text-[11px] text-white/50 leading-relaxed">
+                                                    Jika kamu memasukkan lebih dari 1 token, sistem akan secara bergantian (Round-Robin) menggunakan token-token tersebut setiap kali mengirim pesan. Ini sangat disarankan agar beban pengiriman tidak terpusat di satu nomor saja.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-8 border-t border-white/5">
+                                    <button 
+                                        onClick={handleSaveFonnte}
+                                        disabled={saving}
+                                        className="w-full md:w-fit px-12 bg-accent-gold hover:bg-white text-black py-4 rounded-2xl font-black text-xs uppercase transition-all flex items-center justify-center gap-3 shadow-2xl shadow-accent-gold/10 ml-auto"
+                                    >
+                                        {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                                        Save Tokens
                                     </button>
                                 </div>
                             </div>

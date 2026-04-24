@@ -18,16 +18,13 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { leadIds, delaySeconds } = body;
+    const { leadIds } = body;
 
     if (!Array.isArray(leadIds) || leadIds.length === 0) {
       return NextResponse.json({ error: 'leadIds array is required' }, { status: 400 });
     }
 
-    // Delay handling (minimum 30s to avoid WA ban)
-    const defaultDelay = parseInt(process.env.BLAST_DEFAULT_DELAY || '45', 10);
-    let requestedDelay = delaySeconds !== undefined ? delaySeconds : defaultDelay;
-    const delay = Math.max(requestedDelay, 30); // Enforce min 30s
+    // Delay handling is now enforced in the background process (60-120s)
 
     const leads = await prisma.lead.findMany({
       where: {
@@ -37,7 +34,9 @@ export async function POST(req: Request) {
       select: {
         id: true,
         wa: true,
+        baitDraft: true,
         outreachDraft: true,
+        name: true,
       }
     });
 
@@ -56,7 +55,7 @@ export async function POST(req: Request) {
     JobRegistry.createJob(jobId, 'BLAST', session.userId, initialMessage);
 
     // Fire and forget background process
-    processBackgroundBlast(leads, delay, jobId).catch((err) => {
+    processBackgroundBlast(leads, session.userId, jobId).catch((err) => {
       console.error(err);
       JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message });
     });
@@ -76,10 +75,21 @@ export async function POST(req: Request) {
   }
 }
 
-async function processBackgroundBlast(leads: any[], delay: number, jobId: string) {
+async function processBackgroundBlast(leads: any[], userId: string, jobId: string) {
   let successCount = 0;
   let failCount = 0;
   const total = leads.length;
+
+  // Fetch Fonnte tokens for rotation
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { fonnteTokens: true }
+  });
+  
+  let tokens: string[] = [];
+  if (user?.fonnteTokens && Array.isArray(user.fonnteTokens)) {
+    tokens = user.fonnteTokens as string[];
+  }
 
   for (let i = 0; i < leads.length; i++) {
     const lead = leads[i];
@@ -89,41 +99,42 @@ async function processBackgroundBlast(leads: any[], delay: number, jobId: string
       message: `Mengirim pesan ke ${lead.name || 'nomor WA'} (${i + 1}/${total})...`
     });
 
-    // Delay between messages (but not before the first one)
+    // Extreme Delay: Random 60 - 120 seconds between messages
     if (i > 0) {
-      await sleep(delay * 1000);
+      const delaySeconds = Math.floor(Math.random() * (120 - 60 + 1) + 60);
+      JobRegistry.updateJob(jobId, { message: `Menunggu ${delaySeconds} detik untuk menghindari ban WA...` });
+      await sleep(delaySeconds * 1000);
     }
 
-    if (!lead.wa || !lead.outreachDraft) {
+    if (!lead.wa || (!lead.baitDraft && !lead.outreachDraft)) {
       await prisma.lead.update({
         where: { id: lead.id },
         data: {
           blastStatus: 'FAILED',
-          blastError: 'Missing WhatsApp number or outreach draft',
+          blastError: 'Missing WhatsApp number or draft',
         }
       });
       failCount++;
       continue;
     }
 
-    // Send via Fonnte
-    const response = await sendMessage(lead.wa, lead.outreachDraft);
+    // Determine what to send. Fallback to outreachDraft if baitDraft is missing.
+    const messageToSend = lead.baitDraft || lead.outreachDraft;
+    const isBait = !!lead.baitDraft;
+
+    // Send via Fonnte with token rotation
+    const response = await sendMessage(lead.wa, messageToSend, undefined, tokens);
 
     if (response.status) {
       const now = new Date();
-      const nextFollowup = new Date(now);
-      nextFollowup.setDate(nextFollowup.getDate() + 7);
-
+      
       await prisma.lead.update({
         where: { id: lead.id },
         data: {
-          blastStatus: 'SENT',
+          blastStatus: isBait ? 'BAIT_SENT' : 'SENT',
           blastSentAt: now,
           blastError: null,
-          followupStage: 'sent',
-          followupCount: { increment: 1 },
           lastContactAt: now,
-          nextFollowupAt: nextFollowup
         }
       });
       successCount++;
@@ -132,7 +143,7 @@ async function processBackgroundBlast(leads: any[], delay: number, jobId: string
         where: { id: lead.id },
         data: {
           blastStatus: 'FAILED',
-          blastError: response.reason || 'Failed to send WhatsApp message'
+          blastError: response.reason || response.message || 'Failed to send WhatsApp message'
         }
       });
       failCount++;

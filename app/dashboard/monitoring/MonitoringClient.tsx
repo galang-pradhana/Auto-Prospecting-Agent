@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Activity, Phone, Clock, Star, MapPin, CheckCircle, X, MessageSquare, AlertTriangle, Loader2, ExternalLink, ChevronDown } from 'lucide-react';
+import { Activity, Phone, Clock, Star, MapPin, CheckCircle, X, MessageSquare, AlertTriangle, Loader2, ExternalLink, ChevronDown, BarChart2 } from 'lucide-react';
 import { markFollowupDone, updateProspectNotes } from '@/lib/actions/monitoring';
 import { generateWaLink } from '@/lib/actions/settings';
 import { toast } from 'react-hot-toast';
@@ -92,6 +92,66 @@ export default function MonitoringClient({ initialLeads, stats }: { initialLeads
                 <div>
                     <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Monitoring</h1>
                     <p className="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">Lead Engagement Tracker — Post Outreach</p>
+                </div>
+            </div>
+
+            {/* ─── DASHBOARD SECTION ─────────────────────────────────────────── */}
+            <div className="space-y-4">
+                <h2 className="text-xs font-black uppercase tracking-widest text-white/30 flex items-center gap-2">
+                    <BarChart2 size={12} /> Outreach Performance Dashboard
+                </h2>
+
+                {/* Row 1: Metrik Utama — 4 kartu besar */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {/* Kartu: Dikirim Hari Ini */}
+                    <div className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 rounded-2xl p-5">
+                        <div className="text-3xl font-black text-blue-400">{stats?.sentToday ?? 0}</div>
+                        <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">Dikirim Hari Ini</div>
+                        <div className="text-[10px] text-white/20 mt-0.5 italic">{stats?.sentYesterday ?? 0} kemarin</div>
+                    </div>
+
+                    {/* Kartu: Perlu Follow Up */}
+                    <div className={`border rounded-2xl p-5 ${stats?.dueToday > 0 
+                        ? 'bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20' 
+                        : 'bg-zinc-900/60 border-zinc-800'}`}>
+                        <div className={`text-3xl font-black ${stats?.dueToday > 0 ? 'text-red-400' : 'text-white'}`}>{stats?.dueToday ?? 0}</div>
+                        <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">Perlu Follow Up</div>
+                        <div className="text-[10px] text-white/20 mt-0.5 italic">jatuh tempo sekarang</div>
+                    </div>
+
+                    {/* Kartu: Total Blast Terkirim */}
+                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5">
+                        <div className="text-3xl font-black text-white">{stats?.totalBlasted ?? 0}</div>
+                        <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">Total Blast Terkirim</div>
+                        <div className="text-[10px] text-white/20 mt-0.5 italic">sejak awal</div>
+                    </div>
+
+                    {/* Kartu: Di Monitoring */}
+                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5">
+                        <div className="text-3xl font-black text-white">{stats?.total ?? 0}</div>
+                        <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">Di Monitoring</div>
+                        <div className="text-[10px] text-white/20 mt-0.5 italic">{stats?.closedLost ?? 0} ditutup</div>
+                    </div>
+                </div>
+
+                {/* Row 2: Funnel Mini */}
+                <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Sales Funnel</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {[
+                            { label: 'Terkirim', val: stats?.total ?? 0, color: 'bg-zinc-600' },
+                            { label: 'Klik Link', val: stats?.clicked ?? 0, color: 'bg-blue-500' },
+                            { label: 'Hot Lead', val: stats?.qualified ?? 0, color: 'bg-amber-500' },
+                        ].map((s, i, arr) => (
+                            <React.Fragment key={s.label}>
+                                <div className="flex flex-col items-center gap-1">
+                                    <div className={`${s.color} rounded-xl px-4 py-2 text-xs font-black text-white`}>{s.val}</div>
+                                    <span className="text-[9px] text-white/30 uppercase tracking-widest">{s.label}</span>
+                                </div>
+                                {i < arr.length - 1 && <div className="text-white/10 text-lg font-bold">→</div>}
+                            </React.Fragment>
+                        ))}
+                    </div>
                 </div>
             </div>
 
