@@ -562,65 +562,28 @@ export async function scrapeSingleUrl(url: string) {
         const city = parsedItem.complete_address?.city || 'Unknown';
         const province = parsedItem.complete_address?.state || 'Unknown';
 
-        // --- AI Filtering & Normalization Layer ---
-        const reviewCount = parsedItem.review_count || parsedItem.reviews_count || parsedItem.user_ratings_total || parsedItem.reviewsCount || 0;
-
-        const finalPrompt = LEAD_EVALUATION_PROMPT
-            .replace('[name]', leadName)
-            .replace('[category]', category)
-            .replace('[city]', city)
-            .replace('[province]', province)
-            .replace('[district]', 'ALL')
-            .replace('[rating]', finalRating.toString())
-            .replace('[wa]', rawPhone || 'tidak ada')
-            .replace('[website]', website || 'N/A')
-            .replace('[reviewsCount]', reviewCount.toString())
-            .replace('[address]', fullAddress);
-
-        let aiResult: any = null;
-        try {
-            const aiResponse = await callKieAI(finalPrompt);
-            const rawJson = cleanAIResponse(aiResponse);
-            const parsed = JSON.parse(rawJson);
-            aiResult = Array.isArray(parsed) ? parsed[0] : parsed;
-        } catch (e) {
-            console.error("[Manual Scrape] AI Error:", e);
-            // Fallback to raw if AI fails? No, user wants CLEAN data. 
-            // But let's allow fallback if it's just a JSON error but we have raw data.
-            // Actually, let's be strict as requested.
-            return { success: false, message: "AI gagal memproses dan membersihkan data ini." };
-        }
-
-        if (aiResult.decision?.toUpperCase() !== 'PROCEED') {
-            return { success: false, message: `Data ditolak oleh AI. Alasan: ${aiResult.reason || 'Tidak sesuai kriteria B2B'}` };
-        }
-
-        // Use AI Cleaned Data
-        const normalizedName = aiResult.name || leadName;
-        const normalizedCategory = aiResult.category || category;
-        const normalizedWa = aiResult.wa ? sanitizeWaNumber(aiResult.wa) : sanitizedWa;
-
-        // Check Deduplication (Re-check with potentially normalized WA)
+        // --- Direct Insertion without AI Filtering ---
+        // Check Deduplication
         const existingLead = await prisma.lead.findFirst({
             where: {
                 OR: [
-                    normalizedWa ? { wa: normalizedWa } : undefined,
+                    sanitizedWa ? { wa: sanitizedWa } : undefined,
                     mapsUrl ? { mapsUrl: mapsUrl } : undefined
                 ].filter(Boolean) as any
             }
         });
 
         if (existingLead) {
-            return { success: false, message: `Bisnis "${normalizedName}" sudah ada di dalam database.` };
+            return { success: false, message: `Bisnis "${leadName}" sudah ada di dalam database.` };
         }
 
         const newLead = await prisma.lead.create({
             data: {
                 userId: session.userId,
-                name: normalizedName,
+                name: leadName,
                 isPro: false,
-                wa: normalizedWa,
-                category: normalizedCategory,
+                wa: sanitizedWa,
+                category: category,
                 province: province,
                 city: city,
                 address: fullAddress,
@@ -628,11 +591,11 @@ export async function scrapeSingleUrl(url: string) {
                 mapsUrl: mapsUrl,
                 rating: finalRating,
                 status: 'FRESH',
-                brandData: { sourceType: 'MANUAL_URL', aiReason: aiResult.reason }
+                brandData: { sourceType: 'MANUAL_URL', note: 'Bypassed AI evaluation' }
             }
         });
 
-        await logActivity(newLead.id, 'SCRAPE', 'Lead ingested via Manual URL Scrape (AI Verified)', { url, aiReason: aiResult.reason });
+        await logActivity(newLead.id, 'SCRAPE', 'Lead ingested via Manual URL Scrape (Direct/No AI)', { url });
 
         revalidatePath('/dashboard/leads');
         
