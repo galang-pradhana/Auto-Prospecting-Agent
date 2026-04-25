@@ -310,19 +310,29 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
         if (selectedIds.length === 0) return;
         
         setProcessing(true);
-        // We will dispatch multiple jobs to the registry
+        const DELAY_BETWEEN_JOBS = 3000; 
+        const toastId = 'batch-forge-toast';
+
         try {
-            for (const id of selectedIds) {
+            for (let i = 0; i < selectedIds.length; i++) {
+                const id = selectedIds[i];
+                toast.loading(`Forging ${i + 1}/${selectedIds.length} leads...`, { id: toastId });
+                
                 await fetch('/api/forge/run', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ leadId: id })
                 });
+
+                // Wait between jobs to avoid Kie.ai rate limits
+                if (i < selectedIds.length - 1) {
+                    await new Promise(r => setTimeout(r, DELAY_BETWEEN_JOBS));
+                }
             }
-            await new Promise(r => setTimeout(r, 1500));
+            toast.success(`Berhasil memicu Forge untuk ${selectedIds.length} leads! Pantau di menu Enriched.`, { id: toastId });
         } catch (e: any) {
             console.error('Failed to trigger background forge:', e);
-            alert(`Gagal trigger Forge: ${e.message}`);
+            toast.error(`Gagal trigger Forge: ${e.message}`, { id: toastId });
         } finally {
             setProcessing(false);
             setSelectedIds([]);

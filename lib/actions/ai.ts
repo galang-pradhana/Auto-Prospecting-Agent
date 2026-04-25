@@ -90,7 +90,7 @@ export async function getStyleSummary() {
 // --- KIE.AI MULTI-PROTOCOL CALLER ---
 // Jalur ini mengunci protokol agar tidak ada asumsi parsing data.
 
-export async function callKieAI(prompt: string) {
+export async function callKieAI(prompt: string, maxRetries = 3) {
     const user = await getCurrentUser();
     
     // LOGIKA FALLBACK: Prioritas DB User -> Fallback ke .env Server
@@ -106,35 +106,62 @@ export async function callKieAI(prompt: string) {
         stream: false
     };
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-            signal: AbortSignal.timeout(180000) 
-        });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(180000) 
+            });
 
-        const data = await response.json();
-        if (!response.ok) {
-            console.error(`[Kie.ai Error] ${url}:`, data);
-            throw new Error(`Kie.ai Error: ${data.msg || data.message || 'Rejected'}`);
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                console.error(`[Kie.ai Error] Attempt ${attempt} (${response.status}):`, data);
+                
+                // If 401 or 403, don't retry, it's fatal
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error(`Kie.ai Auth Error: ${data.msg || data.message || 'Invalid API Key'}`);
+                }
+
+                if (attempt < maxRetries) {
+                    const delay = attempt * 5000; // 5s, 10s, 15s
+                    console.log(`[Kie.ai] Transient error. Retrying in ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+                
+                throw new Error(`Kie.ai Error: ${data.msg || data.message || 'Rejected after ' + maxRetries + ' attempts'}`);
+            }
+
+            const data = await response.json();
+
+            // PARSING LOGIC (Cari teks di mana saja)
+            const content = data.choices?.[0]?.message?.content || 
+                   data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                   data.content?.[0]?.text;
+            
+            if (!content) {
+                console.error("[Kie.ai Error] Empty content result:", data);
+                throw new Error("AI returned no content.");
+            }
+
+            return content;
+        } catch (error: any) {
+            console.error(`[callKieAI Failure] Attempt ${attempt}:`, error.message);
+            
+            // Don't retry for certain errors
+            if (error.message.includes("Auth Error")) throw error;
+
+            if (attempt < maxRetries) {
+                const delay = attempt * 5000;
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+            throw error;
         }
-
-        // PARSING LOGIC (Cari teks di mana saja)
-        const content = data.choices?.[0]?.message?.content || 
-               data.candidates?.[0]?.content?.parts?.[0]?.text || 
-               data.content?.[0]?.text;
-        
-        if (!content) {
-            console.error("[Kie.ai Error] Empty content result:", data);
-            throw new Error("AI returned no content.");
-        }
-
-        return content;
-    } catch (error: any) {
-        console.error(`[callKieAI Failure]:`, error.message);
-        throw error;
     }
+    throw new Error("Maximum retries reached.");
 }
 
 // --- Kie.ai Vision (Image + Text) ---
@@ -395,6 +422,12 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
             });
         }
 
+        // Persist job start to DB for crash recovery visibility
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: { lastLog: `RUNNING: Forge process started at ${new Date().toISOString()}` }
+        });
+
         const htmlContent = await callKieAI(systemPrompt + "\n\n" + finalPrompt);
         
         if (!htmlContent || htmlContent.length < 500) throw new Error("Output AI korup atau terlalu pendek.");
@@ -409,9 +442,12 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
         // Clean & Update
         const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
         
-        // Strict Validation
-        if (!cleanHtml.includes('<html') || cleanHtml.length < 2000) {
-            throw new Error("Output AI tidak valid atau terlalu pendek (min 2000 chars). Pastikan AI menghasilkan full HTML.");
+        // Relaxed Validation: Cek struktur dasar dan threshold lebih rendah
+        const hasHtmlStructure = cleanHtml.includes('<html') || cleanHtml.includes('<!DOCTYPE');
+        const isLongEnough = cleanHtml.length >= 1500;
+        
+        if (!hasHtmlStructure || !isLongEnough) {
+            throw new Error("Output AI tidak valid atau terlalu pendek (min 1500 chars). Pastikan AI menghasilkan full HTML.");
         }
 
         // Slug Guard: Ensure slug exists for the LIVE link
