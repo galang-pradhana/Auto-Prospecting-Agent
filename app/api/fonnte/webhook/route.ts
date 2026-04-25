@@ -7,36 +7,38 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     try {
-        let body: any;
-        const contentType = req.headers.get('content-type') || '';
-        
-        if (contentType.includes('application/json')) {
-            body = await req.json();
-        } else {
-            // Fonnte sometimes sends form-data or x-www-form-urlencoded
-            const formData = await req.formData();
-            body = Object.fromEntries(formData.entries());
+        const rawBody = await req.text();
+        console.log("\n[WEBHOOK RECEIVED] Raw Payload:", rawBody);
+
+        let body: any = {};
+        try {
+            body = JSON.parse(rawBody);
+        } catch (e) {
+            // Fallback for form-encoded payloads
+            const params = new URLSearchParams(rawBody);
+            body = Object.fromEntries(params.entries());
         }
 
-        // Log the incoming payload for debugging
-        console.log("\n[WEBHOOK RECEIVED] Payload:", JSON.stringify(body, null, 2));
+        // 1. KRITIS: Abaikan pesan keluar (is_me = true atau sender == device)
+        // Ini mencegah loop atau pemicu Outreach saat kita sendiri yang mengirim Bait
+        if (body.is_me === true || body.is_me === 'true' || (body.sender && body.device && body.sender === body.device)) {
+            console.log(`[WEBHOOK] Ignored outgoing message from ${body.sender}`);
+            return NextResponse.json({ success: true, message: 'Outgoing message ignored' });
+        }
 
-        // Handle device status updates gracefully so Fonnte doesn't block our webhook
-        if (body.status === 'connect' || body.status === 'disconnect' || !body.sender && !body.from && body.device) {
+        // 2. Handle device status updates
+        if (body.status === 'connect' || body.status === 'disconnect' || (!body.sender && !body.from && body.device)) {
             console.log(`[WEBHOOK] Ignored device status update: ${body.status}`);
             return NextResponse.json({ success: true, message: 'Device status ignored' });
         }
 
-        // Fonnte: 'sender' is usually the person who sent the message. 'device' is your own number.
         const sender = body.sender || body.from;
         
-        console.log("[WEBHOOK] Extracted sender number:", sender);
-
         if (!sender) {
-            console.error("[Fonnte Webhook] No sender/from found in body. Is this a new Fonnte payload format?", body);
-            // Return 200 anyway so Fonnte doesn't retry and block us
+            console.error("[Fonnte Webhook] No sender found in body after parsing.", body);
             return NextResponse.json({ success: true, message: 'Ignored unknown payload' });
         }
+
 
         const cleanSender = sanitizeWaNumber(sender.toString());
 

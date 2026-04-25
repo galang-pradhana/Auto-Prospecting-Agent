@@ -19,12 +19,10 @@ export const GLOBAL_AI_PROTOCOL = `
 3. COLOR THEORY: 禁止 Pure #000000. Use deep zinc/obsidian tones or brand-specific muted palettes.
 4. IMAGE PROTOCOL: Unsplash &auto=format&fit=crop&w=1920&q=80.
 5. LANGUAGE: 100% Professional, High-Conversion Bahasa Indonesia only.
-6. ⚠️ CRITICAL JAVASCRIPT RULE — NEVER USE HTML COMMENTS INSIDE <script> TAGS:
-   HTML comments (<!-- -->) inside <script> blocks are NOT valid JavaScript and cause FATAL SYNTAX ERRORS that produce a completely BLANK page.
+6. ⚠️ MOBILE-FIRST MANDATE: All layouts MUST be responsive by default (w-full, px-4) and only expand/restructure on 'md:' (768px) and 'lg:' (1024px).
+7. ⚠️ CRITICAL JAVASCRIPT RULE — NEVER USE HTML COMMENTS INSIDE <script> TAGS:
+   HTML comments (<!-- -->) inside <script> blocks are NOT valid JavaScript and cause FATAL SYNTAX ERRORS.
    INSIDE <script>: Use ONLY JavaScript comments: // single line  OR  /* multi-line block */
-   CORRECT → <script> /* Hero Section */ const hero = ... </script>
-   WRONG   → <script> <!-- Hero Section --> const hero = ... </script>
-   HTML comments (<!-- -->) are ONLY allowed OUTSIDE of <script> tags, between HTML sections.
 `;
 
 
@@ -846,9 +844,14 @@ Form kontak sederhana (nama, no. WA, pesan) ATAU langsung tombol WA besar.
 Alamat bisnis lengkap + Google Maps embed (gunakan placeholder/iframe dummy).
 Repeat CTA yang kuat: "Konsultasi Gratis Sekarang".
 
-[PERSISTENT ELEMENT]
-- Floating WhatsApp FAB: Bottom right, #25D366, pulse animation, "Konsultasi Sekarang".
-- Sticky Navbar: Logo kiri, navigasi anchor ke setiap section, transparan → solid saat scroll.
+[PERSISTENT ELEMENTS]
+- Floating WhatsApp Button: Fixed bottom-6 right-6 z-[9999], bg-[#25D366], rounded-full, p-4, shadow-2xl, pulse animation. Link: [waLink].
+- Sticky Navbar: Transparan di hero, glassmorphism solid saat scroll.
+- Mobile Layout: Wajib px-4 (paddings) di mobile, font size base (16px) minimal untuk readability.
+
+[GOOGLE MAPS EMBED — MANDATORY IN CONTACT SECTION]
+Integrasikan iframe Google Maps statis berikut di bagian Alamat:
+<iframe src="https://maps.google.com/maps?q=[fullAddress]&output=embed" width="100%" height="350" style="border:0; border-radius: 1rem;" loading="lazy"></iframe>
 
 Output harus berupa HTML5 yang valid dan semantik.
 DILARANG KERAS:
@@ -930,9 +933,11 @@ ZERO TOLERANCE: Tidak ada gambar blank. Jika ragu dengan photo ID, gunakan LAYER
 
 [ASSET TRACKING — WAJIB]
 ⚠️ SEMUA <img> tag dan elemen dengan background-image HARUS memiliki atribut data-asset-id unik.
-Format: data-asset-id="0", data-asset-id="1", dst. Dimulai dari 0.
-Contoh: <img src="..." data-asset-id="0" alt="..."> dan <div data-asset-id="1" style="background-image:url('...')">.
-Jangan ada elemen gambar tanpa data-asset-id.
+
+[MOBILE-FIRST & CONTACT ENHANCEMENTS]
+1. Mobile-First: Layout kolom 1 di mobile, kolom multi di md+.
+2. Maps Embed: <iframe src="https://maps.google.com/maps?q=[fullAddress]&output=embed" width="100%" height="300" style="border:0;" loading="lazy"></iframe>
+3. Floating WA: Fixed bottom-4 right-4 z-50, pulse animation, link ke [waLink].
 
 Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
 Output ONLY the full HTML code. No talk.
@@ -968,6 +973,25 @@ INSTRUKSI PENULISAN:
 5. WAJIB: Sebutkan Hero Section dengan background gambar besar (Cinematic Hero) + overlay teks kontras tinggi.
 6. WAJIB: Sebutkan anti-patterns yang harus dihindari untuk industri ini.
 7. Pastikan semua elemen teks menggunakan Bahasa Indonesia yang profesional.
+
+### TECHNICAL MANDATE FOR AI CODER (WAJIB SERTAKAN):
+8. Archetype Visual: Sebutkan archetype "[selectedArchetype]" sebagai dasar desain.
+9. Image Failsafe Protocol: Instruksikan penggunaan 3-layer fallback (Unsplash Primary ID sesuai query "[unsplashQueries]" -> Unsplash Source Keyword -> CSS Gradient).
+10. Asset Tracking: Instruksikan penggunaan 'data-asset-id' unik (dimulai dari 0) pada setiap <img> dan elemen background-image.
+11. Mobile-First: Instruksikan penggunaan padding px-4 dan layout kolom tunggal di mobile, transisi ke multi-kolom di md:.
+12. Google Maps: Instruksikan penyematan iframe Google Maps statis di section Alamat menggunakan data lokasi lead.
+13. WhatsApp CTA: Instruksikan pembuatan tombol WA melayang (fixed bottom-6 right-6, #25D366, pulse animation).
+14. JS Safety: Instruksikan LARANGAN KERAS menggunakan komentar HTML (<!-- -->) di dalam blok <script>.
+
+### SECTION BLUEPRINT MANDATE (WAJIB CANTUMKAN SEMUA):
+15. SECTION 1 — HERO: Headline emosional, subheadline persuasif, primary CTA (WA), dan deskripsi Cinematic Hero Image ([unsplashQueries]).
+16. SECTION 2 — TRUST BAR: 3-4 metric angka/ikon untuk membangun kredibilitas instan.
+17. SECTION 3 — ABOUT/STORY: Narasi brand yang kuat dengan layout 2-kolom (teks & gambar).
+18. SECTION 4 — SERVICES BENTO GRID: 4-6 layanan utama menggunakan layout Bento Grid modern.
+19. SECTION 5 — GALLERY: Grid foto estetis menggunakan Unsplash queries: [unsplashQueries].
+20. SECTION 6 — TESTIMONIALS: 3-4 ulasan pelanggan fiktif namun realistis untuk [category].
+21. SECTION 7 — WHY US: Perbandingan keunggulan bisnis vs kompetitor berdasarkan [painPoints].
+22. SECTION 8 — CONTACT & MAP: Google Maps embed statis, alamat lengkap, dan final CTA yang kuat.
 `;
 
 // ============================================================

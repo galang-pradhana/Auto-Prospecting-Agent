@@ -10,9 +10,19 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { url } = body;
+        const url = body.url?.trim();
 
-        if (!url || !url.includes('google.com/maps')) {
+        console.log(`[API Manual Scrape] Received URL: "${url}"`);
+
+        const isValidGmapsUrl = url && (
+            url.includes('google.com/maps') || 
+            url.includes('maps.app.goo.gl') || 
+            url.includes('goo.gl/maps') ||
+            url.includes('maps.google.com')
+        );
+
+        if (!url || !isValidGmapsUrl) {
+            console.warn(`[API Manual Scrape] Invalid URL rejected: "${url}"`);
             return NextResponse.json({ success: false, message: 'URL Google Maps tidak valid' }, { status: 400 });
         }
 

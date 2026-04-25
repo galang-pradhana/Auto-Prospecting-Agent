@@ -67,7 +67,7 @@ function buildBeaconScript(token: string, baseUrl: string): string {
 }
 
 export async function GET(request: Request, context: { params: { slug: string } }) {
-    const lead = await prisma.lead.findUnique({
+    let lead = await prisma.lead.findUnique({
         where: {
             slug: context.params.slug,
             status: 'LIVE',
@@ -77,6 +77,20 @@ export async function GET(request: Request, context: { params: { slug: string } 
             htmlCode: true,
         }
     });
+
+    // Fallback: If not found by slug, try finding by ID (for legacy/broken links)
+    if (!lead) {
+        lead = await prisma.lead.findUnique({
+            where: {
+                id: context.params.slug,
+                status: 'LIVE',
+            },
+            select: {
+                id: true,
+                htmlCode: true,
+            }
+        });
+    }
 
     if (!lead?.htmlCode) {
         return new Response('Not Found', { status: 404 });

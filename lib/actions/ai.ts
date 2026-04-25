@@ -286,7 +286,8 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
                     .replace('[industryColorMood]', forgeData.industryColorMood)
                     .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
                     .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
-                    .replace('[unsplashQueries]', forgeData.unsplashQueries);
+                    .replace('[unsplashQueries]', forgeData.unsplashQueries)
+                    .replace('[selectedArchetype]', forgeData.selectedArchetype);
 
                 const masterPrompt = await callKieAI(stratPrompt);
 
@@ -407,11 +408,25 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
 
         // Clean & Update
         const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
+        
+        // Strict Validation
+        if (!cleanHtml.includes('<html') || cleanHtml.length < 2000) {
+            throw new Error("Output AI tidak valid atau terlalu pendek (min 2000 chars). Pastikan AI menghasilkan full HTML.");
+        }
+
+        // Slug Guard: Ensure slug exists for the LIVE link
+        let finalSlug = lead.slug;
+        if (!finalSlug) {
+            const baseSlug = lead.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            // Check for collision or just add a random suffix for safety in this forge context
+            finalSlug = `${baseSlug}-${Math.floor(Math.random() * 10000)}`;
+        }
 
         await prisma.lead.update({
             where: { id: leadId },
             data: {
                 htmlCode: cleanHtml,
+                slug: finalSlug,
                 status: 'LIVE',
                 isPro: false,
                 lastLog: `Success via GEMINI 3.1 PRO at ${new Date().toISOString()}`

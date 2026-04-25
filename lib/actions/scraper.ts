@@ -525,7 +525,24 @@ export async function scrapeSingleUrl(url: string) {
     const queryFilePath = path.join(process.cwd(), `queries_manual_${Date.now()}.txt`);
     
     try {
-        fs.writeFileSync(queryFilePath, url, 'utf8');
+        let finalUrl = url;
+
+        // --- URL Expansion for Short Links (maps.app.goo.gl / goo.gl/maps) ---
+        if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps')) {
+            console.log(`[Manual Scraper] Expanding short URL: ${url}`);
+            try {
+                const response = await fetch(url, { 
+                    method: 'HEAD', // HEAD is enough to get the redirect URL
+                    redirect: 'follow' 
+                });
+                finalUrl = response.url;
+                console.log(`[Manual Scraper] Expanded to: ${finalUrl}`);
+            } catch (expandErr) {
+                console.error("[Manual Scraper] Expansion failed, using original URL:", expandErr);
+            }
+        }
+
+        fs.writeFileSync(queryFilePath, finalUrl, 'utf8');
 
         let parsedItem: any = null;
 
@@ -534,7 +551,13 @@ export async function scrapeSingleUrl(url: string) {
              console.log("[Manual Scraper] Received Data for URL");
         };
 
-        await executeScraperProcess(binaryPath, queryFilePath, 1000, onLeadHandled);
+        // Extract coordinates from URL if present for better accuracy (Geo-Lock)
+        // This prevents the scraper from "straying" (nyasar) to the server's IP location
+        const geoMatch = finalUrl.match(/@([-.\d]+),([-.\d]+)/) || finalUrl.match(/!3d([-.\d]+)!4d([-.\d]+)/);
+        const lat = geoMatch ? geoMatch[1] : undefined;
+        const lng = geoMatch ? geoMatch[2] : undefined;
+
+        await executeScraperProcess(binaryPath, queryFilePath, 1000, onLeadHandled, lat, lng);
         
         if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
 
