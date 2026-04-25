@@ -44,6 +44,20 @@ export async function getCurrentUser() {
     });
 }
 
+/**
+ * Cek apakah user yang sedang login adalah Owner (Admin utama).
+ * Owner ditentukan oleh env var OWNER_EMAIL di .env
+ */
+export async function isOwner(): Promise<boolean> {
+    const ownerEmail = process.env.OWNER_EMAIL;
+    if (!ownerEmail) {
+        console.warn('[Auth] OWNER_EMAIL not set in .env — local-editor is locked for everyone.');
+        return false;
+    }
+    const user = await getCurrentUser();
+    return user?.email === ownerEmail;
+}
+
 export async function registerUser(formData: FormData) {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
