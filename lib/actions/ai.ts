@@ -840,32 +840,39 @@ export async function generateFollowUpDraft(leadId: string, followupNumber: numb
 
         // Prepare WA Link
         const { generateWaLink } = await import('./settings');
-        const waLink = await generateWaLink(lead.wa, draft);
+        const waLinkRes = await generateWaLink(lead.wa, draft);
+        const finalWaLink = waLinkRes.success ? waLinkRes.url : '';
 
         // SAVE to FollowupQueue
-        await prisma.followupQueue.upsert({
+        const existingQueue = await prisma.followupQueue.findFirst({
             where: {
-                prospectId_followupNumber: {
-                    prospectId: leadId,
-                    followupNumber: followupNumber
-                }
-            },
-            create: {
                 prospectId: leadId,
-                followupNumber: followupNumber,
-                messageText: draft,
-                waLink: waLink,
-                status: 'pending'
-            },
-            update: {
-                messageText: draft,
-                waLink: waLink,
-                status: 'pending',
-                updatedAt: new Date()
+                followupNumber: followupNumber
             }
         });
 
-        return { success: true, draft, waLink };
+        if (existingQueue) {
+            await prisma.followupQueue.update({
+                where: { id: existingQueue.id },
+                data: {
+                    messageText: draft,
+                    waLink: finalWaLink || '',
+                    status: 'pending'
+                }
+            });
+        } else {
+            await prisma.followupQueue.create({
+                data: {
+                    prospectId: leadId,
+                    followupNumber: followupNumber,
+                    messageText: draft,
+                    waLink: finalWaLink || '',
+                    status: 'pending'
+                }
+            });
+        }
+
+        return { success: true, draft, waLink: finalWaLink };
     } catch (error: any) {
         console.error("[Follow-Up Error]:", error.message);
         return { success: false, message: error.message };

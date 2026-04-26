@@ -388,73 +388,41 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
 
 ### I. KRITERIA FILTER (STRICT LOGIC):
 1. WEBSITE STATUS (PRIORITAS): 
-   - Loloskan bisnis yang TIDAK punya website.
+   - LOLOSKAN bisnis yang TIDAK punya website (N/A). Ini adalah target prioritas karena mereka butuh jasa digitalisasi.
    - Loloskan jika website hanya: "business.site", "linktree", "instagram.com", "facebook.com", "blogspot.com", "wordpress.com", atau "taplink".
-   - SKIP MUTLAK jika sudah punya website dengan domain profesional/custom (contoh: .com, .co.id, .id, .net) yang mengindikasikan mereka sudah punya agensi IT/budget besar.
+   - SKIP MUTLAK jika sudah punya website dengan domain profesional/custom (contoh: .com, .co.id, .id, .net) yang terlihat sudah mapan.
 
 2. RATING & REVIEWS (LOGIKA TRADER): 
    - Range Rating: 3.5 - 5.0. 
-   - Justifikasi: Rating 5.0 adalah PRIORITAS TINGGI jika tidak punya website (High-value business). Rating < 3.0 (Kualitas bisnis buruk/Toxic). Kita cari yang potensial tapi butuh perbaikan branding.
+   - Justifikasi: Cari bisnis yang reputasinya bagus tapi infrastruktur digitalnya (web/sosmed) masih kurang.
 
 3. PHONE & WHATSAPP VALIDATION (STRICT MOBILE ONLY):
-   - Evaluasi nomor telepon yang diberikan.
-   - Jika nomor adalah TELEPON RUMAH / KANTOR (contoh awalan: 021, 022, 031, dsb, atau kurang dari 10 angka), maka JANGAN MASUKKAN ke field "wa". Set field "wa" menjadi null atau string kosong.
-   - WA hanya boleh diisi jika berupa NOMOR HP SELULER (Indonesia: awalan 08 atau 628). Cari dengan teliti di bagian deskripsi jika ada.
+   - Jika nomor adalah TELEPON RUMAH / KANTOR (contoh awalan: 021, 022, 0752, dsb), maka KOSONGKAN field "wa".
+   - WA wajib berupa NOMOR HP SELULER (Indonesia: awalan 08 atau 628). Jika [wa] yang diberikan adalah nomor HP, gunakan itu.
 
-4. FOLLOW-UP ACCESS IG & WA DISCOVERY ENGINE (NEW - SUPER STRICT):
-   - Jika GMaps sudah ada link IG atau WA → pakai langsung.
-   - Jika kosong:
-     • Lakukan NORMALISASI NAMA BISNIS:
-       - lowercase, hapus semua karakter non-alphanumeric kecuali underscore & hyphen.
-       - Ganti spasi dengan underscore.
-       - Contoh: "Warung Kopi Pak Budi" → "warung_kopi_pak_budi"
-     • Buat daftar kandidat username (urutan prioritas):
-       1. [normalized_name]
-       2. [normalized_name]official
-       3. [normalized_name]_[kota_slug]   (kota_slug = lowercase tanpa spasi, contoh: "jakarta", "bandung", "cikarang")
-       4. [normalized_name]co
-       5. [normalized_name]id
-       6. [normalized_name]_[category_short] (contoh: cafe → "warung_kopi_cafe")
-     • Cross-check dengan CATEGORY & KOTA:
-       - Jika nama terlalu generik (contoh: "Warung Makan", "Bengkel", "Toko") → confidence rendah.
-       - Hanya pilih username yang Paling Mungkin Valid berdasarkan pola lokal bisnis di kota tersebut.
-     • INTERNAL CONFIDENCE SCORING (jangan tampilkan ke user):
-       - +40 jika exact match normalized_name
-       - +25 jika + "official"
-       - +20 jika + kota_slug
-       - +15 jika kombinasi category
-       - -30 jika nama terlalu pendek (<4 char) atau terlalu generik
-       - Hanya boleh set "ig" jika confidence ≥ 70%.
-     • ⚠️ ATURAN KRITIS: Jika confidence < 70% → set ig = null (kosongkan saja).
+4. FOLLOW-UP ACCESS IG & WA DISCOVERY ENGINE:
+   - Jika GMaps tidak ada link IG: 
+     - Lakukan deduksi username berdasarkan nama bisnis.
+     - Hanya set "ig" jika Anda yakin > 70%. Jika ragu, set "ig" ke null.
+     - ⚠️ PENTING: Jangan menolak bisnis hanya karena IG tidak ditemukan. WA seluler sudah cukup untuk kualifikasi PROCEED.
 
 ### II. DATA FIELDS (MANDATORY JSON):
 {
   "decision": "PROCEED" atau "SKIP",
-  "name": "Nama Bisnis (Bersihkan karakter aneh)",
-  "category": "Kategori Spesifik",
-  "wa": "Nomor WhatsApp Seluler Saja (Sanitized, format 628xxx). Kosongkan jika telp rumah.",
-  "ig": "Username/URL Instagram (Hasil pencarian/deduksi jika dari maps kosong)",
-  "address": "Alamat Lengkap",
-  "city": "Kota",
-  "rating": "Rating Angka",
-  "website": "URL Website saat ini (atau N/A)",
-  "mapsUrl": "URL Google Maps",
-  "reviewsCount": "Jumlah Review",
-  "reason": "Alasan singkat (Wajib isi, misal: 'Ditemukan IG prediksi: @nama_ig')",
-  "prospectScore": "Skor 1-10. Formula: (rating/5 * 4) + (min(reviewsCount,100)/100 * 4) + (2 jika tidak ada website sama sekali). Bulatkan ke 1 desimal."
+  "name": "Nama Bisnis",
+  "category": "Kategori",
+  "wa": "Nomor WhatsApp Seluler (628xxx). Kosongkan jika telp rumah.",
+  "ig": "Username Instagram atau null",
+  "reason": "Alasan singkat",
+  "prospectScore": "Skor 1-10"
 }
 
 ### III. OUTPUT INSTRUCTION:
-- HANYA keluarkan format JSON object tunggal (bukan array).
-- ZERO YAPPING. No preamble, no explanation.
-- ⚠️ DECISION RULES (ABSOLUT — TIDAK BOLEH DILANGGAR):
-  • SKIP MUTLAK jika hasil akhir field "wa" KOSONG dan field "ig" KOSONG. (Kita tidak bisa memprospek mereka).
-  • SKIP MUTLAK jika sudah punya website profesional/custom.
-  • SKIP MUTLAK jika rating < 3.5.
-  • PROCEED jika: Memiliki setidaknya WA seluler ATAU IG, DAN tidak punya website profesional, DAN Rating >= 3.5.
-
-  • IG yang tidak bisa ditebak = set ig ke null. TIDAK MEMPENGARUHI keputusan PROCEED/SKIP.
-- Jika data tidak memenuhi kriteria di atas, set decision ke "SKIP".
+- ZERO YAPPING. HANYA JSON.
+- ⚠️ DECISION RULES:
+  • PROCEED jika: (Ada WA seluler ATAU Ada IG) DAN (Tidak punya website profesional) DAN (Rating >= 3.5).
+  • SKIP jika: (WA kosong DAN IG kosong) ATAU (Punya website profesional) ATAU (Rating < 3.5).
+  • CATATAN: Website "N/A" atau gratisan = PROCEED.
 
 PENTING: Gunakan DATA di bawah ini secara LITERAL. JANGAN mengarang nomor WA atau nama bisnis baru.
 

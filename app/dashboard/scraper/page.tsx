@@ -193,7 +193,7 @@ export default function ScraperPage() {
     const [results, setResults] = useState<any[]>([]);
     const [fetchingDistricts, setFetchingDistricts] = useState(false);
     const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
-    const [stats, setStats] = useState({ new: 0, aiRejected: 0, processed: 0 });
+    const [stats, setStats] = useState({ new: 0, aiRejected: 0, processed: 0, aiProcessed: 0, preFilterDropped: 0 });
     const [isDone, setIsDone] = useState(false);
     const [sessionStats, setSessionStats] = useState<any>(null);
     const [coords, setCoords] = useState<{lat: string, lng: string} | null>(null);
@@ -373,7 +373,7 @@ export default function ScraperPage() {
         setIsDone(false);
         setSessionStats(null);
         setCurrentRadius(null);
-        setStats({ new: 0, aiRejected: 0, processed: 0 });
+        setStats({ new: 0, aiRejected: 0, processed: 0, aiProcessed: 0, preFilterDropped: 0 });
 
         if (health && !health.browserReady) {
             toast.error(health.message);
@@ -649,19 +649,23 @@ export default function ScraperPage() {
                             <motion.div 
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="grid grid-cols-3 gap-4 pt-2 border-t border-emerald-500/10"
+                                className="grid grid-cols-4 gap-4 pt-2 border-t border-emerald-500/10"
                             >
                                 <div className="text-center">
-                                    <p className="text-[9px] font-black text-zinc-500 uppercase">Processed</p>
-                                    <p className="text-lg font-black text-emerald-400">{sessionStats.processed || 0}</p>
+                                    <p className="text-[9px] font-black text-zinc-500 uppercase">Extracted</p>
+                                    <p className="text-lg font-black text-white">{sessionStats.processed || 0}</p>
                                 </div>
-                                <div className="text-center border-l border-emerald-500/10">
-                                    <p className="text-[9px] font-black text-zinc-500 uppercase">New Leads</p>
-                                    <p className="text-lg font-black text-emerald-400">{sessionStats.new || 0}</p>
+                                <div className="text-center border-l border-white/10">
+                                    <p className="text-[9px] font-black text-zinc-500 uppercase">AI Analysed</p>
+                                    <p className="text-lg font-black text-accent-gold">{sessionStats.aiProcessed || 0}</p>
                                 </div>
-                                <div className="text-center border-l border-emerald-500/10">
+                                <div className="text-center border-l border-white/10">
                                     <p className="text-[9px] font-black text-zinc-500 uppercase">AI Rejected</p>
                                     <p className="text-lg font-black text-red-500">{sessionStats.aiRejected || 0}</p>
+                                </div>
+                                <div className="text-center border-l border-white/10">
+                                    <p className="text-[9px] font-black text-zinc-500 uppercase">New Leads</p>
+                                    <p className="text-lg font-black text-emerald-400">{sessionStats.new || 0}</p>
                                 </div>
                             </motion.div>
                         )}

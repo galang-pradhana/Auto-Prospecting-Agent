@@ -276,9 +276,10 @@ export async function runScraper(
             console.warn("[Scraper] Radius estimation failed, using fallback 4km.");
         }
 
-        let totalProcessed = 0;
-        let totalInserted = 0;
-        let aiRejectedCount = 0;
+        let totalProcessed = 0;   // Total dari Google Maps (Extracted)
+        let totalInserted = 0;    // Berhasil masuk DB (New Leads)
+        let aiRejectedCount = 0;  // Ditolak AI atau Fail-Safe
+        let aiProcessedCount = 0; // Data yang dikirim ke AI
 
         const flushBuffer = async () => { };
 
@@ -294,7 +295,13 @@ export async function runScraper(
             if (jobId) {
                 JobRegistry.updateJob(jobId, { 
                     message: `Processing leads: ${totalProcessed} scanned.`,
-                    data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }
+                    data: { 
+                        processed: totalProcessed, 
+                        aiProcessed: aiProcessedCount,
+                        new: totalInserted, 
+                        aiRejected: aiRejectedCount,
+                        preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount 
+                    }
                 });
             }
 
@@ -391,8 +398,9 @@ export async function runScraper(
 
             // 5. FILTER LAYER 4: AI ENRICHMENT (FINAL STEP)
             try {
+                aiProcessedCount++;
                 console.log(`[Scraper] Final Step: Analyzing ${leadName} via AI...`);
-                const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || 0;
+                const reviewCount = item.review_rating || item.total_score || item.rating || item.stars || 0;
                 const finalPrompt = LEAD_EVALUATION_PROMPT
                     .replace('[name]', leadName)
                     .replace('[category]', category)
@@ -402,7 +410,7 @@ export async function runScraper(
                     .replace('[rating]', finalRating.toString())
                     .replace('[wa]', rawPhone || 'tidak ada')
                     .replace('[website]', website || 'N/A')
-                    .replace('[reviewsCount]', reviewCount.toString())
+                    .replace('[reviewsCount]', String(item.review_count || 0))
                     .replace('[address]', fullAddress);
 
                 const aiResponse = await callKieAI(finalPrompt);
@@ -429,19 +437,19 @@ export async function runScraper(
                     const rawAiWa = result.wa || result.data?.wa || null;
                     const rawAiIg = result.ig || result.data?.ig || null;
                     
-                    const aiWa = rawAiWa ? sanitizeWaNumber(rawAiWa) : null;
+                    const aiWa = rawAiWa ? sanitizeWaNumber(String(rawAiWa)) : null;
                     const aiIg = rawAiIg && String(rawAiIg).trim().toLowerCase() !== 'null' && String(rawAiIg).trim() !== '' ? rawAiIg : null;
 
-                    // ⚠️ STRICT FAIL-SAFE: Jika setelah dibersihkan ternyata bukan nomor HP (aiWa null) DAN tidak ada IG
-                    if (!aiWa && !aiIg) {
-                        console.log(`[Scraper] STRICT FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found after AI.`);
-                        aiRejectedCount++;
-                        if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
-                        return; // Batalkan proses
-                    }
-                    
                     // Tentukan WA final (prioritaskan AI, jika gagal kembali ke WA awal yang mungkin sudah tersanitasi)
                     const finalWa = aiWa || sanitizedWa;
+
+                    // ⚠️ STRICT FAIL-SAFE: Jika setelah dibersihkan ternyata bukan nomor HP (finalWa null) DAN tidak ada IG
+                    if (!finalWa && !aiIg) {
+                        console.log(`[Scraper] STRICT FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found after AI.`);
+                        aiRejectedCount++;
+                        if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
+                        return; // Batalkan proses
+                    }
 
                     // CRITICAL: Re-check deduplication with final WA if it different from Maps WA
                     if (finalWa && finalWa !== sanitizedWa) {
@@ -484,16 +492,16 @@ export async function runScraper(
                     });
 
                     totalInserted++;
-                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
+                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 } else {
                     console.log(`[Scraper] AI Decision: SKIP for ${leadName} (${reason})`);
                     aiRejectedCount++;
-                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
+                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 }
             } catch (err) {
                 console.error(`[Scraper] AI Error for ${leadName}:`, err);
                 aiRejectedCount++;
-                if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
+                if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
             }
         };
 
@@ -511,15 +519,21 @@ export async function runScraper(
             JobRegistry.updateJob(jobId, {
                 status: 'COMPLETED',
                 progress: 100,
-                message: `Scraper finished. Valid Leads: ${totalInserted}.`,
-                data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }
+                message: `Scraper finished. Processed: ${totalProcessed}, AI Analysed: ${aiProcessedCount}, New: ${totalInserted}.`,
+                data: { 
+                    processed: totalProcessed, 
+                    aiProcessed: aiProcessedCount,
+                    new: totalInserted, 
+                    aiRejected: aiRejectedCount,
+                    preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount 
+                }
             });
         }
 
         return { 
             success: true, 
-            message: `Scraper finished. Processed: ${totalProcessed}, Valid Leads: ${totalInserted}.`,
-            stats: { new: totalInserted, aiRejected: aiRejectedCount, processed: totalProcessed }
+            message: `Scraper finished. Extracted: ${totalProcessed}, AI Analysed: ${aiProcessedCount}, Valid Leads: ${totalInserted}.`,
+            stats: { new: totalInserted, aiRejected: aiRejectedCount, processed: totalProcessed, aiProcessed: aiProcessedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }
         };
 
     } catch (err: any) {
