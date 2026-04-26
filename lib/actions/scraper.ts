@@ -388,57 +388,117 @@ export async function runScraper(
                 return;
             }
 
-            // Note: We removed the strict !sanitizedWa check here to allow leads without mobile number to still be saved.
+            // Note: We removed the strict !sanitizedWa check here to allow AI to discover IG or other contact methods.
             
-            // 5. DIRECT SAVE (AI BYPASS MODE - for diagnostics)
-            // ⚠️ AI filtering is temporarily disabled to diagnose 0-lead issue.
-            // All leads passing pre-filter + dedup will be saved directly.
+            // 5. FILTER LAYER 4: AI ENRICHMENT (FINAL STEP)
             try {
-                aiProcessedCount++; // Count as AI processed for metric consistency
+                aiProcessedCount++;
+                console.log(`[Scraper] Final Step: Analyzing ${leadName} via AI...`);
+                const finalPrompt = LEAD_EVALUATION_PROMPT
+                    .replace('[name]', leadName)
+                    .replace('[category]', category)
+                    .replace('[city]', city)
+                    .replace('[province]', province)
+                    .replace('[district]', district || 'ALL')
+                    .replace('[rating]', finalRating.toString())
+                    .replace('[wa]', rawPhone || 'tidak ada')
+                    .replace('[website]', website || 'N/A')
+                    .replace('[reviewsCount]', String(item.review_count || 0))
+                    .replace('[address]', fullAddress)
+                    .replace('[about]', aboutText);
+
+                const aiResponse = await callKieAI(finalPrompt);
+                const rawJson = cleanAIResponse(aiResponse);
+                let result: any;
                 
-                // Verbose first-item diagnostic
-                if (firstItemLogged) {
-                    // Log second item too for field comparison
-                    console.log(`[Scraper] 📥 DIRECT SAVE: ${leadName} | Phone: "${rawPhone}" | WA: ${sanitizedWa || 'NULL'} | Rating: ${finalRating} | Address: ${fullAddress.substring(0,50)}`);
+                try {
+                    const parsed = JSON.parse(rawJson);
+                    // Handle if AI returns an array or single object
+                    result = Array.isArray(parsed) ? parsed[0] : parsed;
+                } catch (e) {
+                    console.error("[Scraper] ❌ JSON PARSE ERROR for", leadName);
+                    console.error("[Scraper]    Raw response (first 300 chars):", rawJson.substring(0, 300));
+                    aiRejectedCount++;
+                    return;
                 }
 
-                const newLead = await prisma.lead.create({
-                    data: {
-                        name: leadName,
-                        wa: sanitizedWa,         // Will be null if only landline — that's OK (nullable field)
-                        ig: null,                // No AI to discover IG in bypass mode
-                        category,
-                        province,
-                        city,
-                        district: district || "",
-                        address: fullAddress,
-                        rating: finalRating,
-                        website,
-                        mapsUrl,
-                        userId,
-                        status: 'FRESH'
-                    }
-                });
+                const decision = String(result.decision || '').toUpperCase();
+                const reason = result.reason || 'No reason provided';
 
-                await prisma.activityLog.create({
-                    data: {
-                        prospectId: newLead.id,
-                        action: 'SCRAPE',
-                        description: 'Lead saved directly (AI Bypass Mode)',
-                        metadata: { source: "Go-Engine", phone: rawPhone, bypass: true }
-                    }
-                });
+                if (decision === 'PROCEED') {
+                    console.log(`[Scraper] AI Decision: PROCEED for ${leadName}`);
+                    
+                    // Ekstrak WA dan IG dari respon AI (mendukung jika AI menaruhnya di root atau di dalam objek 'data')
+                    const rawAiWa = result.wa || result.data?.wa || null;
+                    const rawAiIg = result.ig || result.data?.ig || null;
+                    
+                    const aiWa = rawAiWa ? sanitizeWaNumber(String(rawAiWa)) : null;
+                    const aiIg = rawAiIg && String(rawAiIg).trim().toLowerCase() !== 'null' && String(rawAiIg).trim() !== '' ? rawAiIg : null;
 
-                totalInserted++;
-                if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
-                
-            } catch (err: any) {
-                // P2002 = Unique constraint failed (duplicate)
-                if (err.code === 'P2002') {
-                    console.log(`[Scraper] Duplicate (P2002): ${leadName} - ${rawPhone}`);
+                    // Tentukan WA final (prioritaskan AI, jika gagal kembali ke WA awal yang mungkin sudah tersanitasi)
+                    // FAIL-SAFE: Coba juga pembersihan manual jika sanitizeWaNumber gagal tapi ada angka
+                    const fallbackWa = rawAiWa ? String(rawAiWa).replace(/\D/g, '') : null;
+                    const finalWa = aiWa || sanitizedWa || (fallbackWa && fallbackWa.length >= 10 ? fallbackWa : null);
+
+                    // ⚠️ FAIL-SAFE: Hanya tolak jika BENAR-BENAR tidak ada info kontak sama sekali
+                    if (!finalWa && !aiIg) {
+                        console.log(`[Scraper] FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found after AI.`);
+                        aiRejectedCount++;
+                        if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
+                        return; // Batalkan proses
+                    }
+
+                    // CRITICAL: Re-check deduplication with final WA if it different from Maps WA
+                    if (finalWa && finalWa !== sanitizedWa) {
+                        const duplicateCheck = await prisma.lead.findUnique({
+                            where: { wa: finalWa }
+                        });
+                        if (duplicateCheck) {
+                            console.log(`[Scraper] Skipping ${leadName}: AI discovered WA (${finalWa}) already exists in DB.`);
+                            return;
+                        }
+                    }
+
+                    const finalName = result.name || result.data?.name || leadName;
+
+                    const newLead = await prisma.lead.create({
+                        data: {
+                            name: finalName,
+                            wa: finalWa,
+                            ig: aiIg,
+                            category,
+                            province,
+                            city,
+                            district: district || "",
+                            address: fullAddress,
+                            rating: finalRating,
+                            website,
+                            mapsUrl,
+                            userId,
+                            status: 'FRESH'
+                        }
+                    });
+
+                    await prisma.activityLog.create({
+                        data: {
+                            prospectId: newLead.id,
+                            action: 'SCRAPE',
+                            description: 'Lead ingested from source (JSON Verified)',
+                            metadata: { source: "Go-Engine", aiReason: result.reason }
+                        }
+                    });
+
+                    totalInserted++;
+                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 } else {
-                    console.error(`[Scraper] DB Error for ${leadName}:`, err.message);
+                    console.log(`[Scraper] ⛔ AI SKIP: ${leadName}`);
+                    console.log(`[Scraper]    Reason: ${reason}`);
+                    console.log(`[Scraper]    WA sent: "${rawPhone || 'tidak ada'}", IG found: ${result.ig || 'null'}`);
+                    aiRejectedCount++;
+                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 }
+            } catch (err) {
+                console.error(`[Scraper] AI Error for ${leadName}:`, err);
                 aiRejectedCount++;
                 if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
             }
