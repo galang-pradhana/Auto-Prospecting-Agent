@@ -383,52 +383,30 @@ export const getUnsplashQuery = (category: string): string => {
 // LEAD_EVALUATION_PROMPT — Optimized with strict filtering
 // ============================================================
 export const LEAD_EVALUATION_PROMPT = `
-### ROLE: ELITE DATA SCRAPER & LEAD QUALIFIER (SYNAPSE LOGIC)
-Tugas Anda adalah membedah data bisnis dari Google Maps dan mencari "High-Potential Leads". Anda harus berpikir seperti pakar strategi digital.
+### ROLE: LEAD QUALIFIER
+Tugasmu adalah memvalidasi data bisnis dari Google Maps dan memutuskan apakah bisa dihubungi atau tidak.
 
-### I. KRITERIA EVALUASI:
-1. WEBSITE STATUS: 
-   - Bisnis TANPA website (N/A) adalah PRIORITAS TINGGI (Skor 8-10).
-   - Bisnis dengan website gratisan (business.site, linktree, blogspot, dsb) adalah PRIORITAS MEDIUM (Skor 6-8).
-   - Bisnis dengan website profesional (.com, .id, dsb) tetap di-PROCEED, namun berikan Skor Rendah (3-5) jika websitenya sudah terlihat sangat bagus dan modern. Jika websitenya terlihat usang/kuno, berikan skor lebih tinggi.
+### ATURAN KEPUTUSAN (MUTLAK - IKUTI PERSIS):
+- PROCEED jika ada MINIMAL SATU dari ini: (a) Nomor HP Seluler Indonesia awalan 08 atau 628, ATAU (b) Ada link/username Instagram.
+- SKIP jika: Nomor yang ada adalah telepon rumah/kantor (021, 022, 0361, dll) DAN tidak ada IG sama sekali.
+- JANGAN pernah SKIP hanya karena sudah punya website. Website ada atau tidak = tidak mempengaruhi keputusan.
+- Rating tidak mempengaruhi keputusan. Itu sudah difilter sebelumnya.
 
-2. RATING & REVIEWS: 
-   - Range Rating ideal: 3.5 - 5.0. 
-   - Rating rendah (< 3.0) biasanya menandakan bisnis yang bermasalah.
-
-3. CONTACT VALIDATION:
-   - WA wajib berupa NOMOR HP SELULER (Indonesia: awalan 08 atau 628). Jika [wa] yang diberikan adalah nomor HP, gunakan itu.
-   - Kosongkan field "wa" jika nomor yang diberikan adalah telepon rumah (awalan 021, 022, 0361, dsb).
-
-### II. DATA FIELDS (MANDATORY JSON):
+### OUTPUT FORMAT (JSON ONLY - NO TEXT):
 {
   "decision": "PROCEED" atau "SKIP",
-  "name": "Nama Bisnis",
-  "category": "Kategori",
-  "wa": "Nomor WhatsApp Seluler (628xxx). Kosongkan jika telp rumah.",
-  "ig": "Username Instagram atau null",
-  "reason": "Alasan singkat",
-  "prospectScore": "Skor 1-10 (1=Buruk, 10=Sangat Potensial)"
+  "wa": "nomor dalam format 628xxx, atau kosong jika telepon rumah",
+  "ig": "username instagram atau null",
+  "reason": "alasan singkat max 10 kata"
 }
 
-### III. OUTPUT INSTRUCTION:
-- ZERO YAPPING. HANYA JSON.
-- ⚠️ DECISION RULES:
-  • PROCEED jika: (Ada WA seluler ATAU Ada IG) DAN (Rating >= 3.0).
-  • SKIP jika: (WA kosong DAN IG kosong) ATAU (Rating < 3.0).
-  • PENTING: Jangan melakukan SKIP hanya karena sudah punya website profesional. Kita ingin data tersebut tetap masuk ke sistem dengan skor yang sesuai.
-
-PENTING: Gunakan DATA di bawah ini secara LITERAL. JANGAN mengarang nomor WA atau nama bisnis baru.
-
-### IV. DATA TO EVALUATE:
-- Nama Bisnis: [name]
-- Kategori Gmaps: [category]
-- Alamat: [address]
-- Lokasi: [city], [province] ([district])
-- Rating: [rating]
-- Nomor Telepon/WA: [wa]
+### DATA:
+- Nama: [name]
+- Nomor: [wa]
 - Website: [website]
-- Jumlah Review: [reviewsCount]
+- Instagram: (cek dari deskripsi bisnis jika ada)
+- Kategori: [category]
+- Kota: [city]
 `;
 
 // ============================================================

@@ -346,11 +346,6 @@ export async function runScraper(
                 console.log(`[Scraper] Skipping ${leadName}: Social proof too low (${reviewCount} reviews < 2)`);
                 return;
             }
-            if (!sanitizedWa) {
-                console.log(`[Scraper] Skipping ${leadName}: No valid phone/WhatsApp found.`);
-                return;
-            }
-
             // 3. FILTER LAYER 2: LOCATION (RADIUS GUARD)
             const refLat = lat ? parseFloat(lat) : 0;
             const refLng = lng ? parseFloat(lng) : 0;
@@ -391,16 +386,12 @@ export async function runScraper(
                 return;
             }
 
-            if (!sanitizedWa && website === 'N/A' && !mapsUrl) {
-                console.log(`[Scraper] Skipping ${leadName}: No contact potential.`);
-                return;
-            }
-
+            // Note: We removed the strict !sanitizedWa check here to allow AI to discover IG or other contact methods.
+            
             // 5. FILTER LAYER 4: AI ENRICHMENT (FINAL STEP)
             try {
                 aiProcessedCount++;
                 console.log(`[Scraper] Final Step: Analyzing ${leadName} via AI...`);
-                const reviewCount = item.review_rating || item.total_score || item.rating || item.stars || 0;
                 const finalPrompt = LEAD_EVALUATION_PROMPT
                     .replace('[name]', leadName)
                     .replace('[category]', category)
@@ -441,11 +432,13 @@ export async function runScraper(
                     const aiIg = rawAiIg && String(rawAiIg).trim().toLowerCase() !== 'null' && String(rawAiIg).trim() !== '' ? rawAiIg : null;
 
                     // Tentukan WA final (prioritaskan AI, jika gagal kembali ke WA awal yang mungkin sudah tersanitasi)
-                    const finalWa = aiWa || sanitizedWa;
+                    // FAIL-SAFE: Coba juga pembersihan manual jika sanitizeWaNumber gagal tapi ada angka
+                    const fallbackWa = rawAiWa ? String(rawAiWa).replace(/\D/g, '') : null;
+                    const finalWa = aiWa || sanitizedWa || (fallbackWa && fallbackWa.length >= 10 ? fallbackWa : null);
 
-                    // ⚠️ STRICT FAIL-SAFE: Jika setelah dibersihkan ternyata bukan nomor HP (finalWa null) DAN tidak ada IG
+                    // ⚠️ FAIL-SAFE: Hanya tolak jika BENAR-BENAR tidak ada info kontak sama sekali
                     if (!finalWa && !aiIg) {
-                        console.log(`[Scraper] STRICT FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found after AI.`);
+                        console.log(`[Scraper] FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found after AI.`);
                         aiRejectedCount++;
                         if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                         return; // Batalkan proses
