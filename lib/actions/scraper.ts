@@ -312,6 +312,8 @@ export async function runScraper(
             const website = item.website || item.Website || 'N/A';
             const mapsUrl = item.url || item.Url || null;
             const fullAddress = item.address || item.vicinity || item.Address || item.street || 'N/A';
+            // NEW: Extract business description/about text — may contain Instagram handles or social info
+            const aboutText = item.about || item.description || item.About || item.Description || 'N/A';
 
             // 1.1 PARSE RATING & COORDINATES
             // Extensive key check for different scraper versions
@@ -402,7 +404,8 @@ export async function runScraper(
                     .replace('[wa]', rawPhone || 'tidak ada')
                     .replace('[website]', website || 'N/A')
                     .replace('[reviewsCount]', String(item.review_count || 0))
-                    .replace('[address]', fullAddress);
+                    .replace('[address]', fullAddress)
+                    .replace('[about]', aboutText);
 
                 const aiResponse = await callKieAI(finalPrompt);
                 const rawJson = cleanAIResponse(aiResponse);
@@ -413,7 +416,8 @@ export async function runScraper(
                     // Handle if AI returns an array or single object
                     result = Array.isArray(parsed) ? parsed[0] : parsed;
                 } catch (e) {
-                    console.error("[Scraper] AI JSON Parse Error:", rawJson);
+                    console.error("[Scraper] ❌ JSON PARSE ERROR for", leadName);
+                    console.error("[Scraper]    Raw response (first 300 chars):", rawJson.substring(0, 300));
                     aiRejectedCount++;
                     return;
                 }
@@ -487,7 +491,9 @@ export async function runScraper(
                     totalInserted++;
                     if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 } else {
-                    console.log(`[Scraper] AI Decision: SKIP for ${leadName} (${reason})`);
+                    console.log(`[Scraper] ⛔ AI SKIP: ${leadName}`);
+                    console.log(`[Scraper]    Reason: ${reason}`);
+                    console.log(`[Scraper]    WA sent: "${rawPhone || 'tidak ada'}", IG found: ${result.ig || 'null'}`);
                     aiRejectedCount++;
                     if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 }

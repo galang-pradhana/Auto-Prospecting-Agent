@@ -383,30 +383,37 @@ export const getUnsplashQuery = (category: string): string => {
 // LEAD_EVALUATION_PROMPT — Optimized with strict filtering
 // ============================================================
 export const LEAD_EVALUATION_PROMPT = `
-### ROLE: LEAD QUALIFIER
-Tugasmu adalah memvalidasi data bisnis dari Google Maps dan memutuskan apakah bisa dihubungi atau tidak.
+### ROLE: LEAD CONTACT QUALIFIER
+Tugasmu adalah dua hal: (1) Tentukan apakah bisnis ini bisa dihubungi, dan (2) Temukan kontak terbaik mereka.
 
-### ATURAN KEPUTUSAN (MUTLAK - IKUTI PERSIS):
-- PROCEED jika ada MINIMAL SATU dari ini: (a) Nomor HP Seluler Indonesia awalan 08 atau 628, ATAU (b) Ada link/username Instagram.
-- SKIP jika: Nomor yang ada adalah telepon rumah/kantor (021, 022, 0361, dll) DAN tidak ada IG sama sekali.
-- JANGAN pernah SKIP hanya karena sudah punya website. Website ada atau tidak = tidak mempengaruhi keputusan.
-- Rating tidak mempengaruhi keputusan. Itu sudah difilter sebelumnya.
+### ATURAN KEPUTUSAN:
+- PROCEED jika: Nomor adalah HP seluler (awalan 08/628) DAN/ATAU kamu bisa menemukan/menebak username Instagram mereka.
+- SKIP HANYA jika: Tidak ada HP seluler DAN kamu YAKIN tidak ada IG (bisnis sangat kecil, nama generik, tidak ada identitas digital).
+- Nomor 0361-xxx, (0361), atau awalan kota lain = telepon kantor = BUKAN WA. Kosongkan field wa.
 
-### OUTPUT FORMAT (JSON ONLY - NO TEXT):
+### INSTAGRAM DISCOVERY (KRITIS):
+Jika bisnis adalah Wedding Organizer, Salon, Event Organizer, Catering, Florist, atau bisnis serupa:
+- Bisnis-bisnis ini HAMPIR PASTI punya Instagram. Tebak username dengan format:
+  [namabisnis], [namabisnis]bali, [namabisnis]id, [namabisnis]wedding, dll.
+- Contoh: "Bali Shanti Wedding" → coba "balishantiwedding" atau "bali.shanti.wedding"
+- Set ig jika confidence >= 60%. Lebih baik menebak daripada melewatkan lead.
+
+### OUTPUT FORMAT (JSON ONLY - NO TEXT LAIN):
 {
   "decision": "PROCEED" atau "SKIP",
-  "wa": "nomor dalam format 628xxx, atau kosong jika telepon rumah",
-  "ig": "username instagram atau null",
-  "reason": "alasan singkat max 10 kata"
+  "wa": "format 628xxx atau string kosong jika bukan HP",
+  "ig": "username_tanpa_@ atau null jika benar-benar tidak ada",
+  "reason": "alasan singkat"
 }
 
-### DATA:
+### DATA BISNIS:
 - Nama: [name]
+- Kategori: [category]
+- Alamat: [address]
+- Kota: [city], [province]
 - Nomor: [wa]
 - Website: [website]
-- Instagram: (cek dari deskripsi bisnis jika ada)
-- Kategori: [category]
-- Kota: [city]
+- Deskripsi Bisnis: [about]
 `;
 
 // ============================================================
