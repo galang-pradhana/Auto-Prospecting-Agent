@@ -40,7 +40,6 @@ export async function getKieCredit(): Promise<string> {
                 "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json"
             },
-            next: { revalidate: 60 },
             signal: AbortSignal.timeout(60000)
         });
 

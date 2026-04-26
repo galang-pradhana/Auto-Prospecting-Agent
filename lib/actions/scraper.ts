@@ -338,12 +338,12 @@ export async function runScraper(
             // Criteria: Rating >= 3.8, Review Count >= 5, Phone must exist
             const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || 0;
             
-            if (finalRating < 3.8) {
-                console.log(`[Scraper] Skipping ${leadName}: Rating too low (${finalRating} < 3.8)`);
+            if (finalRating < 3.5) {
+                console.log(`[Scraper] Skipping ${leadName}: Rating too low (${finalRating} < 3.5)`);
                 return;
             }
-            if (reviewCount < 5) {
-                console.log(`[Scraper] Skipping ${leadName}: Social proof too low (${reviewCount} reviews < 5)`);
+            if (reviewCount < 2) {
+                console.log(`[Scraper] Skipping ${leadName}: Social proof too low (${reviewCount} reviews < 2)`);
                 return;
             }
             if (!sanitizedWa) {
@@ -363,7 +363,7 @@ export async function runScraper(
                 const districtLower = district.toLowerCase();
                 const addressLower = fullAddress.toLowerCase();
                 const hasTextMatch = addressLower.includes(districtLower) || leadName.toLowerCase().includes(districtLower);
-                const limit = hasTextMatch ? 10.0 : 5.0;
+                const limit = hasTextMatch ? 15.0 : 10.0;
 
                 if (distance > limit) {
                     console.log(`[Scraper] Skipping ${leadName}: Outside District boundary (${distance.toFixed(2)}km > ${limit}km)`);

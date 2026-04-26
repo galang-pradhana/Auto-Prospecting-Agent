@@ -384,27 +384,21 @@ export const getUnsplashQuery = (category: string): string => {
 // ============================================================
 export const LEAD_EVALUATION_PROMPT = `
 ### ROLE: ELITE DATA SCRAPER & LEAD QUALIFIER (SYNAPSE LOGIC)
-Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ketat untuk mencari "High-Potential Leads". Anda harus berpikir seperti pakar strategi digital.
+Tugas Anda adalah membedah data bisnis dari Google Maps dan mencari "High-Potential Leads". Anda harus berpikir seperti pakar strategi digital.
 
-### I. KRITERIA FILTER (STRICT LOGIC):
-1. WEBSITE STATUS (PRIORITAS): 
-   - LOLOSKAN bisnis yang TIDAK punya website (N/A). Ini adalah target prioritas karena mereka butuh jasa digitalisasi.
-   - Loloskan jika website hanya: "business.site", "linktree", "instagram.com", "facebook.com", "blogspot.com", "wordpress.com", atau "taplink".
-   - SKIP MUTLAK jika sudah punya website dengan domain profesional/custom (contoh: .com, .co.id, .id, .net) yang terlihat sudah mapan.
+### I. KRITERIA EVALUASI:
+1. WEBSITE STATUS: 
+   - Bisnis TANPA website (N/A) adalah PRIORITAS TINGGI (Skor 8-10).
+   - Bisnis dengan website gratisan (business.site, linktree, blogspot, dsb) adalah PRIORITAS MEDIUM (Skor 6-8).
+   - Bisnis dengan website profesional (.com, .id, dsb) tetap di-PROCEED, namun berikan Skor Rendah (3-5) jika websitenya sudah terlihat sangat bagus dan modern. Jika websitenya terlihat usang/kuno, berikan skor lebih tinggi.
 
-2. RATING & REVIEWS (LOGIKA TRADER): 
-   - Range Rating: 3.5 - 5.0. 
-   - Justifikasi: Cari bisnis yang reputasinya bagus tapi infrastruktur digitalnya (web/sosmed) masih kurang.
+2. RATING & REVIEWS: 
+   - Range Rating ideal: 3.5 - 5.0. 
+   - Rating rendah (< 3.0) biasanya menandakan bisnis yang bermasalah.
 
-3. PHONE & WHATSAPP VALIDATION (STRICT MOBILE ONLY):
-   - Jika nomor adalah TELEPON RUMAH / KANTOR (contoh awalan: 021, 022, 0752, dsb), maka KOSONGKAN field "wa".
+3. CONTACT VALIDATION:
    - WA wajib berupa NOMOR HP SELULER (Indonesia: awalan 08 atau 628). Jika [wa] yang diberikan adalah nomor HP, gunakan itu.
-
-4. FOLLOW-UP ACCESS IG & WA DISCOVERY ENGINE:
-   - Jika GMaps tidak ada link IG: 
-     - Lakukan deduksi username berdasarkan nama bisnis.
-     - Hanya set "ig" jika Anda yakin > 70%. Jika ragu, set "ig" ke null.
-     - ⚠️ PENTING: Jangan menolak bisnis hanya karena IG tidak ditemukan. WA seluler sudah cukup untuk kualifikasi PROCEED.
+   - Kosongkan field "wa" jika nomor yang diberikan adalah telepon rumah (awalan 021, 022, 0361, dsb).
 
 ### II. DATA FIELDS (MANDATORY JSON):
 {
@@ -414,19 +408,19 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
   "wa": "Nomor WhatsApp Seluler (628xxx). Kosongkan jika telp rumah.",
   "ig": "Username Instagram atau null",
   "reason": "Alasan singkat",
-  "prospectScore": "Skor 1-10"
+  "prospectScore": "Skor 1-10 (1=Buruk, 10=Sangat Potensial)"
 }
 
 ### III. OUTPUT INSTRUCTION:
 - ZERO YAPPING. HANYA JSON.
 - ⚠️ DECISION RULES:
-  • PROCEED jika: (Ada WA seluler ATAU Ada IG) DAN (Tidak punya website profesional) DAN (Rating >= 3.5).
-  • SKIP jika: (WA kosong DAN IG kosong) ATAU (Punya website profesional) ATAU (Rating < 3.5).
-  • CATATAN: Website "N/A" atau gratisan = PROCEED.
+  • PROCEED jika: (Ada WA seluler ATAU Ada IG) DAN (Rating >= 3.0).
+  • SKIP jika: (WA kosong DAN IG kosong) ATAU (Rating < 3.0).
+  • PENTING: Jangan melakukan SKIP hanya karena sudah punya website profesional. Kita ingin data tersebut tetap masuk ke sistem dengan skor yang sesuai.
 
 PENTING: Gunakan DATA di bawah ini secara LITERAL. JANGAN mengarang nomor WA atau nama bisnis baru.
 
-### IV. DATA TO EVALUATE (DATA ASLI DARI GOOGLE MAPS — JANGAN DIABAIKAN):
+### IV. DATA TO EVALUATE:
 - Nama Bisnis: [name]
 - Kategori Gmaps: [category]
 - Alamat: [address]
@@ -435,8 +429,6 @@ PENTING: Gunakan DATA di bawah ini secara LITERAL. JANGAN mengarang nomor WA ata
 - Nomor Telepon/WA: [wa]
 - Website: [website]
 - Jumlah Review: [reviewsCount]
-
-PENTING: Gunakan DATA di atas secara LITERAL. JANGAN mengarang atau mengubah data. JANGAN mengganti nama bisnis dengan nama lain. Nama yang dioutput HARUS SAMA PERSIS dengan "Nama Bisnis" di atas (kecuali membersihkan karakter aneh/simbol berlebihan).
 `;
 
 // ============================================================
