@@ -92,57 +92,65 @@ def enrich_with_gemini_3_1_pro(business_name, reviews, category=""):
     return None
 
 def main():
-    print("[*] Engine Start: Memproses leads dengan Gemini 3.1 Pro (High Accuracy).")
+    print("[*] Engine Start: Memproses leads dengan Gemini 3.1 Pro (Batch Mode).")
+    input_file = "filtered_leads.json"
     output_file = "enriched_results.json"
     
-    if not os.path.exists("results.json"):
-        print("[!] results.json hilang! Scrape dulu sana.")
+    if not os.path.exists(input_file):
+        print(f"[!] {input_file} hilang! Jalankan pre_filter.py dulu.")
         return
 
-    with open("results.json", "r", encoding="utf-8") as f:
+    with open(input_file, "r", encoding="utf-8") as f:
         leads = json.load(f)
+
+    if not leads:
+        print("[!] Tidak ada leads untuk diproses.")
+        return
 
     if not os.path.exists(output_file):
         with open(output_file, "w", encoding="utf-8") as f: json.dump([], f)
 
-    # Target filtering if names provided via CLI
-    target_names = sys.argv[1:] if len(sys.argv) > 1 else None
-    
-    for i, lead in enumerate(leads):
-        # Skip if we have a specific target list and this lead isn't in it
-        if target_names and lead['name'] not in target_names:
-            continue
-            
-        with open(output_file, "r", encoding="utf-8") as f:
-            enriched_data = json.load(f)
-        
-        if any(item['name'] == lead['name'] for item in enriched_data):
-            print(f"[{i+1}/{len(leads)}] SKIP: '{lead['name']}' (Already in enriched_results.json)")
-            continue
+    # Group leads by category for efficiency
+    leads_by_category = {}
+    for lead in leads:
+        cat = lead.get('category', 'General')
+        if cat not in leads_by_category:
+            leads_by_category[cat] = []
+        leads_by_category[cat].append(lead)
 
-        print(f"[{i+1}/{len(leads)}] ENRICHING: '{lead['name']}' [{lead.get('category', 'N/A')}]...")
+    total_leads = len(leads)
+    processed_count = 0
+
+    for category, category_leads in leads_by_category.items():
+        print(f"\n[*] Processing Category: {category} ({len(category_leads)} leads)")
         
-        review_texts = [r.get('Description', '') if isinstance(r, dict) else str(r) for r in lead.get('reviews', []) if r]
-        result = enrich_with_gemini_3_1_pro(lead['name'], review_texts, lead.get('category', ''))
-        
-        if result:
-            combined = { **lead, "ai_branding": result, "isEnriched": True }
-            enriched_data.append(combined)
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(enriched_data, f, indent=4, ensure_ascii=False)
+        for lead in category_leads:
+            processed_count += 1
             
-            # Update results.json with enriched status
-            leads[i]["isEnriched"] = True
-            with open("results.json", "w", encoding="utf-8") as f:
-                json.dump(leads, f, indent=4, ensure_ascii=False)
+            # Since pre_filter.py already handled dedupe, we can proceed directly
+            print(f"[{processed_count}/{total_leads}] ENRICHING: '{lead['name']}'...")
+            
+            review_texts = [r.get('Description', '') if isinstance(r, dict) else str(r) for r in lead.get('reviews', []) if r]
+            result = enrich_with_gemini_3_1_pro(lead['name'], review_texts, category)
+            
+            if result:
+                # Load latest enriched data to append
+                with open(output_file, "r", encoding="utf-8") as f:
+                    enriched_data = json.load(f)
                 
-            print(f"   [+] Sukses: Branding {lead['name']} siap pakai.")
-        else:
-            print(f"   [-] Gagal memoles {lead['name']}.")
-        
-        time.sleep(1) # Flash itu kenceng, 1 detik cukup buat napas
+                combined = { **lead, "ai_branding": result, "isEnriched": True }
+                enriched_data.append(combined)
+                
+                with open(output_file, "w", encoding="utf-8") as f:
+                    json.dump(enriched_data, f, indent=4, ensure_ascii=False)
+                
+                print(f"   [+] Sukses: Branding {lead['name']} siap pakai.")
+            else:
+                print(f"   [-] Gagal memoles {lead['name']}.")
+            
+            time.sleep(1) # Flash itu kenceng, 1 detik cukup buat napas
 
-    print("\n[*] Phase 2 Selesai. Cek enriched_results.json.")
+    print("\n[*] Enrichment Selesai. Cek enriched_results.json.")
 
 if __name__ == "__main__":
-    main()
+    main()

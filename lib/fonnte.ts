@@ -21,7 +21,7 @@ function formatPhone(phone: string): string {
  * Sends an immediate message via Fonnte
  * Supports token rotation if an array of tokens is provided
  */
-export async function sendMessage(phone: string, message: string, delay?: number, tokens?: string[]): Promise<FonnteResponse> {
+export async function sendMessage(phone: string, message: string, delay?: number, tokens?: string[], inboxid?: string): Promise<FonnteResponse> {
   try {
     const formattedPhone = formatPhone(phone);
     let token = process.env.FONNTE_TOKEN;
@@ -45,6 +45,10 @@ export async function sendMessage(phone: string, message: string, delay?: number
     
     if (delay) {
       formData.append('delay', String(delay));
+    }
+
+    if (inboxid) {
+      formData.append('inboxid', inboxid);
     }
 
     const response = await fetch('https://api.fonnte.com/send', {

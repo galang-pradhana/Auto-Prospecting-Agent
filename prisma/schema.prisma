@@ -34,6 +34,7 @@ model Lead {
   category            String
   province            String        @default("")
   city                String        @default("")
+  district            String        @default("")
   address             String        @default("")
   rating              Float         @default(0)
   website             String        @default("N/A")

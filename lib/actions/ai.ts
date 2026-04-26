@@ -768,15 +768,16 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
         if (!lead) throw new Error("Lead not found");
 
         const personaDefinition = OUTREACH_PERSONAS[persona] || OUTREACH_PERSONAS['professional'];
-        const greetingTime = getGreetingTime();
 
-        // Pakai variabel yang sudah ada dari hasil Enrichment
+        // STEP 1: Generate bait FIRST — so we know which angle to continue from
+        const baitDraft = generateRandomBait(lead.name, lead.city || "", lead.category, lead.rating);
+
+        // STEP 2: Inject the bait into the prompt so AI writes Pesan 2 that flows naturally
         const finalPrompt = OUTREACH_GENERATOR_PROMPT
+            .replace('[bait_message]', baitDraft)
             .replace('[persona_definition]', personaDefinition)
-            .replace('[category]', lead.category)
-            .replace('{{name}}', lead.name)
-            .replace('[category]', lead.category)
-            .replace('[greeting_time]', `Selamat ${greetingTime}`)
+            .replace(/\[category\]/g, lead.category)
+            .replace(/{{name}}/g, lead.name)
             .replace('{{pain_points}}', lead.painPoints || 'Kurangnya identitas digital yang kuat')
             .replace('{{idea}}', lead.masterWebsitePrompt || 'Landing page premium')
             .replace('{{link}}', lead.status === 'LIVE'
@@ -790,10 +791,7 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
 
         if (!draft) throw new Error("AI failed to generate draft");
 
-        // Generate baitDraft instantly
-        const baitDraft = generateRandomBait(lead.name, lead.city || "");
-
-        // SIMPAN KE DB
+        // SIMPAN KEDUANYA KE DB
         await prisma.lead.update({
             where: { id: leadId },
             data: { 
@@ -804,7 +802,7 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
 
         revalidatePath('/leads');
         revalidatePath('/dashboard/leads');
-        return { success: true, draft };
+        return { success: true, draft, baitDraft };
     } catch (error: any) {
         console.error("[Outreach Error]:", error.message);
         return { success: false, message: error.message };

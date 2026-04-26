@@ -114,6 +114,9 @@ async function executeScraperProcess(
             "-json",   // Output in JSON format for parsing
             "-input", queryFilePath,
             "-results", "stdout", // Direct output to stream
+            "-email",             // Extract emails
+            "--extra-reviews",    // Get richer review data
+            "-depth", "5"         // Set depth to 5
         ];
 
         // --- Coordinate Injection ---
@@ -324,48 +327,46 @@ export async function runScraper(
                 }
             }
 
-            // 2. FILTER LAYER 1: RATING (3.5 - 5.0)
-            // Loloskan jika 0 (unknown) agar AI yang menilai, tapi skip jika beneran rendah (1-3.4)
-            if (finalRating !== 0 && (finalRating < 3.5 || finalRating > 5.0)) {
-                console.log(`[Scraper] Skipping ${leadName}: Rating criteria not met (${finalRating})`);
+            // 2. FILTER LAYER 1: STRICT PURE LOGIC (Save AI Credits)
+            // Criteria: Rating >= 3.8, Review Count >= 5, Phone must exist
+            const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || 0;
+            
+            if (finalRating < 3.8) {
+                console.log(`[Scraper] Skipping ${leadName}: Rating too low (${finalRating} < 3.8)`);
                 return;
             }
-            if (finalRating === 0) {
-                console.log(`[Scraper] Note: ${leadName} has no rating detected. (Known Keys: reviews=${item.review_count || 'N/A'}, keys=[${Object.keys(item).slice(0, 10).join(',')}...])`);
+            if (reviewCount < 5) {
+                console.log(`[Scraper] Skipping ${leadName}: Social proof too low (${reviewCount} reviews < 5)`);
+                return;
+            }
+            if (!sanitizedWa) {
+                console.log(`[Scraper] Skipping ${leadName}: No valid phone/WhatsApp found.`);
+                return;
             }
 
             // 3. FILTER LAYER 2: LOCATION (RADIUS GUARD)
             const refLat = lat ? parseFloat(lat) : 0;
             const refLng = lng ? parseFloat(lng) : 0;
             
-            // CRITICAL FIX: Hanya hitung jarak jika kita PUNYA koordinat pencarian (refLat/Lng != 0)
-            // Kalau refLat/Lng 0, berarti getCoordinates gagal, jangan skip lead karena jarak 10.000km ke 0,0
             const hasValidSearchCenter = refLat !== 0 && refLng !== 0;
             const hasValidItemCoords = itemLat !== 0 && itemLng !== 0;
-            // Gunakan null jika koordinat referensi atau item tidak valid agar bypass filter radius
             const distance = (hasValidSearchCenter && hasValidItemCoords) ? getDistance(refLat, refLng, itemLat, itemLng) : null;
 
             if (distance !== null && district) {
                 const districtLower = district.toLowerCase();
                 const addressLower = fullAddress.toLowerCase();
                 const hasTextMatch = addressLower.includes(districtLower) || leadName.toLowerCase().includes(districtLower);
-
-                // Surgical Radius for District (Max 5km, or 10km if text match found)
                 const limit = hasTextMatch ? 10.0 : 5.0;
 
                 if (distance > limit) {
                     console.log(`[Scraper] Skipping ${leadName}: Outside District boundary (${distance.toFixed(2)}km > ${limit}km)`);
                     return;
                 }
-                console.log(`[Scraper] Location Verified: ${leadName} at ${distance.toFixed(2)}km.`);
             } else if (distance !== null && !district) {
-                // City Level (Max 25km)
                 if (distance > 25.0) {
                     console.log(`[Scraper] Skipping ${leadName}: Outside City boundary (${distance.toFixed(2)}km)`);
                     return;
                 }
-            } else if (!hasValidSearchCenter) {
-                console.log(`[Scraper] Caution: Search center coordinates missing. Skipping Radius Guard for ${leadName}.`);
             }
 
             // 4. FILTER LAYER 3: DEDUPLICATION & CONTACT POTENTIAL
@@ -444,6 +445,7 @@ export async function runScraper(
                             category,
                             province,
                             city,
+                            district: district || "",
                             address: fullAddress,
                             rating: finalRating,
                             website,

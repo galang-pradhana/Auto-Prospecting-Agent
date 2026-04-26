@@ -108,28 +108,34 @@ export function processSpintax(text: string): string {
     });
 }
 
-export function generateRandomBait(leadName: string, leadCity: string): string {
+export function generateRandomBait(leadName: string, leadCity: string, leadCategory: string = "", leadRating: number = 0): string {
     const templates = [
-        "Halo, apa benar ini dengan [Nama Toko]? 🙏",
-        "Permisi, ini toko [Nama Toko] ya?",
-        "Halo kak, betul ini [Nama Toko]?",
-        "Halo, ini [Nama Toko] di [Kota] bukan ya?",
-        "Halo, ini tim [Nama Toko]?",
-        "Permisi, apa ini kontak resmi [Nama Toko]?",
-        "Halo kak! Ini [Nama Toko] yang di [Kota] ya?",
-        "Halo, ini bisa dihubungi untuk [Nama Toko]?",
-        "Halo, apa ini WA aktif [Nama Toko]?",
-        "Permisi, ini admin [Nama Toko]?"
+        "[1] — Social Proof + Pertanyaan\nHalo Pak/Bu [name] 👋\n\nKami lagi ngumpulin data bisnis [category] terbaik di [city] — dan \n[name] masuk list kami dengan [reviewRating]⭐ dari Google.\n\nBoleh kami tunjukin sesuatu yang mungkin menarik buat kalian? \nCuma butuh 1 menit kok 🙏",
+        "[2] — Curiosity Gap\nHalo [name] 👋\n\nIseng-iseng kami cek bisnis [category] di [city] — \ndan [name] lumayan stand out dibanding yang lain.\n\nAda satu hal kecil yang kalau dibenerin, bisa bikin makin banyak \norang nemuin [name] pas lagi nyari [category]. \n\nBoleh kami share? 😊",
+        "[3] — Pujian Spesifik + Hook\nHalo [name] 🙌\n\nRating [reviewRating]⭐ di Google itu bukan hal yang gampang — serius, \nkebanyakan bisnis [category] di [city] ada di bawah itu.\n\nKami punya ide buat bantu kalian konversi reputasi bagus itu jadi \nlebih banyak pelanggan. Boleh kami cerita sebentar? 🙏",
+        "[4] — Preview Gratis\nHalo Pak/Bu [name] 👋\n\nKami udah buatin sesuatu buat [name] — semacam konsep digital \nyang cocok sama reputasi kalian di Google.\n\nBoleh kami kirimkan? Gratis, dan kalian bebas mau dipakai atau tidak 😊",
+        "[5] — Data-driven\nHalo [name] 👋\n\nRating [reviewRating]⭐ kalian di Google itu bagus banget untuk \nukuran [category] di [city] — tapi sayang, rating sebagus itu \nbelum \"bekerja\" secara maksimal buat narik pelanggan baru.\n\nBoleh kami tunjukin kenapa? 🙏",
+        "[6] — Relevan & Personal\nHalo [name] 🙏\n\nKami spesialis bantu UMKM [category] di [city] tampil lebih profesional \nsecara online. Baru aja selesai projek dengan bisnis mirip kalian —\nhasilnya cukup memuaskan.\n\nBoleh kami cerita sedikit? Mungkin relevan buat [name] juga 😊",
+        "[7] — Empati Pemilik Bisnis\nHalo [name] 👋\n\nPunya bisnis [category] itu ga gampang — apalagi sambil mikirin \ngimana caranya terus dapet pelanggan baru.\n\nKami ada satu ide simpel yang mungkin bisa bantu [name]. \nBoleh kami cerita sebentar? 🙏"
     ];
     
     const randomIndex = Math.floor(Math.random() * templates.length);
-    const template = templates[randomIndex];
+    let template = templates[randomIndex];
     
+    // Remove the [N] — Title prefix if you want only the message, 
+    // but looking at the user prompt, they might want the title or just the message.
+    // Usually bait message shouldn't have the title. I will strip it.
+    template = template.replace(/^\[\d\] — .+\n/, "");
+
     const cityText = leadCity && leadCity.trim() !== '' ? leadCity : "sini";
     const nameText = leadName || "kakak";
+    const categoryText = leadCategory || "bisnis";
+    const ratingText = leadRating > 0 ? leadRating.toString() : "bagus";
     
     return processSpintax(template
-        .replace(/\[Nama Toko\]/g, nameText)
-        .replace(/\[Kota\]/g, cityText));
+        .replace(/\[name\]/g, nameText)
+        .replace(/\[city\]/g, cityText)
+        .replace(/\[category\]/g, categoryText)
+        .replace(/\[reviewRating\]/g, ratingText));
 }
 

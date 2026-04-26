@@ -8,41 +8,46 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
     try {
         const rawBody = await req.text();
-        console.log("\n[WEBHOOK RECEIVED] Raw Payload:", rawBody);
+        console.log("\n[WEBHOOK RECEIVED] Processing payload...");
 
         let body: any = {};
         try {
             body = JSON.parse(rawBody);
         } catch (e) {
-            // Fallback for form-encoded payloads
             const params = new URLSearchParams(rawBody);
             body = Object.fromEntries(params.entries());
         }
 
-        // 1. KRITIS: Abaikan pesan keluar (is_me = true atau sender == device)
-        // Ini mencegah loop atau pemicu Outreach saat kita sendiri yang mengirim Bait
-        if (body.is_me === true || body.is_me === 'true' || (body.sender && body.device && body.sender === body.device)) {
-            console.log(`[WEBHOOK] Ignored outgoing message from ${body.sender}`);
+        const sender = body.sender || body.from;
+        const device = body.device;
+        const message = body.message;
+        const inboxid = body.inboxid; // Field kritis untuk threaded reply
+
+        if (!sender) {
+            console.warn("[WEBHOOK] Ignored: No sender in payload.", body);
+            return NextResponse.json({ success: true, message: 'Ignored unknown payload' });
+        }
+
+        const cleanSender = sanitizeWaNumber(sender.toString());
+        const cleanDevice = device ? sanitizeWaNumber(device.toString()) : '';
+
+        // 1. KRITIS: Normalisasi is_me check
+        const isMe = body.is_me === true || body.is_me === 'true' || (cleanSender && cleanDevice && cleanSender === cleanDevice);
+        
+        if (isMe) {
+            console.log(`[WEBHOOK] Ignored outgoing message from ${cleanSender}`);
             return NextResponse.json({ success: true, message: 'Outgoing message ignored' });
         }
 
         // 2. Handle device status updates
-        if (body.status === 'connect' || body.status === 'disconnect' || (!body.sender && !body.from && body.device)) {
+        if (body.status === 'connect' || body.status === 'disconnect' || (!message && body.device)) {
             console.log(`[WEBHOOK] Ignored device status update: ${body.status}`);
             return NextResponse.json({ success: true, message: 'Device status ignored' });
         }
 
-        const sender = body.sender || body.from;
-        
-        if (!sender) {
-            console.error("[Fonnte Webhook] No sender found in body after parsing.", body);
-            return NextResponse.json({ success: true, message: 'Ignored unknown payload' });
-        }
+        console.log(`[WEBHOOK] Incoming message from ${cleanSender}: "${message}"`);
 
-
-        const cleanSender = sanitizeWaNumber(sender.toString());
-
-        // Cari lead dengan nomor WA ini
+        // Cari lead dengan nomor WA ini yang statusnya BAIT_SENT
         const leads = await prisma.lead.findMany({
             where: {
                 blastStatus: 'BAIT_SENT'
@@ -53,8 +58,6 @@ export async function POST(req: Request) {
         const lead = leads.find(l => {
             if (!l.wa) return false;
             const lClean = sanitizeWaNumber(l.wa);
-            // Check if one ends with the other to handle 08 vs 628
-            // We use substring(2) to drop the '62' or '08' prefix for matching the core number
             const core1 = lClean.length > 5 ? lClean.substring(lClean.length - 8) : lClean;
             const core2 = cleanSender.length > 5 ? cleanSender.substring(cleanSender.length - 8) : cleanSender;
             
@@ -63,12 +66,10 @@ export async function POST(req: Request) {
 
         if (!lead) {
             console.log(`[WEBHOOK] No matching lead found with blastStatus='BAIT_SENT' for number: ${cleanSender}`);
-            console.log(`[WEBHOOK] Leads checked:`, leads.map(l => ({ id: l.id, name: l.name, wa: l.wa })));
-            // Not a bait response we're tracking
             return NextResponse.json({ success: true, message: 'Ignored (No matching BAIT_SENT lead)' });
         }
 
-        console.log(`[WEBHOOK] Found matching lead: ${lead.name} (ID: ${lead.id})`);
+        console.log(`[WEBHOOK] MATCH! Lead: ${lead.name} (ID: ${lead.id}). Preparing outreach...`);
 
         // Fetch tokens for this user
         const user = await prisma.user.findUnique({
@@ -82,18 +83,21 @@ export async function POST(req: Request) {
         }
 
         if (lead.outreachDraft) {
-            // Send the outreach draft automatically
-            const response = await sendMessage(lead.wa, lead.outreachDraft, undefined, tokens);
+            // Send the outreach draft automatically as a reply (using inboxid)
+            console.log(`[WEBHOOK] Sending outreach to ${lead.wa} (Threaded: ${!!inboxid})`);
+            const response = await sendMessage(lead.wa, lead.outreachDraft, 0, tokens, inboxid);
             
             if (response.status) {
                 await prisma.lead.update({
                     where: { id: lead.id },
                     data: {
-                        blastStatus: 'REPLIED', // Marking as REPLIED to show the funnel worked
-                        lastLog: 'Outreach auto-sent via Webhook'
+                        blastStatus: 'REPLIED',
+                        lastLog: `Outreach auto-sent via Webhook (InboxID: ${inboxid || 'N/A'})`
                     }
                 });
+                console.log(`[WEBHOOK] Outreach SENT successfully to ${lead.name}`);
             } else {
+                console.error(`[WEBHOOK] Outreach FAILED for ${lead.name}:`, response);
                 await prisma.lead.update({
                     where: { id: lead.id },
                     data: {
@@ -101,6 +105,8 @@ export async function POST(req: Request) {
                     }
                 });
             }
+        } else {
+            console.warn(`[WEBHOOK] No outreachDraft found for lead ${lead.id}. Cannot auto-reply.`);
         }
 
         return NextResponse.json({ success: true, message: 'Webhook processed' });
