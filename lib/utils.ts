@@ -5,21 +5,33 @@
 
 export function isMobileNumber(phone: string): boolean {
     if (!phone || phone === 'N/A') return false;
-    const cleanPhone = phone.replace(/\s+/g, '').replace(/-/g, '');
-    const waRegex = /^(\+62|62|0)8[1-9][0-9]{7,11}$/;
-    return waRegex.test(cleanPhone);
+    // Buang spasi, strip, tanda kurung, dan plus
+    const cleanPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+    
+    // Harus diawali dengan 628 atau 08, panjang total antara 10 sampai 14 karakter (termasuk kode negara 62)
+    const mobileRegex = /^(628|08)[1-9][0-9]{6,11}$/;
+    return mobileRegex.test(cleanPhone);
 }
 
 export function isValidWhatsApp(phone: string): boolean {
     return isMobileNumber(phone);
 }
 
-export function sanitizeWaNumber(phone: string): string {
+export function sanitizeWaNumber(phone: string): string | null {
+    if (!phone) return null;
     let cleaned = phone.replace(/\D/g, ''); // Buang semua selain angka
+    
+    // Konversi awalan 0 menjadi 62
     if (cleaned.startsWith('0')) {
         cleaned = '62' + cleaned.substring(1);
     }
-    return cleaned;
+    
+    // Pastikan awalan sekarang adalah 628 (karena WA selalu butuh kode negara)
+    if (cleaned.startsWith('628') && cleaned.length >= 10 && cleaned.length <= 15) {
+        return cleaned;
+    }
+    
+    return null; // Return null jika bukan nomor mobile/seluler
 }
 
 export function isRecentLead(reviews: any[]): boolean {

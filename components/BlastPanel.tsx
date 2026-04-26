@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Activity, CheckCircle, XCircle, UserPlus, Sliders, ChevronDown } from "lucide-react";
+import { sendToMonitoring, markAsDeal, markAsFail } from "@/lib/actions/monitoring";
 
 export type BlastLead = {
   id: string;
   name: string;
   wa: string | null;
+  category: string;
   baitDraft?: string | null;
   outreachDraft: string | null;
   blastStatus: string | null;
@@ -34,6 +36,36 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
   const [isBlasting, setIsBlasting] = useState(false);
   const [localStatuses, setLocalStatuses] = useState<Record<string, any>>({});
   const [resettingId, setResettingId] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [crmPersona, setCrmPersona] = useState<string>("professional");
+
+  const handleMoveTo = async (id: string, action: "monitor" | "deal" | "fail") => {
+    setMovingId(id);
+    const leadName = leads.find(l => l.id === id)?.name || "Lead";
+    const t = toast.loading(`Memindahkan ${leadName}...`);
+    
+    try {
+      let res;
+      if (action === "monitor") {
+        res = await sendToMonitoring(id, crmPersona);
+      } else if (action === "deal") {
+        res = await markAsDeal(id);
+      } else {
+        res = await markAsFail(id);
+      }
+
+      if (res.success) {
+        toast.success(`${leadName} berhasil dipindahkan.`, { id: t });
+        if (onStatusUpdate) onStatusUpdate();
+      } else {
+        toast.error("Gagal memindahkan lead.", { id: t });
+      }
+    } catch (e) {
+      toast.error("Terjadi kesalahan.", { id: t });
+    } finally {
+      setMovingId(null);
+    }
+  };
 
   // Filter leads that are eligible for blasting (not sent or pending/scheduled AND ready)
   const eligibleLeads = leads.filter(
@@ -328,7 +360,52 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 items-center">
+                        {/* CRM Actions for processed leads */}
+                        {(currentStatus === "SENT" || currentStatus === "REPLIED" || currentStatus === "BAIT_SENT") && (
+                          <div className="flex items-center gap-1.5 p-1.5 bg-white/5 rounded-xl border border-white/10 mr-4 animate-in zoom-in-95 duration-300">
+                             <div className="relative group/persona">
+                                <select 
+                                  value={crmPersona}
+                                  onChange={(e) => setCrmPersona(e.target.value)}
+                                  className="bg-zinc-900 border border-white/10 rounded-lg pl-2 pr-6 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/60 outline-none focus:border-accent-gold/40 cursor-pointer appearance-none"
+                                >
+                                  <option value="professional">Professional</option>
+                                  <option value="casual">Casual</option>
+                                  <option value="expert">Expert</option>
+                                </select>
+                                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                             </div>
+
+                             <button
+                              onClick={() => handleMoveTo(lead.id, "monitor")}
+                              disabled={movingId === lead.id}
+                              className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-all"
+                              title="Pindahkan ke Monitoring"
+                             >
+                               {movingId === lead.id ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+                             </button>
+
+                             <button
+                              onClick={() => handleMoveTo(lead.id, "deal")}
+                              disabled={movingId === lead.id}
+                              className="p-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 rounded-lg transition-all"
+                              title="Pindahkan ke Deal"
+                             >
+                               <CheckCircle size={14} />
+                             </button>
+
+                             <button
+                              onClick={() => handleMoveTo(lead.id, "fail")}
+                              disabled={movingId === lead.id}
+                              className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all"
+                              title="Pindahkan ke Fail"
+                             >
+                               <XCircle size={14} />
+                             </button>
+                          </div>
+                        )}
+
                         {currentStatus && (
                           <button
                             onClick={() => handleResetStatus(lead.id, lead.name)}

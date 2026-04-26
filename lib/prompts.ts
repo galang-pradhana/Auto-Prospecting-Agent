@@ -389,14 +389,19 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
 ### I. KRITERIA FILTER (STRICT LOGIC):
 1. WEBSITE STATUS (PRIORITAS): 
    - Loloskan bisnis yang TIDAK punya website.
-   - Loloskan jika website hanya: "business.site", "linktree", "instagram.com", "facebook.com", atau "taplink".
-   - SKIP jika sudah punya website custom yang profesional.
+   - Loloskan jika website hanya: "business.site", "linktree", "instagram.com", "facebook.com", "blogspot.com", "wordpress.com", atau "taplink".
+   - SKIP MUTLAK jika sudah punya website dengan domain profesional/custom (contoh: .com, .co.id, .id, .net) yang mengindikasikan mereka sudah punya agensi IT/budget besar.
 
 2. RATING & REVIEWS (LOGIKA TRADER): 
    - Range Rating: 3.5 - 5.0. 
    - Justifikasi: Rating 5.0 adalah PRIORITAS TINGGI jika tidak punya website (High-value business). Rating < 3.0 (Kualitas bisnis buruk/Toxic). Kita cari yang potensial tapi butuh perbaikan branding.
 
-3. FOLLOW-UP ACCESS IG & WA DISCOVERY ENGINE (NEW - SUPER STRICT):
+3. PHONE & WHATSAPP VALIDATION (STRICT MOBILE ONLY):
+   - Evaluasi nomor telepon yang diberikan.
+   - Jika nomor adalah TELEPON RUMAH / KANTOR (contoh awalan: 021, 022, 031, dsb, atau kurang dari 10 angka), maka JANGAN MASUKKAN ke field "wa". Set field "wa" menjadi null atau string kosong.
+   - WA hanya boleh diisi jika berupa NOMOR HP SELULER (Indonesia: awalan 08 atau 628). Cari dengan teliti di bagian deskripsi jika ada.
+
+4. FOLLOW-UP ACCESS IG & WA DISCOVERY ENGINE (NEW - SUPER STRICT):
    - Jika GMaps sudah ada link IG atau WA → pakai langsung.
    - Jika kosong:
      • Lakukan NORMALISASI NAMA BISNIS:
@@ -421,15 +426,13 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
        - -30 jika nama terlalu pendek (<4 char) atau terlalu generik
        - Hanya boleh set "ig" jika confidence ≥ 70%.
      • ⚠️ ATURAN KRITIS: Jika confidence < 70% → set ig = null (kosongkan saja).
-       JANGAN ubah decision menjadi SKIP hanya karena IG tidak bisa ditebak.
-       Keputusan PROCEED vs SKIP HANYA ditentukan oleh: Website, Rating, dan ketersediaan WA.
 
 ### II. DATA FIELDS (MANDATORY JSON):
 {
   "decision": "PROCEED" atau "SKIP",
   "name": "Nama Bisnis (Bersihkan karakter aneh)",
   "category": "Kategori Spesifik",
-  "wa": "Nomor WhatsApp (Sanitized, format 62xxx)",
+  "wa": "Nomor WhatsApp Seluler Saja (Sanitized, format 628xxx). Kosongkan jika telp rumah.",
   "ig": "Username/URL Instagram (Hasil pencarian/deduksi jika dari maps kosong)",
   "address": "Alamat Lengkap",
   "city": "Kota",
@@ -445,9 +448,11 @@ Tugas Anda adalah membedah data bisnis dari Google Maps dan melakukan filter ket
 - HANYA keluarkan format JSON object tunggal (bukan array).
 - ZERO YAPPING. No preamble, no explanation.
 - ⚠️ DECISION RULES (ABSOLUT — TIDAK BOLEH DILANGGAR):
-  • PROCEED jika: Rating 3.5–5.0 AND tidak punya website profesional. WA boleh kosong.
-  • PROCEED jika: Rating 5.0 (WAJIB LOLOS apapun kondisinya, kecuali website profesional sudah ada).
-  • SKIP hanya jika: (A) sudah punya website custom/profesional, ATAU (B) rating < 3.5.
+  • SKIP MUTLAK jika hasil akhir field "wa" KOSONG dan field "ig" KOSONG. (Kita tidak bisa memprospek mereka).
+  • SKIP MUTLAK jika sudah punya website profesional/custom.
+  • SKIP MUTLAK jika rating < 3.5.
+  • PROCEED jika: Memiliki setidaknya WA seluler ATAU IG, DAN tidak punya website profesional, DAN Rating >= 3.5.
+
   • IG yang tidak bisa ditebak = set ig ke null. TIDAK MEMPENGARUHI keputusan PROCEED/SKIP.
 - Jika data tidak memenuhi kriteria di atas, set decision ke "SKIP".
 
@@ -1164,3 +1169,40 @@ export function getGreetingTime(): string {
   if (hour >= 15 && hour < 19) return 'sore';
   return 'malam';
 }
+
+export const FOLLOWUP_GENERATOR_PROMPT = `
+Kamu adalah seorang pebisnis lokal yang sedang melakukan follow-up ke prospek UMKM di Indonesia melalui WhatsApp.
+Tujuannya adalah untuk mengecek kembali apakah mereka sudah melihat draf website yang kamu kirimkan sebelumnya, tanpa memberikan tekanan yang berlebihan (low pressure).
+
+### DATA BISNIS LEAD:
+- Nama: {{name}}
+- Kategori: [category]
+- Tahap Follow-Up: FU ke-{{followup_number}}
+- Persona: [persona_definition]
+- Link Preview Website: {{link}}
+- Identitasku:
+    - Nama Bisnis: {{my_business_name}}
+    - IG: {{my_ig}}
+    - WA: {{my_wa}}
+
+### INSTRUKSI PENULISAN:
+
+Tulis pesan follow-up yang singkat, padat, dan sangat manusiawi (tidak seperti template kaku).
+
+- **FU ke-1 (Hari 4)**: Cek apakah pesan sebelumnya sudah terbaca. Tanyakan pendapat singkat mereka tentang konsep visual yang dikirim.
+- **FU ke-2 (Hari 7)**: Sebutkan bahwa kamu sedang merapikan jadwal project minggu depan, dan ingin tahu apakah ada bagian dari website yang ingin diubah/ditambahkan. Fokus pada "Helping", bukan "Selling".
+- **FU ke-3 (Hari 15)**: Pesan terakhir (Break-up). Katakan bahwa kamu akan memindahkan draf mereka ke folder arsip karena mungkin mereka belum butuh sekarang. Berikan pintu terbuka jika suatu saat mereka berubah pikiran.
+
+### ATURAN KETAT:
+- Jangan gunakan "Halo" atau perkenalan diri lagi jika ini bukan pesan pertama.
+- Jangan gunakan tanda bintang, underscore, atau simbol markdown yang berlebihan.
+- Emoji boleh HANYA jika persona Casual, maksimal 1.
+- Bahasa Indonesia natural sesuai persona — bukan bahasa iklan.
+- Output: Teks pesan WhatsApp saja. Tanpa label, tanpa penjelasan, tanpa intro.
+
+Sertakan identitas di akhir:
+{{my_business_name}}
+WA: {{my_wa}}
+IG: {{my_ig}}
+`;
+

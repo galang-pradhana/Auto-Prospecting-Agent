@@ -111,25 +111,46 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
         setIsGeneratingOutreach(true);
         setGenerateProgress({ done: 0, total: selectedLeadIds.length });
 
-        for (let i = 0; i < selectedLeadIds.length; i++) {
-            const id = selectedLeadIds[i];
-            try {
-                const res = await fetch('/api/outreach/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ leadId: id, persona: outreachPersona })
-                });
-                if (!res.ok) throw new Error(`Failed for lead ${id}`);
-            } catch (e) {
-                console.error(e);
-            }
-            setGenerateProgress({ done: i + 1, total: selectedLeadIds.length });
-        }
+        try {
+            const res = await fetch('/api/outreach/batch-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadIds: selectedLeadIds, persona: outreachPersona })
+            });
+            const data = await res.json();
+            
+            if (!res.ok) throw new Error(data.error || 'Failed to start batch generation');
 
-        setIsGeneratingOutreach(false);
-        setSelectedLeadIds([]);
-        setRefreshKey(prev => prev + 1); // Refresh data to show drafts
-        alert('Outreach drafts generated successfully!');
+            // Polling status (optional but good for UX)
+            const checkStatus = setInterval(async () => {
+                const sRes = await fetch(`/api/blast/status?jobId=${data.jobId}`);
+                if (sRes.ok) {
+                    const sData = await sRes.json();
+                    if (sData.status === 'COMPLETED' || sData.status === 'FAILED') {
+                        clearInterval(checkStatus);
+                        setIsGeneratingOutreach(false);
+                        setSelectedLeadIds([]);
+                        setRefreshKey(prev => prev + 1);
+                        if (sData.status === 'COMPLETED') {
+                            alert('Batch outreach generation finished in background!');
+                        } else {
+                            alert('Batch generation failed: ' + sData.message);
+                        }
+                    } else if (sData.progress !== undefined) {
+                        setGenerateProgress({ 
+                            done: Math.round((sData.progress / 100) * selectedLeadIds.length), 
+                            total: selectedLeadIds.length 
+                        });
+                    }
+                }
+            }, 3000);
+
+            alert('Batch processing started in background. You can continue working.');
+        } catch (e: any) {
+            console.error(e);
+            alert('Error: ' + e.message);
+            setIsGeneratingOutreach(false);
+        }
     };
 
     const handleSendToMonitoring = async (lead: LiveLead) => {

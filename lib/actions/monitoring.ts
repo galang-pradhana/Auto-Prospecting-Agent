@@ -5,24 +5,32 @@ import { getSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
 // ─── Move lead to monitoring (mark WA sent) ───────────────────────────────────
-export async function sendToMonitoring(leadId: string, notes?: string) {
+export async function sendToMonitoring(leadId: string, persona: string = 'professional', notes?: string) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
 
     const now = new Date();
     const nextFollowup = new Date(now);
-    nextFollowup.setDate(nextFollowup.getDate() + 7); // FU #1 in 7 days
+    nextFollowup.setDate(nextFollowup.getDate() + 3); // H-1 of Day 4 = Day 3
 
     await prisma.lead.update({
         where: { id: leadId },
         data: {
-            followupStage: 'sent',
+            followupStage: 'monitoring_1',
             followupCount: 1,
             lastContactAt: now,
             nextFollowupAt: nextFollowup,
             ...(notes ? { prospectNotes: notes } : {}),
         },
     });
+
+    // Generate first FU draft in background
+    try {
+        const { generateFollowUpDraft } = await import('./ai');
+        await generateFollowUpDraft(leadId, 1, persona);
+    } catch (e) {
+        console.error("Failed to generate initial FU draft:", e);
+    }
 
     revalidatePath('/dashboard/live');
     revalidatePath('/dashboard/monitoring');
@@ -38,27 +46,17 @@ export async function getMonitoringLeads() {
         where: {
             userId: session.userId,
             status: 'LIVE',
-            nextFollowupAt: { not: null }, // Only leads explicitly sent to monitoring
+            // We include monitoring stages, deal, and fail
+            followupStage: { in: ['monitoring_1', 'monitoring_2', 'monitoring_3', 'closed_won', 'closed_lost', 'sent', 'clicked', 'qualified'] }
         },
-        select: {
-            id: true,
-            name: true,
-            category: true,
-            city: true,
-            wa: true,
-            rating: true,
-            slug: true,
-            followupStage: true,
-            followupCount: true,
-            lastContactAt: true,
-            nextFollowupAt: true,
-            linkClickedAt: true,
-            qualifiedAt: true,
-            totalTimeOnPage: true,
-            prospectNotes: true,
-            updatedAt: true,
+        include: {
+            followupQueue: {
+                where: { status: 'pending' },
+                take: 1,
+                orderBy: { followupNumber: 'desc' }
+            }
         },
-        orderBy: { lastContactAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
     });
 }
 
@@ -79,14 +77,15 @@ export async function getMonitoringStats() {
     const yesterdayEnd = new Date(todayStart);
 
     const [
-        total, clicked, qualified, dueToday, closedLost,
+        total, clicked, qualified, dueToday, closedLost, closedWon,
         sentToday, sentYesterday, totalBlasted
     ] = await Promise.all([
-        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', nextFollowupAt: { not: null } } }),
+        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: { in: ['monitoring_1', 'monitoring_2', 'monitoring_3'] } } }),
         prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'clicked' } }),
         prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'qualified' } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', nextFollowupAt: { lte: now, not: null }, followupStage: { not: 'closed_lost' } } }),
+        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', nextFollowupAt: { lte: now, not: null }, followupStage: { startsWith: 'monitoring_' } } }),
         prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'closed_lost' } }),
+        prisma.lead.count({ where: { userId: session.userId, status: 'LIVE', followupStage: 'closed_won' } }),
         
         // NEW: Sent today
         prisma.lead.count({ where: { userId: session.userId, lastContactAt: { gte: todayStart } } }),
@@ -98,7 +97,7 @@ export async function getMonitoringStats() {
         prisma.lead.count({ where: { userId: session.userId, blastSentAt: { not: null } } }),
     ]);
 
-    return { total, clicked, qualified, dueToday, closedLost, sentToday, sentYesterday, totalBlasted };
+    return { total, clicked, qualified, dueToday, closedLost, closedWon, sentToday, sentYesterday, totalBlasted };
 }
 
 // ─── Update prospect notes ────────────────────────────────────────────────────
@@ -115,8 +114,42 @@ export async function updateProspectNotes(leadId: string, notes: string) {
     return { success: true };
 }
 
+// ─── Mark as Deal ─────────────────────────────────────────────────────────────
+export async function markAsDeal(leadId: string) {
+    const session = await getSession();
+    if (!session) return { success: false };
+
+    await prisma.lead.update({
+        where: { id: leadId },
+        data: {
+            followupStage: 'closed_won',
+            nextFollowupAt: null,
+        }
+    });
+
+    revalidatePath('/dashboard/monitoring');
+    return { success: true };
+}
+
+// ─── Mark as Fail ─────────────────────────────────────────────────────────────
+export async function markAsFail(leadId: string) {
+    const session = await getSession();
+    if (!session) return { success: false };
+
+    await prisma.lead.update({
+        where: { id: leadId },
+        data: {
+            followupStage: 'closed_lost',
+            nextFollowupAt: null,
+        }
+    });
+
+    revalidatePath('/dashboard/monitoring');
+    return { success: true };
+}
+
 // ─── Mark follow-up as done (manual) ─────────────────────────────────────────
-export async function markFollowupDone(leadId: string) {
+export async function markFollowupDone(leadId: string, persona: string = 'professional') {
     const session = await getSession();
     if (!session) return { success: false };
 
@@ -124,24 +157,53 @@ export async function markFollowupDone(leadId: string) {
     if (!lead) return { success: false };
 
     const now = new Date();
-    const nextCount = (lead.followupCount || 1) + 1;
-    const FOLLOWUP_GAPS = [7, 14, 21, 7]; // days between each FU
-    const daysUntilNext = FOLLOWUP_GAPS[Math.min(nextCount - 1, FOLLOWUP_GAPS.length - 1)];
-    const nextFollowup = new Date(now);
-    nextFollowup.setDate(nextFollowup.getDate() + daysUntilNext);
+    const currentCount = lead.followupCount || 1;
+    const nextCount = currentCount + 1;
+    
+    // Update current draft in queue to sent
+    await prisma.followupQueue.updateMany({
+        where: { prospectId: leadId, followupNumber: currentCount, status: 'pending' },
+        data: { status: 'sent', sentAt: now }
+    });
 
-    const isLastFollowup = nextCount > 4;
+    let nextFollowup: Date | null = new Date(now);
+    let nextStage = `monitoring_${nextCount}`;
+    let isFinished = false;
+
+    if (currentCount === 1) {
+        // From Day 3 to Day 6 (H-1 of Day 7) -> gap 3 days
+        nextFollowup.setDate(nextFollowup.getDate() + 3);
+    } else if (currentCount === 2) {
+        // From Day 6 to Day 14 (H-1 of Day 15) -> gap 8 days
+        nextFollowup.setDate(nextFollowup.getDate() + 8);
+    } else {
+        // After FU 3, move to Fail
+        nextFollowup = null;
+        nextStage = 'closed_lost';
+        isFinished = true;
+    }
 
     await prisma.lead.update({
         where: { id: leadId },
         data: {
             followupCount: nextCount,
             lastContactAt: now,
-            nextFollowupAt: isLastFollowup ? null : nextFollowup,
-            followupStage: isLastFollowup ? 'closed_lost' : lead.followupStage,
+            nextFollowupAt: nextFollowup,
+            followupStage: nextStage,
         },
     });
 
+    // Generate next FU draft if not finished
+    if (!isFinished) {
+        try {
+            const { generateFollowUpDraft } = await import('./ai');
+            await generateFollowUpDraft(leadId, nextCount, persona);
+        } catch (e) {
+            console.error(`Failed to generate FU ${nextCount} draft:`, e);
+        }
+    }
+
     revalidatePath('/dashboard/monitoring');
-    return { success: true, isLastFollowup };
+    return { success: true, isFinished };
 }
+

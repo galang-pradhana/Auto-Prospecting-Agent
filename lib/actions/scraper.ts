@@ -425,23 +425,42 @@ export async function runScraper(
                 if (decision === 'PROCEED') {
                     console.log(`[Scraper] AI Decision: PROCEED for ${leadName}`);
                     
-                    // CRITICAL: Re-check deduplication with AI discovered WA if it different from Maps WA
-                    const aiWa = result.data?.wa ? sanitizeWaNumber(result.data.wa) : null;
-                    if (aiWa && aiWa !== sanitizedWa) {
+                    // Ekstrak WA dan IG dari respon AI (mendukung jika AI menaruhnya di root atau di dalam objek 'data')
+                    const rawAiWa = result.wa || result.data?.wa || null;
+                    const rawAiIg = result.ig || result.data?.ig || null;
+                    
+                    const aiWa = rawAiWa ? sanitizeWaNumber(rawAiWa) : null;
+                    const aiIg = rawAiIg && String(rawAiIg).trim().toLowerCase() !== 'null' && String(rawAiIg).trim() !== '' ? rawAiIg : null;
+
+                    // ⚠️ STRICT FAIL-SAFE: Jika setelah dibersihkan ternyata bukan nomor HP (aiWa null) DAN tidak ada IG
+                    if (!aiWa && !aiIg) {
+                        console.log(`[Scraper] STRICT FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found after AI.`);
+                        aiRejectedCount++;
+                        if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, new: totalInserted, aiRejected: aiRejectedCount }});
+                        return; // Batalkan proses
+                    }
+                    
+                    // Tentukan WA final (prioritaskan AI, jika gagal kembali ke WA awal yang mungkin sudah tersanitasi)
+                    const finalWa = aiWa || sanitizedWa;
+
+                    // CRITICAL: Re-check deduplication with final WA if it different from Maps WA
+                    if (finalWa && finalWa !== sanitizedWa) {
                         const duplicateCheck = await prisma.lead.findUnique({
-                            where: { wa: aiWa }
+                            where: { wa: finalWa }
                         });
                         if (duplicateCheck) {
-                            console.log(`[Scraper] Skipping ${leadName}: AI discovered WA (${aiWa}) already exists in DB.`);
+                            console.log(`[Scraper] Skipping ${leadName}: AI discovered WA (${finalWa}) already exists in DB.`);
                             return;
                         }
                     }
 
+                    const finalName = result.name || result.data?.name || leadName;
+
                     const newLead = await prisma.lead.create({
                         data: {
-                            name: result.data?.name || leadName,
-                            wa: result.data?.wa ? (sanitizeWaNumber(result.data.wa) || null) : sanitizedWa,
-                            ig: result.data?.ig || null,
+                            name: finalName,
+                            wa: finalWa,
+                            ig: aiIg,
                             category,
                             province,
                             city,

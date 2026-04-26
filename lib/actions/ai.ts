@@ -17,6 +17,7 @@ import {
     ENRICHMENT_PROMPT,
     MASTER_PRO_BLUEPRINT_PROMPT,
     OUTREACH_GENERATOR_PROMPT,
+    FOLLOWUP_GENERATOR_PROMPT,
     OUTREACH_PERSONAS,
     buildForgeData,
     getGreetingTime,
@@ -805,6 +806,68 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
         return { success: true, draft, baitDraft };
     } catch (error: any) {
         console.error("[Outreach Error]:", error.message);
+        return { success: false, message: error.message };
+    }
+}
+
+export async function generateFollowUpDraft(leadId: string, followupNumber: number, persona: string = 'professional') {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, message: 'Unauthorized' };
+
+    try {
+        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) throw new Error("Lead not found");
+
+        const personaDefinition = OUTREACH_PERSONAS[persona] || OUTREACH_PERSONAS['professional'];
+        
+        const link = lead.status === 'LIVE'
+            ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/${lead.slug || lead.id}`
+            : `${process.env.NEXT_PUBLIC_APP_URL || 'https://auto-forge.pro'}/preview/${lead.slug || lead.id}`;
+
+        const finalPrompt = FOLLOWUP_GENERATOR_PROMPT
+            .replace(/\[category\]/g, lead.category)
+            .replace('{{followup_number}}', followupNumber.toString())
+            .replace('[persona_definition]', personaDefinition)
+            .replace(/{{name}}/g, lead.name)
+            .replace('{{link}}', link)
+            .replace('{{my_business_name}}', user.businessName || '[Nama Bisnis Kamu]')
+            .replace('{{my_ig}}', user.businessIg || '[IG Kamu]')
+            .replace('{{my_wa}}', user.businessWa || '[WA Kamu]');
+
+        const draft = await callKieAI(finalPrompt);
+
+        if (!draft) throw new Error("AI failed to generate follow-up draft");
+
+        // Prepare WA Link
+        const { generateWaLink } = await import('./settings');
+        const waLink = await generateWaLink(lead.wa, draft);
+
+        // SAVE to FollowupQueue
+        await prisma.followupQueue.upsert({
+            where: {
+                prospectId_followupNumber: {
+                    prospectId: leadId,
+                    followupNumber: followupNumber
+                }
+            },
+            create: {
+                prospectId: leadId,
+                followupNumber: followupNumber,
+                messageText: draft,
+                waLink: waLink,
+                status: 'pending'
+            },
+            update: {
+                messageText: draft,
+                waLink: waLink,
+                status: 'pending',
+                updatedAt: new Date()
+            }
+        });
+
+        return { success: true, draft, waLink };
+    } catch (error: any) {
+        console.error("[Follow-Up Error]:", error.message);
         return { success: false, message: error.message };
     }
 }
