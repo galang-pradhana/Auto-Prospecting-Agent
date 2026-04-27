@@ -136,40 +136,26 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
         body: JSON.stringify({ leadIds: selectedLeadIds }),
       });
       const data = await res.json();
-        
-        } else {
-          // Immediately set all selected leads to PENDING locally
-          const newStatuses: Record<string, any> = {};
-          selectedLeadIds.forEach(id => {
-             newStatuses[id] = { status: "PENDING", error: null };
-          });
-          setLocalStatuses(prev => ({ ...prev, ...newStatuses }));
-          // Polling will handle the rest of the updates as the server works in the background
-        }
-      } catch (error) {
-        alert("Terjadi kesalahan jaringan.");
+      
+      if (!res.ok) {
+        toast.error(`Error: ${data.error}`, { id: t });
         setIsBlasting(false);
-      }
-    } else {
-      // Schedule mode
-      try {
-        const res = await fetch("/api/blast/schedule", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadIds: selectedLeadIds, scheduledAt }),
+      } else {
+        toast.success(data.message || "Blast dimulai!", { id: t });
+        // Immediately set all selected leads to PENDING locally
+        const newStatuses: Record<string, any> = {};
+        selectedLeadIds.forEach(id => {
+           newStatuses[id] = { status: "PENDING", error: null };
         });
-        const data = await res.json();
-        if (res.ok) {
-          alert("Berhasil menjadwalkan pesan!");
-          if (onStatusUpdate) onStatusUpdate();
-        } else {
-          alert(`Error: ${data.error}`);
-        }
-      } catch (error) {
-        alert("Terjadi kesalahan jaringan.");
+        setLocalStatuses(prev => ({ ...prev, ...newStatuses }));
+        setSelectedLeadIds([]); // Clear selection
       }
+    } catch (error) {
+      toast.error("Terjadi kesalahan jaringan.", { id: t });
+      setIsBlasting(false);
     }
   };
+
 
   const handleResetStatus = async (leadId: string, leadName: string) => {
     setResettingId(leadId);

@@ -51,10 +51,6 @@ export default function MonitoringClient({ initialLeads, stats }: { initialLeads
     const [batchScheduleDate, setBatchScheduleDate] = useState<string>('');
     const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
-    // Batch Processing State
-    const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
-    const [batchScheduleDate, setBatchScheduleDate] = useState<string>('');
-    const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
     const filteredLeads = leads.filter(l => {
 
