@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import { Activity, Phone, Clock, Star, MapPin, CheckCircle, X, MessageSquare, AlertTriangle, Loader2, ExternalLink, ChevronDown, BarChart2, TrendingUp, ThumbsDown, Sparkles, RefreshCw, Send } from 'lucide-react';
 import { markFollowupDone, updateProspectNotes, markAsDeal, markAsFail } from '@/lib/actions/monitoring';
 import { generateFollowUpDraft } from '@/lib/actions/ai';
