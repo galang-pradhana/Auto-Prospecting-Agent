@@ -519,7 +519,18 @@ Output: The message only (no quotes, no intro, no explanation).
 // ============================================================
 // OUTREACH_PERSONAS — Dynamic presets for message generation
 // ============================================================
+export const PERSONA_OPTIONS = [
+  { value: "professional", label: "👔 Professional" },
+  { value: "casual",       label: "🎨 Indie Casual" },
+  { value: "expert",       label: "🧠 Growth Expert" },
+  { value: "disruptor",    label: "🚀 Disruptor" },
+  { value: "storyteller",  label: "📖 Storyteller" },
+  { value: "pragmatist",   label: "📊 Pragmatist" },
+  { value: "connector",    label: "🤝 Connector" },
+];
+
 export const OUTREACH_PERSONAS: Record<string, string> = {
+
   "professional": `
   ### PERSONA: TRUSTED BUSINESS PARTNER
   Kamu adalah rekan strategis — bukan vendor, bukan agency.

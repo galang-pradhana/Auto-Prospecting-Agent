@@ -8,6 +8,8 @@ import {
     LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, CheckSquare, ChevronDown, Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
+import { PERSONA_OPTIONS } from '@/lib/prompts';
+import { toast } from 'react-hot-toast';
 import DownloadButton from '@/components/DownloadButton';
 import EditPageModal from '@/components/EditPageModal';
 import LeadDetailModal from '@/components/LeadDetailModal';
@@ -428,14 +430,13 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                     onChange={(e) => setOutreachPersona(e.target.value)}
                                     className="bg-white/5 border border-white/10 rounded-2xl pl-10 pr-10 py-3 text-[11px] font-black uppercase tracking-widest text-white outline-none focus:border-accent-gold/40 cursor-pointer appearance-none min-w-[200px]"
                                 >
-                                    <option value="professional" className="bg-zinc-900 text-white">👔 Professional</option>
-                                    <option value="casual" className="bg-zinc-900 text-white">🎨 Indie Casual</option>
-                                    <option value="expert" className="bg-zinc-900 text-white">🧠 Growth Expert</option>
-                                    <option value="disruptor" className="bg-zinc-900 text-white">🚀 Disruptor</option>
-                                    <option value="storyteller" className="bg-zinc-900 text-white">📖 Storyteller</option>
-                                    <option value="pragmatist" className="bg-zinc-900 text-white">📊 Pragmatist</option>
-                                    <option value="connector" className="bg-zinc-900 text-white">🤝 Connector</option>
+                                    {PERSONA_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value} className="bg-zinc-900 text-white">
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
+
                                 <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20" />
                             </div>
 

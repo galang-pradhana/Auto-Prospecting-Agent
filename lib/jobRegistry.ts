@@ -1,4 +1,4 @@
-export type JobType = 'SCRAPER' | 'ENRICH' | 'FORGE' | 'EDIT' | 'BLAST';
+export type JobType = 'SCRAPER' | 'ENRICH' | 'FORGE' | 'EDIT' | 'BLAST' | 'SCHEDULE';
 export type JobStatus = 'RUNNING' | 'COMPLETED' | 'FAILED';
 
 export interface Job {

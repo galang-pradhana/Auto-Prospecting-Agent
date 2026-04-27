@@ -51,11 +51,12 @@ export async function getMonitoringLeads() {
         },
         include: {
             followupQueue: {
-                where: { status: 'pending' },
+                where: { status: { in: ['pending', 'scheduled'] } },
                 take: 1,
                 orderBy: { followupNumber: 'desc' }
             }
         },
+
         orderBy: { updatedAt: 'desc' },
     });
 }
@@ -147,6 +148,41 @@ export async function markAsFail(leadId: string) {
     revalidatePath('/dashboard/monitoring');
     return { success: true };
 }
+
+// ─── Batch Mark as Deal ───────────────────────────────────────────────────────
+export async function batchMarkAsDeal(leadIds: string[]) {
+    const session = await getSession();
+    if (!session) return { success: false };
+
+    await prisma.lead.updateMany({
+        where: { id: { in: leadIds }, userId: session.userId },
+        data: {
+            followupStage: 'closed_won',
+            nextFollowupAt: null,
+        }
+    });
+
+    revalidatePath('/dashboard/monitoring');
+    return { success: true };
+}
+
+// ─── Batch Mark as Fail ───────────────────────────────────────────────────────
+export async function batchMarkAsFail(leadIds: string[]) {
+    const session = await getSession();
+    if (!session) return { success: false };
+
+    await prisma.lead.updateMany({
+        where: { id: { in: leadIds }, userId: session.userId },
+        data: {
+            followupStage: 'closed_lost',
+            nextFollowupAt: null,
+        }
+    });
+
+    revalidatePath('/dashboard/monitoring');
+    return { success: true };
+}
+
 
 // ─── Mark follow-up as done (manual) ─────────────────────────────────────────
 export async function markFollowupDone(leadId: string, persona: string = 'professional') {

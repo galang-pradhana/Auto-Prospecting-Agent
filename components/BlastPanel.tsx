@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Loader2, Activity, CheckCircle, XCircle, UserPlus, Sliders, ChevronDown } from "lucide-react";
 import { sendToMonitoring, markAsDeal, markAsFail } from "@/lib/actions/monitoring";
+import { PERSONA_OPTIONS } from "@/lib/prompts";
 
 export type BlastLead = {
   id: string;
@@ -30,8 +31,6 @@ interface BlastPanelProps {
 
 export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
-  const [mode, setMode] = useState<"send_now" | "schedule">("send_now");
-  const [scheduledAt, setScheduledAt] = useState<string>("");
   const [previewLeadId, setPreviewLeadId] = useState<string | null>(null);
   const [isBlasting, setIsBlasting] = useState(false);
   const [localStatuses, setLocalStatuses] = useState<Record<string, any>>({});
@@ -128,24 +127,16 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
       return;
     }
 
-    if (mode === "schedule" && !scheduledAt) {
-      alert("Pilih tanggal dan waktu untuk jadwal.");
-      return;
-    }
-
-    if (mode === "send_now") {
-      setIsBlasting(true);
-      try {
-        const res = await fetch("/api/blast/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadIds: selectedLeadIds }),
-        });
-        const data = await res.json();
+    setIsBlasting(true);
+    const t = toast.loading(`Mengirim pesan ke ${selectedLeadIds.length} leads...`);
+    try {
+      const res = await fetch("/api/blast/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadIds: selectedLeadIds }),
+      });
+      const data = await res.json();
         
-        if (!res.ok) {
-          alert(`Error: ${data.error}`);
-          setIsBlasting(false);
         } else {
           // Immediately set all selected leads to PENDING locally
           const newStatuses: Record<string, any> = {};
@@ -235,66 +226,26 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
         <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-full">Phase 4</span>
       </div>
 
-      {/* Control Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 p-6 bg-zinc-900/50 rounded-[24px] border border-white/5">
+      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
         <div>
-          <label className="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-3">Mode Pengiriman</label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode("send_now")}
-              className={`flex-1 px-4 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${mode === "send_now" ? "bg-accent-gold text-black shadow-lg shadow-accent-gold/20" : "bg-white/5 border border-white/5 text-white/40 hover:text-white hover:bg-white/10"}`}
-            >
-              Kirim Sekarang
-            </button>
-            <button
-              onClick={() => setMode("schedule")}
-              className={`flex-1 px-4 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${mode === "schedule" ? "bg-accent-gold text-black shadow-lg shadow-accent-gold/20" : "bg-white/5 border border-white/5 text-white/40 hover:text-white hover:bg-white/10"}`}
-            >
-              Jadwalkan
-            </button>
+          <p className="text-[11px] font-black uppercase tracking-widest text-white/60 mb-2">
+            <span className="text-accent-gold">{selectedLeadIds.length}</span> Leads dipilih dari {eligibleLeads.length} tersedia
+          </p>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+             <Loader2 size={12} className="animate-spin text-amber-500" />
+             <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Safe-Blast Delay Active (60-120s)</span>
           </div>
         </div>
-
-        {mode === "send_now" && (
-          <div>
-            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 mb-1 flex items-center gap-2">
-                <Loader2 size={12} className="animate-spin" /> Extreme Delay Active
-              </h4>
-              <p className="text-[11px] text-amber-500/70 leading-relaxed font-medium">
-                Sistem otomatis mengatur jeda acak 60 - 120 detik antar pengiriman dan akan mengirim pesan Pancingan (Bait) terlebih dahulu untuk mencegah Ban WA.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {mode === "schedule" && (
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-3">Pilih Waktu (Jadwal)</label>
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm font-medium text-white outline-none focus:border-accent-gold/50"
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-        <p className="text-[11px] font-black uppercase tracking-widest text-white/60">
-          <span className="text-accent-gold">{selectedLeadIds.length}</span> Leads dipilih dari {eligibleLeads.length} tersedia
-        </p>
         <button
           onClick={handleBlast}
           disabled={isBlasting || selectedLeadIds.length === 0}
-          className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
+          className={`px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
             isBlasting || selectedLeadIds.length === 0
               ? "bg-white/5 text-white/20 border border-white/5 cursor-not-allowed"
               : "bg-green-500 hover:bg-green-400 text-black shadow-xl shadow-green-500/20 active:scale-95"
           }`}
         >
-          {isBlasting ? "Memproses..." : mode === "send_now" ? "Mulai Eksekusi Blast" : "Jadwalkan Blast"}
+          {isBlasting ? "Memproses..." : "Mulai Eksekusi Blast"}
         </button>
       </div>
 
@@ -366,14 +317,15 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
                           <div className="flex items-center gap-1.5 p-1.5 bg-white/5 rounded-xl border border-white/10 mr-4 animate-in zoom-in-95 duration-300">
                              <div className="relative group/persona">
                                 <select 
-                                  value={crmPersona}
+                                  value={crmPersona} 
                                   onChange={(e) => setCrmPersona(e.target.value)}
-                                  className="bg-zinc-900 border border-white/10 rounded-lg pl-2 pr-6 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/60 outline-none focus:border-accent-gold/40 cursor-pointer appearance-none"
+                                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-accent-gold/50"
                                 >
-                                  <option value="professional">Professional</option>
-                                  <option value="casual">Casual</option>
-                                  <option value="expert">Expert</option>
+                                  {PERSONA_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value} className="bg-zinc-900">{opt.label}</option>
+                                  ))}
                                 </select>
+
                                 <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
                              </div>
 

@@ -11,6 +11,8 @@ import {
 import { ActivityTimeline } from './ActivityTimeline';
 import { updateLeadEnrichmentData, logActivity, saveOutreachDraft } from '@/lib/actions/lead';
 import { enrichLead, generateOutreachDraft } from '@/lib/actions/ai';
+import { PERSONA_OPTIONS } from '@/lib/prompts';
+
 
 interface LeadDetailModalProps {
     isOpen: boolean;
@@ -478,19 +480,15 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                                                     <h3 className="text-sm font-black text-white uppercase tracking-widest">🚀 Outreach & Delivery Center</h3>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-2">
+                                                    <div className="hidden md:flex items-center">
                                                         <select 
                                                             value={selectedPersona}
                                                             onChange={(e) => setSelectedPersona(e.target.value)}
-                                                            className="bg-transparent text-[10px] font-black uppercase tracking-widest text-white/60 outline-none py-2 pr-4 cursor-pointer hover:text-white transition-colors"
+                                                            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white outline-none focus:border-accent-gold/50 cursor-pointer appearance-none"
                                                         >
-                                                            <option value="professional" className="bg-zinc-900">👔 Professional</option>
-                                                            <option value="casual" className="bg-zinc-900">🎨 Indie Casual</option>
-                                                            <option value="expert" className="bg-zinc-900">🧠 Growth Expert</option>
-                                                            <option value="disruptor" className="bg-zinc-900">🚀 Disruptor</option>
-                                                            <option value="storyteller" className="bg-zinc-900">📖 Storyteller</option>
-                                                            <option value="pragmatist" className="bg-zinc-900">📊 Pragmatist</option>
-                                                            <option value="connector" className="bg-zinc-900">🤝 Connector</option>
+                                                            {PERSONA_OPTIONS.map(opt => (
+                                                                <option key={opt.value} value={opt.value} className="bg-zinc-900">{opt.label}</option>
+                                                            ))}
                                                         </select>
                                                     </div>
                                                     <button 

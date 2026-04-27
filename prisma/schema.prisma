@@ -168,10 +168,12 @@ model FollowupQueue {
   followupNumber Int       @map("followup_number")
   messageText    String    @map("message_text")
   waLink         String    @map("wa_link")
-  status         String    @default("pending") // pending | sent | dismissed
+  status         String    @default("pending") // pending | sent | dismissed | scheduled
   queuedAt       DateTime  @default(now())     @map("queued_at")
   sentAt         DateTime?                     @map("sent_at")
+  scheduledAt    DateTime?                     @map("scheduled_at")
   lead           Lead      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
 
   @@index([prospectId])
   @@map("followup_queue")
