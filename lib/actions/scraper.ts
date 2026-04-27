@@ -337,17 +337,62 @@ export async function runScraper(
             }
 
             // 2. FILTER LAYER 1: STRICT PURE LOGIC (Save AI Credits)
-            // Criteria: Rating >= 3.8, Review Count >= 5, Phone must exist
+            // Updated criteria per user request: Rating >= 3.5, Review Count >= 5
             const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || 0;
             
             if (finalRating < 3.5) {
                 console.log(`[Scraper] Skipping ${leadName}: Rating too low (${finalRating} < 3.5)`);
                 return;
             }
-            if (reviewCount < 2) {
-                console.log(`[Scraper] Skipping ${leadName}: Social proof too low (${reviewCount} reviews < 2)`);
+            if (reviewCount < 5) {
+                console.log(`[Scraper] Skipping ${leadName}: Social proof too low (${reviewCount} reviews < 5)`);
                 return;
             }
+
+            // 2.1 [NEW] WEBSITE FILTER: Drop if they already have a professional website
+            // EXCEPT if it's Linktree, IG, WA, or other bio-links.
+            if (website && website !== 'N/A') {
+                const websiteLower = website.toLowerCase();
+                const isBioLink = websiteLower.includes('linktr.ee') || 
+                                  websiteLower.includes('instagram.com') || 
+                                  websiteLower.includes('facebook.com') || 
+                                  websiteLower.includes('wa.me') || 
+                                  websiteLower.includes('beacons.ai') || 
+                                  websiteLower.includes('taplink.cc') ||
+                                  websiteLower.includes('tiktok.com');
+                
+                if (!isBioLink && (websiteLower.startsWith('http') || websiteLower.includes('.com') || websiteLower.includes('.id') || websiteLower.includes('.net'))) {
+                    console.log(`[Scraper] Skipping ${leadName}: Already has a professional website (${website})`);
+                    return;
+                }
+            }
+
+            // 2.2 [NEW] REVIEW RECENCY FILTER: Drop if no reviews in last 24 months
+            const userReviews = item.user_reviews || [];
+            if (userReviews.length > 0) {
+                let hasRecentReview = false;
+                const twentyFourMonthsAgo = new Date();
+                twentyFourMonthsAgo.setMonth(twentyFourMonthsAgo.getMonth() - 24);
+
+                for (const rev of userReviews) {
+                    if (rev.When) {
+                        // Go-Scraper format: "YYYY-M-D" or "2025-5-21"
+                        const revDate = new Date(rev.When);
+                        if (!isNaN(revDate.getTime()) && revDate > twentyFourMonthsAgo) {
+                            hasRecentReview = true;
+                            break;
+                        }
+                    } else {
+                        // If date is missing, we assume it's old or untrusted unless there are other reviews
+                    }
+                }
+                
+                if (!hasRecentReview) {
+                    console.log(`[Scraper] Skipping ${leadName}: No recent reviews in last 24 months.`);
+                    return;
+                }
+            }
+
             // 3. FILTER LAYER 2: LOCATION (RADIUS GUARD)
             const refLat = lat ? parseFloat(lat) : 0;
             const refLng = lng ? parseFloat(lng) : 0;
@@ -388,8 +433,6 @@ export async function runScraper(
                 return;
             }
 
-            // Note: We removed the strict !sanitizedWa check here to allow AI to discover IG or other contact methods.
-            
             // 5. FILTER LAYER 4: AI ENRICHMENT (FINAL STEP)
             try {
                 aiProcessedCount++;
@@ -397,14 +440,11 @@ export async function runScraper(
                 const finalPrompt = LEAD_EVALUATION_PROMPT
                     .replace('[name]', leadName)
                     .replace('[category]', category)
+                    .replace('[address]', fullAddress)
                     .replace('[city]', city)
                     .replace('[province]', province)
-                    .replace('[district]', district || 'ALL')
-                    .replace('[rating]', finalRating.toString())
                     .replace('[wa]', rawPhone || 'tidak ada')
                     .replace('[website]', website || 'N/A')
-                    .replace('[reviewsCount]', String(item.review_count || 0))
-                    .replace('[address]', fullAddress)
                     .replace('[about]', aboutText);
 
                 const aiResponse = await callKieAI(finalPrompt);
@@ -413,11 +453,9 @@ export async function runScraper(
                 
                 try {
                     const parsed = JSON.parse(rawJson);
-                    // Handle if AI returns an array or single object
                     result = Array.isArray(parsed) ? parsed[0] : parsed;
                 } catch (e) {
                     console.error("[Scraper] ❌ JSON PARSE ERROR for", leadName);
-                    console.error("[Scraper]    Raw response (first 300 chars):", rawJson.substring(0, 300));
                     aiRejectedCount++;
                     return;
                 }
@@ -428,38 +466,33 @@ export async function runScraper(
                 if (decision === 'PROCEED') {
                     console.log(`[Scraper] AI Decision: PROCEED for ${leadName}`);
                     
-                    // Ekstrak WA dan IG dari respon AI (mendukung jika AI menaruhnya di root atau di dalam objek 'data')
-                    const rawAiWa = result.wa || result.data?.wa || null;
-                    const rawAiIg = result.ig || result.data?.ig || null;
+                    const rawAiWa = result.wa || null;
+                    const rawAiIg = result.ig || null;
                     
                     const aiWa = rawAiWa ? sanitizeWaNumber(String(rawAiWa)) : null;
                     const aiIg = rawAiIg && String(rawAiIg).trim().toLowerCase() !== 'null' && String(rawAiIg).trim() !== '' ? rawAiIg : null;
 
-                    // Tentukan WA final (prioritaskan AI, jika gagal kembali ke WA awal yang mungkin sudah tersanitasi)
-                    // FAIL-SAFE: Coba juga pembersihan manual jika sanitizeWaNumber gagal tapi ada angka
                     const fallbackWa = rawAiWa ? String(rawAiWa).replace(/\D/g, '') : null;
-                    const finalWa = aiWa || sanitizedWa || (fallbackWa && fallbackWa.length >= 10 ? fallbackWa : null);
+                    const finalWa = aiWa || (fallbackWa && fallbackWa.length >= 10 ? fallbackWa : null) || sanitizedWa;
 
-                    // ⚠️ FAIL-SAFE: Hanya tolak jika BENAR-BENAR tidak ada info kontak sama sekali
+                    // ⚠️ FAIL-SAFE: Only skip if ABSOLUTELY no contact info
                     if (!finalWa && !aiIg) {
-                        console.log(`[Scraper] FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found after AI.`);
+                        console.log(`[Scraper] FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found.`);
                         aiRejectedCount++;
-                        if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
-                        return; // Batalkan proses
+                        return;
                     }
 
-                    // CRITICAL: Re-check deduplication with final WA if it different from Maps WA
+                    // Re-check unique WA
                     if (finalWa && finalWa !== sanitizedWa) {
-                        const duplicateCheck = await prisma.lead.findUnique({
-                            where: { wa: finalWa }
-                        });
+                        const duplicateCheck = await prisma.lead.findUnique({ where: { wa: finalWa } });
                         if (duplicateCheck) {
-                            console.log(`[Scraper] Skipping ${leadName}: AI discovered WA (${finalWa}) already exists in DB.`);
+                            console.log(`[Scraper] Skipping ${leadName}: AI discovered WA already exists.`);
                             return;
                         }
                     }
 
-                    const finalName = result.name || result.data?.name || leadName;
+                    // Use cleaned name from AI if provided
+                    const finalName = result.name || leadName;
 
                     const newLead = await prisma.lead.create({
                         data: {
@@ -483,24 +516,19 @@ export async function runScraper(
                         data: {
                             prospectId: newLead.id,
                             action: 'SCRAPE',
-                            description: 'Lead ingested from source (JSON Verified)',
-                            metadata: { source: "Go-Engine", aiReason: result.reason }
+                            description: `Lead ingested (AI Decision: ${decision})`,
+                            metadata: { aiReason: reason }
                         }
                     });
 
                     totalInserted++;
-                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 } else {
-                    console.log(`[Scraper] ⛔ AI SKIP: ${leadName}`);
-                    console.log(`[Scraper]    Reason: ${reason}`);
-                    console.log(`[Scraper]    WA sent: "${rawPhone || 'tidak ada'}", IG found: ${result.ig || 'null'}`);
+                    console.log(`[Scraper] ⛔ AI SKIP: ${leadName} (${reason})`);
                     aiRejectedCount++;
-                    if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
                 }
             } catch (err) {
                 console.error(`[Scraper] AI Error for ${leadName}:`, err);
                 aiRejectedCount++;
-                if (jobId) JobRegistry.updateJob(jobId, { data: { processed: totalProcessed, aiProcessed: aiProcessedCount, new: totalInserted, aiRejected: aiRejectedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }});
             }
         };
 

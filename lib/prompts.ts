@@ -383,27 +383,33 @@ export const getUnsplashQuery = (category: string): string => {
 // LEAD_EVALUATION_PROMPT — Optimized with strict filtering
 // ============================================================
 export const LEAD_EVALUATION_PROMPT = `
-### ROLE: LEAD CONTACT QUALIFIER
-Tugasmu adalah dua hal: (1) Tentukan apakah bisnis ini bisa dihubungi, dan (2) Temukan kontak terbaik mereka.
+### ROLE: LEAD QUALITY ASSURANCE (SMART FILTER)
+Tugasmu adalah memvalidasi kualitas bisnis dan menentukan kontak terbaik. Kita hanya mencari bisnis yang "hidup" dan memiliki identitas brand.
 
-### ATURAN KEPUTUSAN:
-- PROCEED jika: Nomor adalah HP seluler (awalan 08/628) DAN/ATAU kamu bisa menemukan/menebak username Instagram mereka.
-- SKIP HANYA jika: Tidak ada HP seluler DAN kamu YAKIN tidak ada IG (bisnis sangat kecil, nama generik, tidak ada identitas digital).
-- Nomor 0361-xxx, (0361), atau awalan kota lain = telepon kantor = BUKAN WA. Kosongkan field wa.
+### 1. ATURAN FILTER NAMA (ANTI-GENERIC):
+- SKIP jika nama bisnis murni generik tanpa merek. Contoh: "Studio Yoga", "Warung Nasi", "Bengkel Motor", "Toko Obat".
+- PROCEED jika ada identitas merek/brand di dalam namanya. Contoh: "Mahaloka House of Yoga", "Warung Nasi Bu Imas", "Bengkel Motor Setia Budi", "Toko Obat K24".
+- CLEANUP: Hapus embel-embel lokasi yang tidak perlu dari nama bisnis (misal: "Regnum Studio - Denpasar Selatan" menjadi "Regnum Studio").
 
-### INSTAGRAM DISCOVERY (KRITIS):
-Jika bisnis adalah Wedding Organizer, Salon, Event Organizer, Catering, Florist, atau bisnis serupa:
-- Bisnis-bisnis ini HAMPIR PASTI punya Instagram. Tebak username dengan format:
-  [namabisnis], [namabisnis]bali, [namabisnis]id, [namabisnis]wedding, dll.
-- Contoh: "Bali Shanti Wedding" → coba "balishantiwedding" atau "bali.shanti.wedding"
-- Set ig jika confidence >= 60%. Lebih baik menebak daripada melewatkan lead.
+### 2. ATURAN KONTAK (STRICT):
+- wa: HANYA boleh diisi jika nomor adalah HP seluler (awalan 08/628). Jika nomor landline/kantor (0361-xxx, (0361)), KOSONGKAN field wa.
+- ig: 
+  - Jika di data [website] ada link instagram.com, ambil username-nya secara pasti.
+  - Jika tidak ada link tapi nama bisnis memiliki merek yang jelas (bukan generik), tebak username IG-nya (confidence >= 70%).
+  - Format tebakan: [namabisnis], [namabisnis]bali, [namabisnis].id.
 
-### OUTPUT FORMAT (JSON ONLY - NO TEXT LAIN):
+### 3. KEPUTUSAN FINAL:
+- PROCEED jika: Memiliki nomor HP seluler DAN/ATAU memiliki Instagram yang valid (pasti/tebakan cerdas).
+- PROCEED jika: Memiliki Website (trust signal tinggi).
+- SKIP jika: Nama generik, tidak ada HP seluler, dan tidak bisa menemukan IG yang meyakinkan.
+
+### OUTPUT FORMAT (JSON ONLY):
 {
   "decision": "PROCEED" atau "SKIP",
+  "name": "nama bisnis yang sudah dibersihkan",
   "wa": "format 628xxx atau string kosong jika bukan HP",
-  "ig": "username_tanpa_@ atau null jika benar-benar tidak ada",
-  "reason": "alasan singkat"
+  "ig": "username tanpa @ atau null",
+  "reason": "alasan singkat (misal: 'High quality brand', 'Generic name skipped', 'Landline without IG')"
 }
 
 ### DATA BISNIS:
