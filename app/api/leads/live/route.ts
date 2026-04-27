@@ -12,10 +12,15 @@ export async function GET() {
     const leads = await prisma.lead.findMany({
         where: { 
             userId: session.userId, 
-            status: 'LIVE' 
+            status: 'LIVE',
+            // Sembunyikan data yang sudah masuk ke CRM (Monitoring, Deal, Fail)
+            followupStage: {
+                notIn: ['monitoring_1', 'monitoring_2', 'monitoring_3', 'closed_won', 'closed_lost']
+            }
         },
         orderBy: { updatedAt: 'desc' }
     });
 
     return NextResponse.json({ leads: leads.map(serializeLead) });
 }
+

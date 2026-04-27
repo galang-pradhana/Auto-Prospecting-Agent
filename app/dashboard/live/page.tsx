@@ -10,12 +10,17 @@ export default async function LiveSitesPage() {
     const liveLeads = await prisma.lead.findMany({
         where: {
             userId: session.userId,
-            status: 'LIVE'
+            status: 'LIVE',
+            // Sembunyikan data yang sudah masuk ke CRM
+            followupStage: {
+                notIn: ['monitoring_1', 'monitoring_2', 'monitoring_3', 'closed_won', 'closed_lost']
+            }
         },
         orderBy: {
             updatedAt: 'desc'
         }
     });
+
 
     const templates = await prisma.waTemplate.findMany({
         orderBy: { isDefault: 'desc' }
