@@ -398,9 +398,15 @@ Tugasmu adalah memvalidasi kualitas bisnis dan menentukan kontak terbaik. Kita h
   - Jika tidak ada link tapi nama bisnis memiliki merek yang jelas (bukan generik), tebak username IG-nya (confidence >= 70%).
   - Format tebakan: [namabisnis], [namabisnis]bali, [namabisnis].id.
 
-### 3. KEPUTUSAN FINAL:
-- PROCEED jika: Memiliki nomor HP seluler DAN/ATAU memiliki Instagram yang valid (pasti/tebakan cerdas).
-- PROCEED jika: Memiliki Website (trust signal tinggi).
+### 3. ATURAN WEBSITE (TARGETING):
+- Kita fokus mencari bisnis yang BELUM memiliki website profesional.
+- SKIP jika: Field [website] berisi domain profesional (misal: .com, .id, .net, .co.id) yang BUKAN merupakan Linktree, Instagram, atau bio-link lainnya.
+- PROCEED jika: Field [website] kosong, "N/A", atau berisi link bio (Linktree, Instagram, WA, Beacons, dll).
+
+### 4. KEPUTUSAN FINAL:
+- PROCEED jika: Memiliki nomor HP seluler DAN/ATAU memiliki Instagram yang valid (pasti/tebakan cerdas) DAN tidak memiliki website profesional.
+- PROCEED jika: Hanya memiliki Linktree/Instagram (ini adalah target utama untuk ditawari website asli).
+- SKIP jika: Sudah memiliki website profesional (.com, .id, dll).
 - SKIP jika: Nama generik, tidak ada HP seluler, dan tidak bisa menemukan IG yang meyakinkan.
 
 ### OUTPUT FORMAT (JSON ONLY):

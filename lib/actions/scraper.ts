@@ -359,9 +359,12 @@ export async function runScraper(
                                   websiteLower.includes('wa.me') || 
                                   websiteLower.includes('beacons.ai') || 
                                   websiteLower.includes('taplink.cc') ||
-                                  websiteLower.includes('tiktok.com');
+                                  websiteLower.includes('tiktok.com') ||
+                                  websiteLower.includes('s.id') ||
+                                  websiteLower.includes('linkbio.co') ||
+                                  websiteLower.includes('msng.link');
                 
-                if (!isBioLink && (websiteLower.startsWith('http') || websiteLower.includes('.com') || websiteLower.includes('.id') || websiteLower.includes('.net'))) {
+                if (!isBioLink && (websiteLower.startsWith('http') || websiteLower.includes('.com') || websiteLower.includes('.id') || websiteLower.includes('.net') || websiteLower.includes('.co.id'))) {
                     console.log(`[Scraper] Skipping ${leadName}: Already has a professional website (${website})`);
                     return;
                 }
