@@ -227,31 +227,46 @@ export default function ProposalModal({ isOpen, onClose, lead }: ProposalModalPr
             // @ts-ignore
             const html2pdf = (await import('html2pdf.js')).default;
             
+            const container = document.createElement('div');
+            container.style.backgroundColor = '#0F1115'; // Match premium-900 for dark mode PDF
+            container.style.color = '#ffffff';
+            container.style.width = '720px';
+            container.style.padding = '0';
+            
             const element = document.createElement('div');
             element.innerHTML = editedProposal;
-            element.style.width = '720px'; // Precision fit for Letter size (7.5 inches @ 96 DPI)
-            element.style.padding = '20px';
+            element.style.width = '720px';
+            element.style.padding = '40px'; // Professional margin
             element.style.boxSizing = 'border-box';
-            element.style.backgroundColor = '#ffffff'; 
+            
+            container.appendChild(element);
             
             const opt = {
-                margin:       [0.5, 0.5], 
+                margin:       0, 
                 filename:     `Proposal_${clientData.businessName.replace(/\s+/g, '_')}.pdf`,
-                image:        { type: 'jpeg', quality: 1.0 },
+                image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { 
-                    scale: 3, 
+                    scale: 2, // Scale 2 is enough and more stable for mobile
                     useCORS: true, 
                     letterRendering: true,
                     logging: false,
-                    width: 720,
-                    windowWidth: 720
+                    windowWidth: 720,
+                    backgroundColor: '#0F1115'
                 },
-                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+                jsPDF:        { unit: 'px', format: [720, 1018], orientation: 'portrait' },
                 pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
             };
 
-            await html2pdf().set(opt).from(element).save();
-            toast.success('Proposal PDF berhasil diunduh!', { id: 'pdf-toast' });
+            // Beri waktu browser untuk merender konten di memori
+            setTimeout(async () => {
+                try {
+                    await html2pdf().set(opt).from(container).save();
+                    toast.success('Proposal PDF berhasil diunduh!', { id: 'pdf-toast' });
+                } catch (err) {
+                    console.error('PDF Generate Error:', err);
+                    toast.error('Gagal membuat PDF', { id: 'pdf-toast' });
+                }
+            }, 800);
         } catch (error) {
             console.error('PDF Error:', error);
             toast.error('Gagal mengunduh PDF. Silakan coba HTML download.', { id: 'pdf-toast' });

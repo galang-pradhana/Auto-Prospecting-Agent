@@ -96,8 +96,8 @@ export function Sidebar({ isMobile, onClose }: SidebarProps) {
                                 size={20} 
                                 className={isActive ? 'text-accent-gold' : 'group-hover:text-accent-gold transition-colors'} 
                             />
-                            {!isCollapsed && <span className="font-semibold text-sm truncate">{item.name}</span>}
-                            {isCollapsed && (
+                            {(!isCollapsed || isMobile) && <span className="font-semibold text-sm truncate">{item.name}</span>}
+                            {(isCollapsed && !isMobile) && (
                                 <span className="absolute left-16 px-2 py-1 bg-zinc-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[70]">
                                     {item.name}
                                 </span>
