@@ -157,7 +157,15 @@ function SearchCombobox({ value, onChange, options, placeholder }: {
                                     <span className="truncate">{opt}</span>
                                     {opt === value && <Check size={14} className="text-accent-gold shrink-0" />}
                                 </button>
-                            )) : (
+                            )) : search.trim() ? (
+                                <button
+                                    type="button"
+                                    onClick={() => { onChange(search); setOpen(false); setSearch(''); }}
+                                    className="w-full text-left px-5 py-4 text-sm flex items-center gap-3 transition-all bg-accent-gold/10 text-accent-gold border-y border-accent-gold/20 hover:bg-accent-gold/20 font-bold"
+                                >
+                                    <Sparkles size={16} /> Gunakan "{search}"
+                                </button>
+                            ) : (
                                 <div className="px-5 py-6 text-sm text-zinc-500 italic text-center flex flex-col items-center gap-2">
                                     <Search size={16} className="text-zinc-600" />
                                     Tidak ditemukan "{search}"
@@ -525,7 +533,30 @@ export default function ScraperPage() {
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">
                             <Building2 size={14} /> Spesifik
                         </label>
-                        <SearchCombobox value={selectedSubCategory} onChange={setSelectedSubCategory} options={CATEGORY_MAP[selectedMainCategory] || []} placeholder="Kategori Spesifik" />
+                        <SearchCombobox 
+                            value={selectedSubCategory} 
+                            onChange={(val) => {
+                                // Anti-Redundancy Logic
+                                let foundInMain = '';
+                                for (const [main, subs] of Object.entries(CATEGORY_MAP)) {
+                                    if (subs.some(s => s.toLowerCase() === val.toLowerCase())) {
+                                        foundInMain = main;
+                                        break;
+                                    }
+                                }
+
+                                if (foundInMain && foundInMain !== selectedMainCategory) {
+                                    toast.error(`"${val}" sudah terdaftar di bidang "${foundInMain}". Memindahkan kategori...`, {
+                                        icon: 'ℹ️',
+                                        duration: 4000
+                                    });
+                                    setSelectedMainCategory(foundInMain);
+                                }
+                                setSelectedSubCategory(val);
+                            }} 
+                            options={CATEGORY_MAP[selectedMainCategory] || []} 
+                            placeholder="Kategori Spesifik" 
+                        />
                     </div>
                     <div className="md:col-span-1 lg:col-span-1 space-y-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-accent-gold flex items-center gap-2">

@@ -13,43 +13,41 @@ model User {
   email         String        @unique
   password      String
   name          String
-  businessName  String?
-  businessIg    String?
-  businessWa    String?
   rejectedLeads Int           @default(0)
   kieAiApiKey   String?
   byocMode      Boolean       @default(false)
   aiEngine      String        @default("gemini-3-flash")
-  fonnteTokens  Json?         // Array of up to 5 Fonnte tokens
-  isApproved    Boolean       @default(false)
   createdAt     DateTime      @default(now())
+  businessIg    String?
+  businessName  String?
+  businessWa    String?
+  fonnteTokens  Json?
+  isApproved    Boolean       @default(false)
   leads         Lead[]
   sandboxLeads  LeadSandbox[]
 }
 
 model Lead {
-  id                  String        @id @default(cuid())
+  id                  String          @id @default(cuid())
   name                String
-  wa                  String?       @unique
+  wa                  String?         @unique
   category            String
-  province            String        @default("")
-  city                String        @default("")
-  district            String        @default("")
-  address             String        @default("")
-  rating              Float         @default(0)
-  website             String        @default("N/A")
+  province            String          @default("")
+  city                String          @default("")
+  address             String          @default("")
+  rating              Float           @default(0)
+  website             String          @default("N/A")
   mapsUrl             String?
-  reviews             Json          @default("[]")
-  reviewCount         Int           @default(0)
-  status              LeadStatus    @default(FRESH)
-  isPro               Boolean       @default(false)
+  reviews             Json            @default("[]")
+  status              LeadStatus      @default(FRESH)
+  isPro               Boolean         @default(false)
   brandData           Json?
   aiAnalysis          Json?
   painPoints          String?
   websiteDraft        Json?
   userId              String
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
   masterWebsitePrompt String?
   resolutions         Json?
   suggestedAssets     Json?
@@ -58,62 +56,59 @@ model Lead {
   selectedStyle       String?
   htmlCode            String?
   lastLog             String?
-  slug                String?       @unique
-  baitDraft           String?
+  slug                String?         @unique
   outreachDraft       String?
   ig                  String?
   styleDNA            String?
-  followupStage       String        @default("sent")
-  followupCount       Int           @default(0)
-  lastContactAt       DateTime      @default(now())
-  nextFollowupAt      DateTime?
+  followupCount       Int             @default(0)
+  followupStage       String          @default("sent")
+  lastContactAt       DateTime        @default(now())
   linkClickedAt       DateTime?
+  nextFollowupAt      DateTime?
   qualifiedAt         DateTime?
-  totalTimeOnPage     Int           @default(0)
-  
-  blastStatus         BlastStatus?
-  blastSentAt         DateTime?
-  blastScheduledAt    DateTime?
-  blastError          String?
-  
-  b2bType             String?
+  totalTimeOnPage     Int             @default(0)
   b2bNotes            String?
+  b2bType             String?
   prospectNotes       String?
-  score               Int?
+  blastError          String?
+  blastScheduledAt    DateTime?
+  blastSentAt         DateTime?
+  blastStatus         BlastStatus?
+  baitDraft           String?
+  district            String          @default("")
   priorityTier        String?
-  
-  proposal            Proposal?
-  events              ProspectEvent[]
-  tokens              TrackingToken[]
-  followupQueue       FollowupQueue[]
-  b2bAsBuyer          B2BDeal[]     @relation("BuyerDeals")
-  b2bAsSeller         B2BDeal[]     @relation("SellerDeals")
-
+  score               Int?
+  reviewCount         Int             @default(0)
   logs                ActivityLog[]
-  user                User          @relation(fields: [userId], references: [id])
+  b2bAsBuyer          B2BDeal[]       @relation("BuyerDeals")
+  b2bAsSeller         B2BDeal[]       @relation("SellerDeals")
+  user                User            @relation(fields: [userId], references: [id])
+  proposal            Proposal?
+  followupQueue       FollowupQueue[]
+  events              ProspectEvent[]
+  tokens              TrackingToken?
 
   @@index([status, category])
   @@index([userId])
-  // @@map("prospects")
 }
 
 model ProspectEvent {
-  id            String   @id @default(uuid())
-  prospectId    String   @map("prospect_id")
-  eventType     String   // link_clicked | time_beacon | button_click
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  lead          Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  eventType  String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  prospectId String   @map("prospect_id")
+  lead       Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@index([prospectId])
   @@map("prospect_events")
 }
 
 model TrackingToken {
-  token         String   @id
-  prospectId    String   @unique @map("prospect_id")
-  createdAt     DateTime @default(now())
-  lead          Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  token      String   @id
+  createdAt  DateTime @default(now())
+  prospectId String   @unique @map("prospect_id")
+  lead       Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@index([prospectId])
   @@map("tracking_tokens")
@@ -121,11 +116,11 @@ model TrackingToken {
 
 model ActivityLog {
   id          String   @id @default(cuid())
-  prospectId  String   @map("prospect_id")
   action      String
   description String?
   metadata    Json?
   createdAt   DateTime @default(now())
+  prospectId  String   @map("prospect_id")
   lead        Lead     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   @@index([prospectId])
@@ -172,63 +167,44 @@ model FollowupQueue {
   followupNumber Int       @map("followup_number")
   messageText    String    @map("message_text")
   waLink         String    @map("wa_link")
-  status         String    @default("pending") // pending | sent | dismissed | scheduled
-  queuedAt       DateTime  @default(now())     @map("queued_at")
-  sentAt         DateTime?                     @map("sent_at")
-  scheduledAt    DateTime?                     @map("scheduled_at")
+  status         String    @default("pending")
+  queuedAt       DateTime  @default(now()) @map("queued_at")
+  sentAt         DateTime? @map("sent_at")
+  scheduledAt    DateTime? @map("scheduled_at")
   lead           Lead      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-
 
   @@index([prospectId])
   @@map("followup_queue")
 }
 
-enum LeadStatus {
-  FRESH
-  ENRICHED
-  READY
-  FINISH
-  LIVE
-}
-
-enum BlastStatus {
-  PENDING
-  BAIT_SENT
-  REPLIED
-  SENT
-  FAILED
-  SCHEDULED
-}
-
 model B2BDeal {
-  id              String   @id @default(cuid())
-  userId          String
-  buyerLeadId     String
-  sellerLeadId    String
-  categoryLink    String   // e.g. "Laundry→Deterjen Supplier"
-  status          String   @default("DISCOVERED") // DISCOVERED | VERIFIED | INTRODUCED | NEGOTIATING | CLOSED
-  dealValue       Float?
-  brokerFee       Float?
-  notes           String?
-  locationTier    Int      @default(1) // 1=dalam kota, 2=luar kota, 3=luar pulau
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  buyer           Lead     @relation("BuyerDeals", fields: [buyerLeadId], references: [id], onDelete: Cascade)
-  seller          Lead     @relation("SellerDeals", fields: [sellerLeadId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  userId       String
+  buyerLeadId  String
+  sellerLeadId String
+  categoryLink String
+  status       String   @default("DISCOVERED")
+  dealValue    Float?
+  brokerFee    Float?
+  notes        String?
+  locationTier Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  buyer        Lead     @relation("BuyerDeals", fields: [buyerLeadId], references: [id], onDelete: Cascade)
+  seller       Lead     @relation("SellerDeals", fields: [sellerLeadId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
 }
 
 model B2BEcosystemMap {
-  id              String   @id @default(cuid())
-  categoryFocus   String
-  connectionType  String   // "DEMAND" | "SUPPLY"
-  connectedCat    String
-  tierLevel       Int      @default(1)
-  strengthScore   Int      @default(3) // 1-5
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  categoryFocus  String
+  connectionType String
+  connectedCat   String
+  tierLevel      Int      @default(1)
+  strengthScore  Int      @default(3)
+  createdAt      DateTime @default(now())
 
   @@index([categoryFocus])
 }
@@ -243,4 +219,21 @@ model Proposal {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+enum LeadStatus {
+  FRESH
+  ENRICHED
+  READY
+  FINISH
+  LIVE
+}
+
+enum BlastStatus {
+  PENDING
+  SENT
+  FAILED
+  SCHEDULED
+  BAIT_SENT
+  REPLIED
 }
