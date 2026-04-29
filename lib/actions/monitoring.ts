@@ -24,12 +24,16 @@ export async function sendToMonitoring(leadId: string, persona: string = 'profes
         },
     });
 
-    // Generate first FU draft in background
+    // Generate first FU draft in background (non-blocking)
     try {
-        const { generateFollowUpDraft } = await import('./ai');
-        await generateFollowUpDraft(leadId, 1, persona);
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        fetch(`${baseUrl}/api/followup/run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadId, followupNumber: 1, persona })
+        }).catch(e => console.error("Async follow-up trigger failed:", e));
     } catch (e) {
-        console.error("Failed to generate initial FU draft:", e);
+        console.error("Failed to trigger initial FU draft:", e);
     }
 
     revalidatePath('/dashboard/live');
@@ -229,13 +233,17 @@ export async function markFollowupDone(leadId: string, persona: string = 'profes
         },
     });
 
-    // Generate next FU draft if not finished
+    // Generate next FU draft if not finished (non-blocking)
     if (!isFinished) {
         try {
-            const { generateFollowUpDraft } = await import('./ai');
-            await generateFollowUpDraft(leadId, nextCount, persona);
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            fetch(`${baseUrl}/api/followup/run`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadId, followupNumber: nextCount, persona })
+            }).catch(e => console.error(`Async FU ${nextCount} trigger failed:`, e));
         } catch (e) {
-            console.error(`Failed to generate FU ${nextCount} draft:`, e);
+            console.error(`Failed to trigger FU ${nextCount} draft:`, e);
         }
     }
 

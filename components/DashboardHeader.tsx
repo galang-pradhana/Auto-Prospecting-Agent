@@ -28,19 +28,10 @@ export function DashboardHeader({ userName, credit }: DashboardHeaderProps) {
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-4">
-                    <GlobalJobIndicator className="hidden md:block" />
+                    <GlobalJobIndicator />
 
-                    {/* Kie.ai Health Indicator */}
-                    <KieStatusBadge />
-                    
-                    {/* Credit Balance */}
-                    <div className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-accent-gold/10 border border-accent-gold/20">
-                        <CreditCard size={16} className="text-accent-gold" />
-                        <div className="flex flex-col">
-                            <span className="text-[8px] md:text-[10px] text-accent-gold font-bold uppercase tracking-wider leading-none mb-0.5">Kie.ai Credit</span>
-                            <span className="text-xs md:text-sm font-black tabular-nums leading-none">{credit} USD</span>
-                        </div>
-                    </div>
+                    {/* Unified Kie.ai Status & Credit */}
+                    <KieStatusBadge initialCredit={credit} />
 
                     <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-premium-700 border border-white/10 flex items-center justify-center font-bold text-accent-gold text-sm md:text-base shrink-0">
                         {userName.charAt(0).toUpperCase()}

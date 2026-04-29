@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import FollowUpQueue from '@/components/FollowUpQueue';
+import ActivityMonitor from '@/components/ActivityMonitor';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
     const user = await getCurrentUser();
@@ -33,6 +34,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </div>
             {/* Global Follow-up Notification Queue */}
             <FollowUpQueue />
+            {/* Global Background Activity Monitor */}
+            <ActivityMonitor />
         </div>
     );
 }

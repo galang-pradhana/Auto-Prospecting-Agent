@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendMessage } from '@/lib/fonnte';
-import { sanitizeWaNumber } from '@/lib/utils';
+import { sendMessage, parseFonnteWebhook } from '@/lib/fonnte';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,34 +17,24 @@ export async function POST(req: Request) {
             body = Object.fromEntries(params.entries());
         }
 
-        const sender = body.sender || body.from;
-        const device = body.device;
-        const message = body.message;
-        const inboxid = body.inboxid; // Field kritis untuk threaded reply
+        const { sender, message, isMe, isStatusUpdate, inboxid } = parseFonnteWebhook(body);
 
         if (!sender) {
             console.warn("[WEBHOOK] Ignored: No sender in payload.", body);
             return NextResponse.json({ success: true, message: 'Ignored unknown payload' });
         }
 
-        const cleanSender = sanitizeWaNumber(sender.toString());
-        const cleanDevice = device ? sanitizeWaNumber(device.toString()) : '';
-
-        // 1. KRITIS: Normalisasi is_me check
-        const isMe = body.is_me === true || body.is_me === 'true' || (cleanSender && cleanDevice && cleanSender === cleanDevice);
-        
         if (isMe) {
-            console.log(`[WEBHOOK] Ignored outgoing message from ${cleanSender}`);
+            console.log(`[WEBHOOK] Ignored outgoing message from ${sender}`);
             return NextResponse.json({ success: true, message: 'Outgoing message ignored' });
         }
 
-        // 2. Handle device status updates
-        if (body.status === 'connect' || body.status === 'disconnect' || (!message && body.device)) {
-            console.log(`[WEBHOOK] Ignored device status update: ${body.status}`);
-            return NextResponse.json({ success: true, message: 'Device status ignored' });
+        if (isStatusUpdate) {
+            console.log(`[WEBHOOK] Ignored status update/empty message`);
+            return NextResponse.json({ success: true, message: 'Status update ignored' });
         }
 
-        console.log(`[WEBHOOK] Incoming message from ${cleanSender}: "${message}"`);
+        console.log(`[WEBHOOK] Incoming message from ${sender}: "${message}"`);
 
         // Cari lead dengan nomor WA ini yang statusnya BAIT_SENT
         const leads = await prisma.lead.findMany({
@@ -59,13 +48,13 @@ export async function POST(req: Request) {
             if (!l.wa) return false;
             const lClean = sanitizeWaNumber(l.wa);
             const core1 = lClean.length > 5 ? lClean.substring(lClean.length - 8) : lClean;
-            const core2 = cleanSender.length > 5 ? cleanSender.substring(cleanSender.length - 8) : cleanSender;
+            const core2 = sender.length > 5 ? sender.substring(sender.length - 8) : sender;
             
-            return lClean === cleanSender || lClean.endsWith(core2) || cleanSender.endsWith(core1);
+            return lClean === sender || lClean.endsWith(core2) || sender.endsWith(core1);
         });
 
         if (!lead) {
-            console.log(`[WEBHOOK] No matching lead found with blastStatus='BAIT_SENT' for number: ${cleanSender}`);
+            console.log(`[WEBHOOK] No matching lead found with blastStatus='BAIT_SENT' for number: ${sender}`);
             return NextResponse.json({ success: true, message: 'Ignored (No matching BAIT_SENT lead)' });
         }
 

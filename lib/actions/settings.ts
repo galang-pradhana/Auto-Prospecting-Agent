@@ -309,10 +309,11 @@ export async function checkKieStatus(manualKey?: string) {
         const data = await response.json();
 
         if (response.ok) {
+            const rawCredit = typeof data.data === 'object' ? data.data?.credit : data.data;
             return { 
                 success: true, 
                 message: 'Connected!', 
-                credit: data.data?.credit || '0', // Asumsi struktur Kie.ai
+                credit: rawCredit || '0',
                 engine: user?.aiEngine || 'gemini-3.1-pro'
             };
         }
@@ -338,7 +339,8 @@ export async function getAiPulseStatus() {
                 status: 'online',
                 color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
                 pulseColor: 'bg-emerald-500',
-                label: `Ready: $${status.credit}`,
+                label: `Ready: ${status.credit}`,
+                credit: status.credit,
             };
         } else {
             // MERAH: Key salah atau expired

@@ -49,12 +49,8 @@ export function ActivityTimeline({ leadId }: { leadId: string }) {
     }, [fetchLogs]);
 
     return (
-        <div className="mt-8 pt-8 border-t border-white/5">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-accent-gold" />
-                    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/50">Lead Lifecycle</h3>
-                </div>
+        <div className="relative pl-4 space-y-6">
+            <div className="flex justify-end absolute top-0 right-0 z-20">
                 <button 
                     onClick={fetchLogs}
                     className="p-2 hover:bg-white/5 rounded-lg transition-colors group"
@@ -64,12 +60,11 @@ export function ActivityTimeline({ leadId }: { leadId: string }) {
                 </button>
             </div>
 
-            <div className="relative pl-4 space-y-8">
-                {/* Vertical Line */}
-                <div className="absolute left-[1.1rem] top-2 bottom-2 w-[1px] border-l border-dashed border-white/10" />
+            {/* Vertical Line */}
+            <div className="absolute left-[1.1rem] top-2 bottom-2 w-[1px] border-l border-dashed border-white/10" />
 
-                <AnimatePresence mode="popLayout">
-                    {logs.map((log, index) => {
+            <AnimatePresence mode="popLayout">
+                {logs.map((log, index) => {
                         const config = ACTION_CONFIG[log.action] || ACTION_CONFIG.DEFAULT;
                         const date = new Date(log.createdAt);
                         const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -95,7 +90,7 @@ export function ActivityTimeline({ leadId }: { leadId: string }) {
                                             <span className="text-sm font-bold text-white/90">{config.label}</span>
                                             {log.metadata?.credits_used && (
                                                 <span className="px-2 py-0.5 rounded-full bg-accent-gold/10 text-[10px] font-bold text-accent-gold border border-accent-gold/20">
-                                                    ${log.metadata.credits_used} USD
+                                                    {log.metadata.credits_used} Credits
                                                 </span>
                                             )}
                                         </div>
@@ -129,7 +124,6 @@ export function ActivityTimeline({ leadId }: { leadId: string }) {
                         <p className="text-xs text-white/20 font-medium italic">No activity recorded yet</p>
                     </div>
                 )}
-            </div>
         </div>
     );
 }

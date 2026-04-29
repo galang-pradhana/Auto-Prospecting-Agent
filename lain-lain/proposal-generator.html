@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProposalCraft — AI Proposal Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0C0C0F;
+    --surface: #141418;
+    --surface2: #1C1C22;
+    --border: #2A2A35;
+    --accent: #6C63FF;
+    --accent2: #FF6B6B;
+    --accent3: #43CBFF;
+    --text: #F0F0F6;
+    --muted: #8B8BA0;
+    --success: #43D4A0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* AMBIENT BG */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 20% 0%, rgba(108,99,255,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 80% 100%, rgba(67,203,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ---- HEADER ---- */
+  header {
+    position: relative; z-index: 10;
+    padding: 28px 40px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(12px);
+    background: rgba(12,12,15,0.7);
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; }
+  .logo span { color: var(--accent); }
+  .badge { font-size: 11px; background: rgba(108,99,255,0.15); border: 1px solid rgba(108,99,255,0.3); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-weight: 500; }
+
+  /* ---- LAYOUT ---- */
+  .app { display: grid; grid-template-columns: 400px 1fr; min-height: calc(100vh - 73px); position: relative; z-index: 1; }
+
+  /* ---- LEFT PANEL ---- */
+  .left-panel {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+  .left-panel::-webkit-scrollbar { width: 4px; }
+  .left-panel::-webkit-scrollbar-track { background: transparent; }
+  .left-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .section-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+  }
+
+  /* ---- FORM INPUTS ---- */
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .form-group input, .form-group textarea, .form-group select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    border-color: var(--accent);
+  }
+  .form-group textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ---- STYLE GRID ---- */
+  .style-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .style-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .style-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    opacity: 0; transition: opacity 0.2s;
+    background: linear-gradient(135deg, rgba(108,99,255,0.08), rgba(67,203,255,0.04));
+  }
+  .style-card:hover { border-color: rgba(108,99,255,0.5); transform: translateY(-1px); }
+  .style-card:hover::before { opacity: 1; }
+  .style-card.active { border-color: var(--accent); background: rgba(108,99,255,0.08); }
+  .style-card.active::before { opacity: 1; }
+  .style-icon { font-size: 22px; margin-bottom: 6px; }
+  .style-name { font-size: 12px; font-weight: 600; margin-bottom: 3px; line-height: 1.2; }
+  .style-desc { font-size: 10px; color: var(--muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .style-check {
+    position: absolute; top: 8px; right: 8px;
+    width: 16px; height: 16px;
+    background: var(--accent); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+    font-size: 9px;
+  }
+  .style-card.active .style-check { opacity: 1; }
+
+  /* Palette preview dots */
+  .style-palette { display: flex; gap: 3px; margin-top: 8px; }
+  .palette-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); }
+
+  /* ---- GENERATE BUTTON ---- */
+  .generate-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), #9B5DE5);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.03em;
+    position: relative;
+    overflow: hidden;
+  }
+  .generate-btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .generate-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,99,255,0.4); }
+  .generate-btn:hover::after { opacity: 1; }
+  .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .generate-btn .btn-inner { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- RIGHT PANEL ---- */
+  .right-panel {
+    overflow-y: auto;
+    position: relative;
+  }
+  .right-panel::-webkit-scrollbar { width: 6px; }
+  .right-panel::-webkit-scrollbar-track { background: transparent; }
+  .right-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ---- EMPTY STATE ---- */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; min-height: 500px;
+    gap: 16px; color: var(--muted); text-align: center; padding: 40px;
+  }
+  .empty-icon { font-size: 64px; opacity: 0.3; }
+  .empty-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); opacity: 0.4; }
+  .empty-sub { font-size: 14px; line-height: 1.6; max-width: 320px; }
+
+  /* ---- STYLE PREVIEW BAR ---- */
+  .style-preview-bar {
+    position: sticky; top: 0; z-index: 5;
+    padding: 12px 32px;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    background: rgba(12,12,15,0.8);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .preview-style-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .preview-style-name .chip {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500;
+    background: rgba(108,99,255,0.15); color: var(--accent); border: 1px solid rgba(108,99,255,0.2);
+  }
+  .copy-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 7px 16px; border-radius: 7px;
+    font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---- PROPOSAL RENDERED ---- */
+  #proposalOutput {
+    padding: 0;
+  }
+
+  /* The actual proposal renders with its own style based on selected theme */
+  .proposal-wrapper {
+    padding: 40px 48px;
+    min-height: 100%;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* Loading overlay */
+  .loading-overlay {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; min-height: 500px; gap: 20px;
+  }
+  .loading-spinner-big {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-text { font-size: 14px; color: var(--muted); }
+  .loading-dots::after { content: ''; animation: dots 1.5s steps(3, end) infinite; }
+  @keyframes dots { 0%,20%{content:'.'} 40%,60%{content:'..'} 80%,100%{content:'...'} }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* Price inputs row */
+  .price-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .price-row .form-group { margin-bottom: 0; }
+
+  /* Selected style info panel */
+  .selected-style-info {
+    background: rgba(108,99,255,0.06);
+    border: 1px solid rgba(108,99,255,0.2);
+    border-radius: 10px; padding: 12px 14px;
+    font-size: 12px; display: none;
+  }
+  .selected-style-info.visible { display: block; }
+  .selected-style-info .info-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .selected-style-info .info-desc { color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Proposal<span>Craft</span></div>
+  <div class="badge">✦ AI-Powered</div>
+</header>
+
+<div class="app">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- CLIENT DATA -->
+    <div>
+      <div class="section-label">📋 Data Klien</div>
+      <div class="form-group">
+        <label>Nama Bisnis *</label>
+        <input type="text" id="businessName" placeholder="Contoh: Klinik Sehat Bersama" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Kategori</label>
+          <input type="text" id="category" placeholder="Klinik, Restoran..." />
+        </div>
+        <div class="form-group">
+          <label>Kota</label>
+          <input type="text" id="city" placeholder="Surabaya" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Alamat</label>
+        <input type="text" id="address" placeholder="Jl. Merdeka No. 12" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rating GMaps</label>
+          <input type="text" id="rating" placeholder="4.8" />
+        </div>
+        <div class="form-group">
+          <label>Jumlah Ulasan</label>
+          <input type="text" id="reviewsCount" placeholder="320" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Website Saat Ini</label>
+          <input type="text" id="currentWebsite" placeholder="Belum ada / URL" />
+        </div>
+        <div class="form-group">
+          <label>Instagram</label>
+          <input type="text" id="igUsername" placeholder="@namabisnis" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Pain Points (masalah yang dihadapi)</label>
+        <textarea id="painPoints" placeholder="Belum ada website, susah ditemukan di Google, tidak ada tempat tampilkan testimonial..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Brand Tagline</label>
+        <input type="text" id="brandTagline" placeholder="Kesehatan untuk Semua" />
+      </div>
+      <div class="form-group">
+        <label>Style DNA (karakter brand)</label>
+        <input type="text" id="styleDNA" placeholder="Modern, bersih, profesional, terpercaya" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- PENAWAR DATA -->
+    <div>
+      <div class="section-label">🏢 Data Penawar</div>
+      <div class="form-group">
+        <label>Nama Bisnis Penawar *</label>
+        <input type="text" id="myBusinessName" placeholder="WebStudio Indonesia" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>WhatsApp</label>
+          <input type="text" id="myWa" placeholder="08123456789" />
+        </div>
+        <div class="form-group">
+          <label>Instagram</label>
+          <input type="text" id="myIg" placeholder="@webstudio" />
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- HARGA -->
+    <div>
+      <div class="section-label">💰 Harga Paket (Rp)</div>
+      <div class="price-row">
+        <div class="form-group">
+          <label>Paket 1</label>
+          <input type="text" id="price1" placeholder="3.500.000" />
+        </div>
+        <div class="form-group">
+          <label>Paket 2</label>
+          <input type="text" id="price2" placeholder="6.500.000" />
+        </div>
+        <div class="form-group">
+          <label>Paket 3</label>
+          <input type="text" id="price3" placeholder="12.000.000" />
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- STYLE PICKER -->
+    <div>
+      <div class="section-label">🎨 Pilih Gaya Proposal</div>
+
+      <div class="selected-style-info" id="selectedStyleInfo">
+        <div class="info-name" id="selectedStyleName"></div>
+        <div class="info-desc" id="selectedStyleDesc"></div>
+      </div>
+
+      <div class="style-grid" id="styleGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <button class="generate-btn" id="generateBtn" onclick="generateProposal()">
+      <div class="btn-inner">
+        <span>✦</span> Generate Proposal
+      </div>
+    </button>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="rightPanel">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">📄</div>
+      <div class="empty-title">Proposal belum dibuat</div>
+      <div class="empty-sub">Isi data klien di sebelah kiri, pilih gaya desain proposal, lalu klik Generate Proposal.</div>
+    </div>
+    <div id="proposalOutput" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+// ---- STYLE DATA ----
+const STYLES = [
+  { id: "clean-minimal", name: "Clean Minimal", icon: "🤍", desc: "Bersih, whitespace, profesional", palette: ["#2C3E50","#3498DB","#FFFFFF","#F8F9FA"] },
+  { id: "bold-modern", name: "Bold Modern", icon: "🔥", desc: "Kontras tinggi, berani, impactful", palette: ["#000000","#FF3D00","#FFFFFF","#F5F5F5"] },
+  { id: "premium-elegant", name: "Premium Elegant", icon: "👑", desc: "Mewah, emas, dark mode", palette: ["#0A0A0A","#D4AF37","#1A1A1A","#FFFFFF"] },
+  { id: "playful-creative", name: "Playful Creative", icon: "🎈", desc: "Ceria, warna cerah, fun", palette: ["#FF6B6B","#4ECDC4","#FFE66D","#FFFFFF"] },
+  { id: "corporate-professional", name: "Corporate Pro", icon: "💼", desc: "B2B, trustworthy, konservatif", palette: ["#1E3A5F","#4299E1","#FFFFFF","#F7FAFC"] },
+  { id: "tech-futuristic", name: "Tech Futuristic", icon: "🚀", desc: "Dark, neon, futuristik", palette: ["#0A0A0F","#00F0FF","#BD00FF","#FF0080"] },
+  { id: "organic-natural", name: "Organic Natural", icon: "🌿", desc: "Earth tone, tenang, eco", palette: ["#5D8A66","#8B7355","#D4A574","#FDFBF7"] },
+  { id: "retro-vintage", name: "Retro Vintage", icon: "📻", desc: "Nostalgia, muted, heritage", palette: ["#C94C22","#1B4965","#F5E6C8","#8B6914"] },
+  { id: "dark-neon", name: "Dark Neon", icon: "💜", desc: "Gelap, neon accent, edgy", palette: ["#0D0D1A","#9B59B6","#1ABC9C","#F39C12"] },
+  { id: "warm-friendly", name: "Warm Friendly", icon: "🧡", desc: "Hangat, ramah, welcoming", palette: ["#E07B39","#D4A857","#4E9E7A","#FFF8F0"] },
+  { id: "pastel-soft", name: "Pastel Soft", icon: "🌸", desc: "Lembut, pastel, dreamy", palette: ["#B5D5F5","#FFB3BA","#FFDAA5","#FEFEFE"] },
+  { id: "minimalist-swiss", name: "Swiss Minimalist", icon: "⬜", desc: "Grid ketat, typography kuat", palette: ["#E63946","#1D1D1D","#F1FAEE","#A8DADC"] },
+  { id: "neomorphic", name: "Neomorphic", icon: "🔲", desc: "Soft UI, depth, modern 3D", palette: ["#E0E5EC","#6C63FF","#3D5A80","#CCCCDD"] },
+  { id: "magazine-editorial", name: "Editorial", icon: "📰", desc: "Magazine feel, layout dinamis", palette: ["#111111","#FF5733","#FFFFFF","#F5F5F5"] },
+  { id: "tropical-vibrant", name: "Tropical Vibrant", icon: "🌺", desc: "Cerah, tropis, energik", palette: ["#E63946","#2A9D8F","#E9C46A","#264653"] },
+  { id: "dark-corporate", name: "Dark Corporate", icon: "🌑", desc: "Profesional gelap, premium", palette: ["#111827","#3B82F6","#1F2937","#FFFFFF"] },
+  { id: "gradient-aurora", name: "Gradient Aurora", icon: "🌈", desc: "Gradient dramatis, vivid", palette: ["#667EEA","#F093FB","#4FACFE","#43E97B"] },
+  { id: "monochrome-brutal", name: "Brutalist", icon: "⬛", desc: "Raw, bold borders, no nonsense", palette: ["#000000","#FFFFFF","#FFFF00","#000000"] },
+  { id: "geometric-precision", name: "Geometric", icon: "📐", desc: "Presisi, struktur, technical", palette: ["#2C3E50","#E74C3C","#3498DB","#FFFFFF"] },
+  { id: "handdrawn-artistic", name: "Handdrawn", icon: "✏️", desc: "Artistik, texture tangan, kreatif", palette: ["#E67E22","#27AE60","#8E44AD","#FEF9E7"] },
+];
+
+// Style detail configs for CSS theming
+const STYLE_CONFIGS = {
+  "clean-minimal": {
+    bg: "#FFFFFF", surface: "#F8F9FA", text: "#2C3E50", accent: "#3498DB",
+    accent2: "#2980B9", border: "#E0E0E0", heading: "Inter, sans-serif",
+    body: "Lato, sans-serif", headingW: "700", radius: "8px",
+    headerBg: "#2C3E50", headerText: "#FFFFFF"
+  },
+  "bold-modern": {
+    bg: "#FFFFFF", surface: "#F5F5F5", text: "#000000", accent: "#FF3D00",
+    accent2: "#CC3000", border: "#000000", heading: "Montserrat, sans-serif",
+    body: "Poppins, sans-serif", headingW: "800", radius: "6px",
+    headerBg: "#000000", headerText: "#FFFFFF"
+  },
+  "premium-elegant": {
+    bg: "#0A0A0A", surface: "#141414", text: "#FFFFFF", accent: "#D4AF37",
+    accent2: "#B8960C", border: "rgba(212,175,55,0.3)", heading: "Playfair Display, serif",
+    body: "Lato, sans-serif", headingW: "700", radius: "4px",
+    headerBg: "#141414", headerText: "#D4AF37"
+  },
+  "playful-creative": {
+    bg: "#FFFFFF", surface: "#F7FFF7", text: "#292F36", accent: "#FF6B6B",
+    accent2: "#4ECDC4", border: "#FF6B6B", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "700", radius: "20px",
+    headerBg: "#FF6B6B", headerText: "#FFFFFF"
+  },
+  "corporate-professional": {
+    bg: "#FFFFFF", surface: "#F7FAFC", text: "#1A202C", accent: "#1E3A5F",
+    accent2: "#4299E1", border: "#E2E8F0", heading: "Roboto, sans-serif",
+    body: "Open Sans, sans-serif", headingW: "700", radius: "6px",
+    headerBg: "#1E3A5F", headerText: "#FFFFFF"
+  },
+  "tech-futuristic": {
+    bg: "#0A0A0F", surface: "#12121A", text: "#FFFFFF", accent: "#00F0FF",
+    accent2: "#BD00FF", border: "#00F0FF", heading: "Orbitron, sans-serif",
+    body: "Rajdhani, sans-serif", headingW: "700", radius: "0px",
+    headerBg: "#12121A", headerText: "#00F0FF"
+  },
+  "organic-natural": {
+    bg: "#FDFBF7", surface: "#F5F0E6", text: "#3D3D3D", accent: "#5D8A66",
+    accent2: "#8B7355", border: "#D4C4B0", heading: "Merriweather, serif",
+    body: "Lora, serif", headingW: "700", radius: "12px",
+    headerBg: "#5D8A66", headerText: "#FFFFFF"
+  },
+  "retro-vintage": {
+    bg: "#F5E6C8", surface: "#EDD8A8", text: "#2C1810", accent: "#C94C22",
+    accent2: "#1B4965", border: "#8B6914", heading: "Playfair Display, serif",
+    body: "Georgia, serif", headingW: "700", radius: "4px",
+    headerBg: "#C94C22", headerText: "#FFFFFF"
+  },
+  "dark-neon": {
+    bg: "#0D0D1A", surface: "#151528", text: "#FFFFFF", accent: "#9B59B6",
+    accent2: "#1ABC9C", border: "rgba(155,89,182,0.4)", heading: "Rajdhani, sans-serif",
+    body: "Roboto, sans-serif", headingW: "700", radius: "6px",
+    headerBg: "#151528", headerText: "#9B59B6"
+  },
+  "warm-friendly": {
+    bg: "#FFF8F0", surface: "#FFF0E0", text: "#3D2B1F", accent: "#E07B39",
+    accent2: "#D4A857", border: "#F5D5B0", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "600", radius: "12px",
+    headerBg: "#E07B39", headerText: "#FFFFFF"
+  },
+  "pastel-soft": {
+    bg: "#FEFEFE", surface: "#F9F4FF", text: "#3D3D5C", accent: "#B5D5F5",
+    accent2: "#FFB3BA", border: "#E8D8F8", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "600", radius: "16px",
+    headerBg: "#B5D5F5", headerText: "#3D3D5C"
+  },
+  "minimalist-swiss": {
+    bg: "#F1FAEE", surface: "#FFFFFF", text: "#1D1D1D", accent: "#E63946",
+    accent2: "#457B9D", border: "#1D1D1D", heading: "Arial Black, sans-serif",
+    body: "Helvetica, Arial, sans-serif", headingW: "900", radius: "0px",
+    headerBg: "#E63946", headerText: "#FFFFFF"
+  },
+  "neomorphic": {
+    bg: "#E0E5EC", surface: "#E8EDF4", text: "#3D5A80", accent: "#6C63FF",
+    accent2: "#3D5A80", border: "#CCCCDD", heading: "Inter, sans-serif",
+    body: "Inter, sans-serif", headingW: "700", radius: "16px",
+    headerBg: "#D0D8E4", headerText: "#3D5A80"
+  },
+  "magazine-editorial": {
+    bg: "#FFFFFF", surface: "#F5F5F5", text: "#111111", accent: "#FF5733",
+    accent2: "#111111", border: "#111111", heading: "Georgia, serif",
+    body: "Helvetica, Arial, sans-serif", headingW: "900", radius: "0px",
+    headerBg: "#111111", headerText: "#FF5733"
+  },
+  "tropical-vibrant": {
+    bg: "#FAFFF8", surface: "#F0FFF4", text: "#264653", accent: "#2A9D8F",
+    accent2: "#E63946", border: "#A8D8B9", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "700", radius: "12px",
+    headerBg: "#2A9D8F", headerText: "#FFFFFF"
+  },
+  "dark-corporate": {
+    bg: "#111827", surface: "#1F2937", text: "#F9FAFB", accent: "#3B82F6",
+    accent2: "#60A5FA", border: "#374151", heading: "Inter, sans-serif",
+    body: "Inter, sans-serif", headingW: "700", radius: "8px",
+    headerBg: "#1F2937", headerText: "#3B82F6"
+  },
+  "gradient-aurora": {
+    bg: "#FFFFFF", surface: "#F8F6FF", text: "#1A1A2E", accent: "#667EEA",
+    accent2: "#F093FB", border: "#E0D8FF", heading: "Poppins, sans-serif",
+    body: "DM Sans, sans-serif", headingW: "700", radius: "12px",
+    headerBg: "linear-gradient(135deg, #667EEA, #F093FB)", headerText: "#FFFFFF"
+  },
+  "monochrome-brutal": {
+    bg: "#FFFFFF", surface: "#FFFFFF", text: "#000000", accent: "#000000",
+    accent2: "#FFFF00", border: "#000000", heading: "Arial Black, Impact, sans-serif",
+    body: "Arial, sans-serif", headingW: "900", radius: "0px",
+    headerBg: "#000000", headerText: "#FFFF00"
+  },
+  "geometric-precision": {
+    bg: "#FFFFFF", surface: "#F8FAFC", text: "#2C3E50", accent: "#E74C3C",
+    accent2: "#3498DB", border: "#2C3E50", heading: "Rajdhani, sans-serif",
+    body: "Roboto, sans-serif", headingW: "700", radius: "0px",
+    headerBg: "#2C3E50", headerText: "#FFFFFF"
+  },
+  "handdrawn-artistic": {
+    bg: "#FEF9E7", surface: "#FCF3CF", text: "#2C3E50", accent: "#E67E22",
+    accent2: "#27AE60", border: "#E67E22", heading: "Amatic SC, cursive",
+    body: "Patrick Hand, cursive", headingW: "700", radius: "255px 15px 225px 15px / 15px 225px 15px 255px",
+    headerBg: "#E67E22", headerText: "#FFFFFF"
+  },
+};
+
+let selectedStyle = null;
+
+// ---- RENDER STYLE GRID ----
+function renderStyleGrid() {
+  const grid = document.getElementById('styleGrid');
+  grid.innerHTML = STYLES.map(s => `
+    <div class="style-card" id="card-${s.id}" onclick="selectStyle('${s.id}')">
+      <div class="style-check">✓</div>
+      <div class="style-icon">${s.icon}</div>
+      <div class="style-name">${s.name}</div>
+      <div class="style-desc">${s.desc}</div>
+      <div class="style-palette">
+        ${s.palette.map(c => `<div class="palette-dot" style="background:${c}"></div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectStyle(id) {
+  selectedStyle = id;
+  document.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + id).classList.add('active');
+  const s = STYLES.find(x => x.id === id);
+  document.getElementById('selectedStyleName').innerHTML = `${s.icon} ${s.name}`;
+  document.getElementById('selectedStyleDesc').textContent = s.desc;
+  document.getElementById('selectedStyleInfo').classList.add('visible');
+}
+
+// ---- BUILD PROMPT ----
+function buildPrompt(data) {
+  const style = STYLES.find(s => s.id === selectedStyle);
+  const config = STYLE_CONFIGS[selectedStyle] || STYLE_CONFIGS['clean-minimal'];
+  const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  return `Kamu adalah konsultan web senior yang menulis proposal penawaran KHUSUS untuk klien bernama "${data.businessName}".
+
+DATA KLIEN:
+- Nama Bisnis: ${data.businessName}
+- Kategori: ${data.category}
+- Lokasi: ${data.address}, ${data.city}
+- Rating GMaps: ${data.rating} (dari ${data.reviewsCount} ulasan)
+- Website Saat Ini: ${data.currentWebsite}
+- Instagram: ${data.igUsername}
+- Pain Points: ${data.painPoints}
+- Brand Tagline: ${data.brandTagline}
+- Style DNA: ${data.styleDNA}
+- Nama Penawar: ${data.myBusinessName}
+- WhatsApp: ${data.myWa} | IG: ${data.myIg}
+- Tanggal: ${today}
+- Harga Paket 1: Rp ${data.price1}
+- Harga Paket 2: Rp ${data.price2}
+- Harga Paket 3: Rp ${data.price3}
+
+GAYA VISUAL PROPOSAL: ${style ? style.name : 'Clean Minimal'} — ${style ? style.desc : ''}
+
+TUGAS: Tulis proposal penawaran pembuatan website dalam Bahasa Indonesia yang profesional namun hangat. 
+Output harus berupa HTML yang SIAP RENDER dengan gaya visual ${style ? style.name : 'Clean Minimal'}.
+Gunakan CSS inline dan tag HTML. Wrap semua dalam <div class="proposal-content">.
+
+CSS VARIABLES yang wajib digunakan dalam CSS inline:
+- Background utama: ${config.bg}
+- Surface/card: ${config.surface}
+- Teks: ${config.text}
+- Accent/warna utama: ${config.accent}
+- Secondary accent: ${config.accent2}
+- Border: ${config.border}
+- Heading font: ${config.heading}
+- Body font: ${config.body}
+- Heading weight: ${config.headingW}
+- Border radius: ${config.radius}
+- Header bg: ${config.headerBg}
+- Header text: ${config.headerText}
+
+STRUKTUR PROPOSAL (dalam HTML):
+1. HEADER — nama bisnis klien, nama penawar, tanggal — styled dengan ${config.headerBg} background
+2. PEMBUKA — 2-3 paragraf yang menunjukkan kamu sudah riset bisnis mereka. Sebutkan rating, lokasi, kategori secara natural.
+3. MASALAH YANG KAMI IDENTIFIKASI — 3 pain point spesifik dalam card/box styled
+4. SOLUSI YANG KAMI TAWARKAN — deskripsi website yang relevan dengan kategori dan style DNA mereka
+5. PAKET & INVESTASI — 3 tier dengan nama kreatif (BUKAN Basic/Standard/Premium). Paket 2 ditandai "REKOMENDASI". Gunakan harga yang sudah diberikan.
+6. TIMELINE — dalam format visual steps/tahapan
+7. MENGAPA KAMI — 3-4 diferensiasi genuine
+8. PENUTUP — hangat, cantumkan kontak
+
+ATURAN HTML OUTPUT:
+- Gunakan style inline untuk semua elemen
+- Gunakan Google Fonts import jika diperlukan
+- Pastikan estetika mencerminkan gaya: ${style ? style.name : 'Clean Minimal'}
+- Proposal harus terasa DITULIS KHUSUS untuk ${data.businessName}, bukan template generik
+- Jangan tambahkan penjelasan atau komentar di luar HTML
+- Output HANYA HTML, mulai dari <style>@import ...</style> atau langsung <div class="proposal-content">`;
+}
+
+// ---- GENERATE PROPOSAL ----
+async function generateProposal() {
+  const data = {
+    businessName: document.getElementById('businessName').value.trim(),
+    category: document.getElementById('category').value.trim() || 'Bisnis',
+    city: document.getElementById('city').value.trim() || '-',
+    address: document.getElementById('address').value.trim() || '-',
+    rating: document.getElementById('rating').value.trim() || '-',
+    reviewsCount: document.getElementById('reviewsCount').value.trim() || '-',
+    currentWebsite: document.getElementById('currentWebsite').value.trim() || 'Belum ada',
+    igUsername: document.getElementById('igUsername').value.trim() || '-',
+    painPoints: document.getElementById('painPoints').value.trim() || 'Belum teridentifikasi',
+    brandTagline: document.getElementById('brandTagline').value.trim() || '-',
+    styleDNA: document.getElementById('styleDNA').value.trim() || 'Profesional',
+    myBusinessName: document.getElementById('myBusinessName').value.trim() || 'Web Consultant',
+    myWa: document.getElementById('myWa').value.trim() || '-',
+    myIg: document.getElementById('myIg').value.trim() || '-',
+    price1: document.getElementById('price1').value.trim() || '3.500.000',
+    price2: document.getElementById('price2').value.trim() || '6.500.000',
+    price3: document.getElementById('price3').value.trim() || '12.000.000',
+  };
+
+  if (!data.businessName) {
+    alert('Mohon isi nama bisnis klien terlebih dahulu.');
+    return;
+  }
+  if (!selectedStyle) {
+    alert('Mohon pilih gaya proposal terlebih dahulu.');
+    return;
+  }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="btn-inner"><div class="spinner"></div> Generating...</div>';
+
+  document.getElementById('emptyState').style.display = 'none';
+  const output = document.getElementById('proposalOutput');
+  output.style.display = 'block';
+  output.innerHTML = `
+    <div class="loading-overlay">
+      <div class="loading-spinner-big"></div>
+      <div class="loading-text">Sedang menulis proposal untuk <strong>${data.businessName}</strong><span class="loading-dots"></span></div>
+    </div>
+  `;
+
+  try {
+    const prompt = buildPrompt(data);
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const result = await response.json();
+    const text = result.content?.[0]?.text || '';
+
+    // Extract HTML from response
+    let html = text;
+    // Remove markdown code fences if present
+    html = html.replace(/^```html\n?/i, '').replace(/\n?```$/i, '').trim();
+
+    const style = STYLES.find(s => s.id === selectedStyle);
+
+    // Show style bar + result
+    const rightPanel = document.getElementById('rightPanel');
+    rightPanel.innerHTML = `
+      <div class="style-preview-bar">
+        <div class="preview-style-name">
+          ${style.icon} ${style.name}
+          <span class="chip">Active Style</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="copy-btn" onclick="copyText()">📋 Salin Teks</button>
+          <button class="copy-btn" onclick="downloadHTML()">⬇ Unduh HTML</button>
+        </div>
+      </div>
+      <div id="proposalOutput" style="display:block;">
+        <div class="proposal-wrapper" id="proposalWrapper">
+          ${html}
+        </div>
+      </div>
+    `;
+
+    window._lastHtml = html;
+    window._lastBusinessName = data.businessName;
+
+  } catch (err) {
+    document.getElementById('proposalOutput').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">Gagal Generate</div>
+        <div class="empty-sub">${err.message}</div>
+      </div>
+    `;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<div class="btn-inner"><span>✦</span> Generate Proposal</div>';
+  }
+}
+
+function copyText() {
+  const wrapper = document.getElementById('proposalWrapper');
+  if (!wrapper) return;
+  const text = wrapper.innerText;
+  navigator.clipboard.writeText(text).then(() => alert('Teks proposal berhasil disalin!'));
+}
+
+function downloadHTML() {
+  const html = window._lastHtml || '';
+  const name = window._lastBusinessName || 'proposal';
+  const full = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Proposal — ${name}</title></head><body style="margin:0;padding:0;">${html}</body></html>`;
+  const blob = new Blob([full], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `proposal-${name.toLowerCase().replace(/\s+/g, '-')}.html`;
+  a.click();
+}
+
+// ---- INIT ----
+renderStyleGrid();
+</script>
+</body>
+</html>

@@ -5,6 +5,31 @@ export interface FonnteResponse {
   [key: string]: any;
 }
 
+import { sanitizeWaNumber } from '@/lib/utils';
+
+export function parseFonnteWebhook(body: any) {
+  const sender = body.sender || body.from || '';
+  const device = body.device || '';
+  const message = body.message || '';
+  const status = body.status || '';
+  const inboxid = body.inboxid || '';
+
+  const cleanSender = sanitizeWaNumber(sender.toString()) || '';
+  const cleanDevice = sanitizeWaNumber(device.toString()) || '';
+
+  const isMe = body.is_me === true || body.is_me === 'true' || (cleanSender !== '' && cleanSender === cleanDevice);
+  const isStatusUpdate = status === 'connect' || status === 'disconnect' || (!message && device !== '');
+
+  return {
+    sender: cleanSender,
+    device: cleanDevice,
+    message,
+    isMe,
+    isStatusUpdate,
+    inboxid
+  };
+}
+
 function formatPhone(phone: string): string {
   // Strip all non-digit characters
   let digits = phone.replace(/\D/g, '');

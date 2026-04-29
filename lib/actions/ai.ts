@@ -21,6 +21,7 @@ import {
     OUTREACH_PERSONAS,
     buildForgeData,
     getGreetingTime,
+    PROPOSAL_GENERATOR_PROMPT,
 } from '@/lib/prompts';
 import { getEffectivePrompt } from './prompt';
 import { getUserSettings } from './settings';
@@ -90,10 +91,8 @@ export async function getStyleSummary() {
 // --- KIE.AI MULTI-PROTOCOL CALLER ---
 // Jalur ini mengunci protokol agar tidak ada asumsi parsing data.
 
-export async function callKieAI(prompt: string, maxRetries = 3) {
+export async function callKieAI(prompt: string, maxRetries = 5) {
     const user = await getCurrentUser();
-    
-    // LOGIKA FALLBACK: Prioritas DB User -> Fallback ke .env Server
     const apiKey = user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
 
     if (!apiKey) {
@@ -116,30 +115,40 @@ export async function callKieAI(prompt: string, maxRetries = 3) {
             });
 
             if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                console.error(`[Kie.ai Error] Attempt ${attempt} (${response.status}):`, data);
-                
-                // If 401 or 403, don't retry, it's fatal
-                if (response.status === 401 || response.status === 403) {
-                    throw new Error(`Kie.ai Auth Error: ${data.msg || data.message || 'Invalid API Key'}`);
+                // Try to get error message
+                let errorData: any = {};
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    errorData = { message: response.statusText };
                 }
 
+                console.error(`[Kie.ai Error] Attempt ${attempt}/${maxRetries} (${response.status}):`, errorData);
+                
+                // Fatal Errors: Don't retry
+                if (response.status === 401 || response.status === 403 || response.status === 400) {
+                    throw new Error(`Kie.ai Error (${response.status}): ${errorData.msg || errorData.message || 'Fatal error'}`);
+                }
+
+                // Transient Errors (500, 502, 503, 504, 429)
                 if (attempt < maxRetries) {
-                    const delay = attempt * 5000; // 5s, 10s, 15s
-                    console.log(`[Kie.ai] Transient error. Retrying in ${delay}ms...`);
+                    // Exponential backoff with jitter: (2^attempt * 1000) + random
+                    const baseDelay = Math.pow(2, attempt) * 1000;
+                    const jitter = Math.random() * 2000;
+                    const delay = baseDelay + jitter;
+                    
+                    console.warn(`[Kie.ai] Transient error ${response.status}. Retrying in ${Math.round(delay)}ms...`);
                     await new Promise(r => setTimeout(r, delay));
                     continue;
                 }
                 
-                throw new Error(`Kie.ai Error: ${data.msg || data.message || 'Rejected after ' + maxRetries + ' attempts'}`);
+                throw new Error(`Kie.ai Error ${response.status}: ${errorData.msg || errorData.message || 'Server rejected request after ' + maxRetries + ' attempts'}`);
             }
 
             const data = await response.json();
-
-            // PARSING LOGIC (Cari teks di mana saja)
             const content = data.choices?.[0]?.message?.content || 
-                   data.candidates?.[0]?.content?.parts?.[0]?.text || 
-                   data.content?.[0]?.text;
+                           data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                           data.content?.[0]?.text;
             
             if (!content) {
                 console.error("[Kie.ai Error] Empty content result:", data);
@@ -148,13 +157,13 @@ export async function callKieAI(prompt: string, maxRetries = 3) {
 
             return content;
         } catch (error: any) {
-            console.error(`[callKieAI Failure] Attempt ${attempt}:`, error.message);
+            // Check if it's a timeout or network error
+            const isTransient = error.name === 'TimeoutError' || error.name === 'AbortError' || error.message.includes('fetch');
             
-            // Don't retry for certain errors
-            if (error.message.includes("Auth Error")) throw error;
-
-            if (attempt < maxRetries) {
-                const delay = attempt * 5000;
+            console.error(`[callKieAI Failure] Attempt ${attempt}/${maxRetries}:`, error.message);
+            
+            if (isTransient && attempt < maxRetries) {
+                const delay = Math.pow(2, attempt) * 1000 + Math.random() * 2000;
                 await new Promise(r => setTimeout(r, delay));
                 continue;
             }
@@ -290,6 +299,8 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
                     .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
                     .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
                     .replace('[unsplashQueries]', forgeData.unsplashQueries)
+                    .replace('[rating]', lead.rating.toString())
+                    .replace('[reviewsCount]', (lead.reviewCount || 0).toString())
             );
             
             if (!researchRaw) {
@@ -361,6 +372,11 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
         }
         
         processedCount++;
+        
+        // Add a small delay between items to avoid Kie.ai rate limits
+        if (processedCount < total) {
+            await new Promise(r => setTimeout(r, 2000));
+        }
     }
 
     if (jobId) {
@@ -809,9 +825,97 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
     }
 }
 
-export async function generateFollowUpDraft(leadId: string, followupNumber: number, persona: string = 'professional') {
+export async function generateProposalDraft(
+    leadId: string, 
+    inputs: {
+        prices: { tier1: string, tier2: string, tier3: string },
+        overrides?: Record<string, string>,
+        selectedStyleId: string
+    },
+    jobId?: string
+) {
     const user = await getCurrentUser();
-    if (!user) return { success: false, message: 'Unauthorized' };
+    if (!user) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Unauthorized' });
+        return { success: false, message: 'Unauthorized' };
+    }
+
+    try {
+        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) throw new Error("Lead not found");
+
+        const { buildHtmlProposalPrompt } = await import('@/lib/prompts');
+
+        const data = {
+            businessName: inputs.overrides?.businessName || lead.name,
+            category: inputs.overrides?.category || lead.category,
+            city: inputs.overrides?.city || lead.city || "-",
+            address: inputs.overrides?.address || lead.address || "-",
+            rating: inputs.overrides?.rating || lead.rating.toString(),
+            reviewsCount: inputs.overrides?.reviewsCount || (lead.reviewCount || 0).toString(),
+            currentWebsite: inputs.overrides?.currentWebsite || lead.website || "Belum ada",
+            igUsername: inputs.overrides?.igUsername || lead.ig || "-",
+            painPoints: inputs.overrides?.painPoints || lead.painPoints || "Belum teridentifikasi",
+            brandTagline: inputs.overrides?.brandTagline || (lead.brandData as any)?.tagline || "-",
+            styleDNA: inputs.overrides?.styleDNA || lead.styleDNA || "Profesional",
+            myBusinessName: inputs.overrides?.myBusinessName || user.businessName || "Web Consultant",
+            myWa: inputs.overrides?.myWa || user.businessWa || "-",
+            myIg: inputs.overrides?.myIg || user.businessIg || "-",
+            price1: inputs.prices.tier1,
+            price2: inputs.prices.tier2,
+            price3: inputs.prices.tier3,
+        };
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, { progress: 30, message: 'Consulting AI Architect for Proposal Design...' });
+        }
+
+        const finalPrompt = buildHtmlProposalPrompt(data, inputs.selectedStyleId);
+
+        const draft = await callKieAI(finalPrompt);
+
+        if (!draft) throw new Error("AI failed to generate proposal");
+
+        // Clean up markdown code fences if AI added them
+        const cleanDraft = draft.replace(/^```html\n?/i, '').replace(/\n?```$/i, '').trim();
+
+        // PERSIST TO DB
+        try {
+            const { saveProposal } = await import('./proposal');
+            await saveProposal({
+                leadId,
+                html: cleanDraft,
+                styleId: inputs.selectedStyleId,
+                prices: inputs.prices,
+                clientOverrides: inputs.overrides
+            });
+        } catch (dbErr) {
+            console.error("[Proposal DB Persistence Error]:", dbErr);
+        }
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, { 
+                status: 'COMPLETED', 
+                progress: 100, 
+                message: 'Proposal generated successfully!',
+                data: { draft: cleanDraft }
+            });
+        }
+
+        return { success: true, draft: cleanDraft };
+    } catch (error: any) {
+        console.error("[Proposal Generation Error]:", error.message);
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: error.message });
+        return { success: false, message: error.message };
+    }
+}
+
+export async function generateFollowUpDraft(leadId: string, followupNumber: number, persona: string = 'professional', jobId?: string) {
+    const user = await getCurrentUser();
+    if (!user) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Unauthorized' });
+        return { success: false, message: 'Unauthorized' };
+    }
 
     try {
         const lead = await prisma.lead.findUnique({ where: { id: leadId } });
@@ -832,6 +936,10 @@ export async function generateFollowUpDraft(leadId: string, followupNumber: numb
             .replace('{{my_business_name}}', user.businessName || '[Nama Bisnis Kamu]')
             .replace('{{my_ig}}', user.businessIg || '[IG Kamu]')
             .replace('{{my_wa}}', user.businessWa || '[WA Kamu]');
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, { progress: 40, message: `Crafting Follow-up #${followupNumber} Persona: ${persona}...` });
+        }
 
         const draft = await callKieAI(finalPrompt);
 
@@ -871,9 +979,19 @@ export async function generateFollowUpDraft(leadId: string, followupNumber: numb
             });
         }
 
+        if (jobId) {
+            JobRegistry.updateJob(jobId, { 
+                status: 'COMPLETED', 
+                progress: 100, 
+                message: 'Follow-up draft ready!',
+                data: { draft, waLink: finalWaLink }
+            });
+        }
+
         return { success: true, draft, waLink: finalWaLink };
     } catch (error: any) {
         console.error("[Follow-Up Error]:", error.message);
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: error.message });
         return { success: false, message: error.message };
     }
 }

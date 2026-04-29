@@ -89,37 +89,19 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
 
   const previewLead = leads.find((l) => l.id === previewLeadId);
 
-  // Polling logic to track background process on VPS
+  // Status management simplified - now handled by parent polling in LiveClient
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isBlasting && selectedLeadIds.length > 0) {
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/blast/status?leadIds=${selectedLeadIds.join(",")}`);
-          const data = await res.json();
-          if (data.statuses) {
-            setLocalStatuses((prev) => ({ ...prev, ...data.statuses }));
-            
-            // Check if all selected leads are DONE (SENT or FAILED)
-            const allDone = selectedLeadIds.every((id) => {
-              const status = data.statuses[id]?.status;
-              return status === "SENT" || status === "FAILED";
-            });
-
-            if (allDone) {
-              setIsBlasting(false);
-              if (onStatusUpdate) onStatusUpdate();
-            }
-          }
-        } catch (error) {
-          console.error("Polling error:", error);
-        }
-      }, 5000); // Poll every 5 seconds
+    if (isBlasting) {
+      // If we were blasting, check if selected leads are no longer in transient state
+      const allProcessed = leads
+        .filter(l => selectedLeadIds.includes(l.id))
+        .every(l => l.blastStatus !== null && l.blastStatus !== "FAILED" && l.blastStatus !== "PENDING");
+      
+      if (allProcessed && selectedLeadIds.length > 0) {
+        setIsBlasting(false);
+      }
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isBlasting, selectedLeadIds, onStatusUpdate]);
+  }, [leads, isBlasting, selectedLeadIds]);
 
   const handleBlast = async () => {
     if (selectedLeadIds.length === 0) {
@@ -141,7 +123,7 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
         toast.error(`Error: ${data.error}`, { id: t });
         setIsBlasting(false);
       } else {
-        toast.success(data.message || "Blast dimulai!", { id: t });
+        toast.success("Blast dimulai di background! Kamu bebas pindah menu lain, kami akan memantau progresnya untukmu.", { id: t, duration: 6000 });
         // Immediately set all selected leads to PENDING locally
         const newStatuses: Record<string, any> = {};
         selectedLeadIds.forEach(id => {
@@ -235,10 +217,15 @@ export default function BlastPanel({ leads, onStatusUpdate }: BlastPanelProps) {
         </button>
       </div>
 
-      {isBlasting && (
+      {isBlasting ? (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-center gap-3 animate-pulse">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" />
-          <span className="text-xs font-black uppercase tracking-widest text-green-400">Sedang mengirim pesan... Jangan tutup halaman ini.</span>
+          <span className="text-xs font-black uppercase tracking-widest text-green-400">Eksekusi Blast Berjalan di Background... Aman untuk pindah menu.</span>
+        </div>
+      ) : leads.some(l => l.blastStatus === "BAIT_SENT") && (
+        <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center gap-3">
+          <Activity size={14} className="text-blue-400 animate-spin" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Monitoring Balasan WA Klien secara Real-time...</span>
         </div>
       )}
 

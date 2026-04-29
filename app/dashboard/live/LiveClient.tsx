@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
     Globe, ExternalLink, MapPin, Building2, 
     Calendar, Sliders, Send, X, Loader2, Activity,
-    LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, CheckSquare, ChevronDown, Sparkles
+    LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, CheckSquare, ChevronDown, Sparkles, FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { PERSONA_OPTIONS } from '@/lib/prompts';
@@ -14,6 +14,7 @@ import DownloadButton from '@/components/DownloadButton';
 import EditPageModal from '@/components/EditPageModal';
 import LeadDetailModal from '@/components/LeadDetailModal';
 import BlastPanel from '@/components/BlastPanel';
+import ProposalModal from '@/components/ProposalModal';
 
 interface LiveLead {
     id: string;
@@ -48,6 +49,25 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'sites' | 'blast'>('sites');
     const [sendingId, setSendingId] = useState<string | null>(null);
+    const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+    const [proposalLead, setProposalLead] = useState<any>(null);
+
+    // Background Polling Logic for WA Blast & Replies
+    useEffect(() => {
+        const hasActiveLeads = leads.some(l => 
+            l.blastStatus === "PENDING" || 
+            l.blastStatus === "BAIT_SENT" || 
+            l.blastStatus === "SCHEDULED"
+        );
+
+        if (!hasActiveLeads) return;
+
+        const interval = setInterval(() => {
+            handleRefresh(); // Re-fetch all leads data from server
+        }, 8000);
+
+        return () => clearInterval(interval);
+    }, [leads]);
 
     const router = useRouter();
 
@@ -125,22 +145,22 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
 
             // Polling status (optional but good for UX)
             const checkStatus = setInterval(async () => {
-                const sRes = await fetch(`/api/blast/status?jobId=${data.jobId}`);
+                const sRes = await fetch(`/api/jobs/status?id=${data.jobId}`);
                 if (sRes.ok) {
                     const sData = await sRes.json();
-                    if (sData.status === 'COMPLETED' || sData.status === 'FAILED') {
+                    if (sData.job?.status === 'COMPLETED' || sData.job?.status === 'FAILED') {
                         clearInterval(checkStatus);
                         setIsGeneratingOutreach(false);
                         setSelectedLeadIds([]);
                         setRefreshKey(prev => prev + 1);
-                        if (sData.status === 'COMPLETED') {
+                        if (sData.job?.status === 'COMPLETED') {
                             alert('Batch outreach generation finished in background!');
                         } else {
-                            alert('Batch generation failed: ' + sData.message);
+                            alert('Batch generation failed: ' + (sData.job?.message || 'Unknown error'));
                         }
-                    } else if (sData.progress !== undefined) {
+                    } else if (sData.job?.progress !== undefined) {
                         setGenerateProgress({ 
-                            done: Math.round((sData.progress / 100) * selectedLeadIds.length), 
+                            done: Math.round((sData.job.progress / 100) * selectedLeadIds.length), 
                             total: selectedLeadIds.length 
                         });
                     }
@@ -324,6 +344,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                         <LeadCard key={lead.id} lead={lead}
                                             onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
                                             onOpenEdit={() => { setEditingHtmlLead(lead); setIsEditModalOpen(true); }}
+                                            onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
                                             onSendToMonitoring={() => handleSendToMonitoring(lead)}
                                             sendingId={sendingId}
                                         />
@@ -333,6 +354,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                 <LeadTable leads={notSentLeads}
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
                                     onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
+                                    onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
                                     onSendToMonitoring={handleSendToMonitoring}
                                     sendingId={sendingId}
                                     selectedIds={selectedLeadIds}
@@ -354,6 +376,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                         <LeadCard key={lead.id} lead={lead}
                                             onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
                                             onOpenEdit={() => { setEditingHtmlLead(lead); setIsEditModalOpen(true); }}
+                                            onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
                                             alreadySent
                                         />
                                     ))}
@@ -362,6 +385,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                 <LeadTable leads={sentLeads}
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
                                     onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
+                                    onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
                                     allSent
                                     selectedIds={selectedLeadIds}
                                     onToggleSelect={toggleSelectLead}
@@ -468,15 +492,24 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                     </div>
                 </div>
             )}
+
+            {proposalLead && (
+                <ProposalModal 
+                    isOpen={isProposalModalOpen}
+                    onClose={() => setIsProposalModalOpen(false)}
+                    lead={proposalLead}
+                />
+            )}
         </div>
     );
 }
 
 // ─── Lead Card Component ─────────────────────────────────────────────────────
-function LeadCard({ lead, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingId, alreadySent }: {
+function LeadCard({ lead, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, alreadySent }: {
     lead: LiveLead;
     onOpenDetail: () => void;
     onOpenEdit: () => void;
+    onOpenProposal: () => void;
     onSendToMonitoring?: () => void;
     sendingId?: string | null;
     alreadySent?: boolean;
@@ -558,6 +591,15 @@ function LeadCard({ lead, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingI
                     <Sliders size={16} className="text-accent-gold" />
                 </button>
 
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onOpenProposal(); }}
+                    className="flex-1 h-12 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] uppercase tracking-widest active:scale-95"
+                    title="Make Proposal"
+                >
+                    <FileText size={14} className="text-orange-500" />
+                    Proposal
+                </button>
+
                 {onSendToMonitoring && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onSendToMonitoring(); }}
@@ -579,10 +621,11 @@ function LeadCard({ lead, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingI
 }
 
 // ─── Table View Component ─────────────────────────────────────────────────────
-function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendingId, allSent, selectedIds = [], onToggleSelect }: {
+function LeadTable({ leads, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, allSent, selectedIds = [], onToggleSelect }: {
     leads: LiveLead[];
     onOpenDetail: (l: LiveLead) => void;
     onOpenEdit: (l: LiveLead) => void;
+    onOpenProposal: (l: LiveLead) => void;
     onSendToMonitoring?: (l: LiveLead) => void;
     sendingId?: string | null;
     allSent?: boolean;
@@ -653,6 +696,10 @@ function LeadTable({ leads, onOpenDetail, onOpenEdit, onSendToMonitoring, sendin
                                     <button onClick={() => onOpenEdit(lead)}
                                         className="h-8 w-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center justify-center transition-all">
                                         <Sliders size={12} className="text-accent-gold" />
+                                    </button>
+                                    <button onClick={() => onOpenProposal(lead)}
+                                        className="h-8 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10px] font-black flex items-center gap-1 transition-all">
+                                        <FileText size={11} className="text-orange-500" /> Prop
                                     </button>
                                     {onSendToMonitoring && (
                                         <button onClick={() => onSendToMonitoring(lead)}

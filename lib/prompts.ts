@@ -380,23 +380,23 @@ export const getUnsplashQuery = (category: string): string => {
 };
 
 // ============================================================
-// LEAD_EVALUATION_PROMPT — Optimized with strict filtering
+// LEAD_EVALUATION_PROMPT — v3 with Priority Scoring System
 // ============================================================
 export const LEAD_EVALUATION_PROMPT = `
-### ROLE: LEAD QUALITY ASSURANCE (SMART FILTER)
-Tugasmu adalah memvalidasi kualitas bisnis dan menentukan kontak terbaik. Kita hanya mencari bisnis yang "hidup" dan memiliki identitas brand.
+### ROLE: LEAD QUALITY ASSURANCE + PRIORITY SCORING ENGINE (SMART FILTER v3)
+Tugasmu adalah memvalidasi kualitas bisnis, menentukan kontak terbaik, DAN memberikan skor prioritas
+agar tim bisa fokus ke lead yang paling potensial untuk dikonversi.
 
 ### 1. ATURAN FILTER NAMA (ANTI-GENERIC):
 - SKIP jika nama bisnis murni generik tanpa merek. Contoh: "Studio Yoga", "Warung Nasi", "Bengkel Motor", "Toko Obat".
 - PROCEED jika ada identitas merek/brand di dalam namanya. Contoh: "Mahaloka House of Yoga", "Warung Nasi Bu Imas", "Bengkel Motor Setia Budi", "Toko Obat K24".
-- CLEANUP: Hapus embel-embel lokasi yang tidak perlu dari nama bisnis (misal: "Regnum Studio - Denpasar Selatan" menjadi "Regnum Studio").
+- CLEANUP: Hapus embel-embel lokasi dari nama bisnis (misal: "Regnum Studio - Denpasar Selatan" menjadi "Regnum Studio").
 
 ### 2. ATURAN KONTAK (STRICT):
-- wa: HANYA boleh diisi jika nomor adalah HP seluler (awalan 08/628). Jika nomor landline/kantor (0361-xxx, (0361)), KOSONGKAN field wa.
+- wa: HANYA boleh diisi jika nomor adalah HP seluler (awalan 08/628). Jika nomor landline/kantor (0361-xxx), KOSONGKAN field wa.
 - ig: 
-  - Jika di data [website] ada link instagram.com, ambil username-nya secara pasti.
-  - Jika tidak ada link tapi nama bisnis memiliki merek yang jelas (bukan generik), tebak username IG-nya (confidence >= 70%).
-  - Format tebakan: [namabisnis], [namabisnis]bali, [namabisnis].id.
+  - Jika di data [website] ada link instagram.com, ambil username-nya.
+  - Jika tidak ada, tebak username IG (confidence >= 70%) format: [namabisnis], [namabisnis]bali, [namabisnis].id.
 
 ### 3. ATURAN WEBSITE (TARGETING):
 - Kita fokus mencari bisnis yang BELUM memiliki website profesional.
@@ -409,14 +409,68 @@ Tugasmu adalah memvalidasi kualitas bisnis dan menentukan kontak terbaik. Kita h
 - SKIP jika: Sudah memiliki website profesional (.com, .id, dll).
 - SKIP jika: Nama generik, tidak ada HP seluler, dan tidak bisa menemukan IG yang meyakinkan.
 
-### OUTPUT FORMAT (JSON ONLY):
+---
+
+### 5. PRIORITY SCORING ENGINE (HANYA jika keputusan = PROCEED):
+
+Hitung total score (0–100) dari 4 dimensi berikut. Nilai WAJIB berupa angka integer.
+
+#### [A] BRAND STRENGTH (0–25 poin)
+Nilai seberapa kuat identitas merek bisnis ini berdasarkan nama dan deskripsi:
+- 20–25: Nama unik + deskripsi kaya (ada USP, cerita, spesialisasi jelas)
+- 12–19: Nama bermerek tapi deskripsi tipis atau generik
+- 5–11: Nama ada mereknya tapi lemah (nama orang biasa, terlalu panjang, sulit diingat)
+- 0–4: Hampir generik, lolos filter tapi barely
+
+#### [B] REVIEW SIGNAL (0–25 poin)
+Nilai potensi sosial proof berdasarkan rating dan jumlah review:
+- 20–25: Rating ≥ 4.5 dengan ≥ 50 review → Reputasi kuat, mudah dibuatkan social proof
+- 14–19: Rating 4.0–4.4 dengan ≥ 20 review, ATAU rating ≥ 4.5 dengan < 50 review
+- 7–13: Rating 3.5–3.9 atau review < 20 → Ada potensi tapi perlu kerja keras
+- 0–6: Rating < 3.5 atau tidak ada review → Risiko tinggi, konversi sulit
+- BONUS +5 (max 25): Jika review menyebut kualitas spesifik (bukan "bagus" generik) → Bahan copywriting kaya
+
+#### [C] WEBSITE GAP URGENCY (0–30 poin)
+Nilai seberapa mendesak kebutuhan website bisnis ini:
+- 25–30: Tidak ada website SAMA SEKALI + kategori high-value (Klinik, Law Firm, Hotel, Properti, Interior Design, Salon premium, Restoran) → Gap besar, ROI pitch mudah
+- 18–24: Tidak ada website + kategori medium-value (Bengkel, Toko, Cafe, Barbershop, dll)
+- 10–17: Hanya punya Linktree/Instagram + kategori apapun → Masih butuh website asli
+- 3–9: Punya bio-link tapi kategori low-urgency (Warung, UMKM kecil)
+- 0–2: Hampir tidak perlu website (bisnis terlalu kecil, offline-only jelas)
+
+#### [D] CONTACT REACHABILITY (0–20 poin)
+Nilai kemudahan menjangkau bisnis ini:
+- 17–20: Punya WA aktif (HP seluler terverifikasi) DAN Instagram dengan followers jelas
+- 12–16: Punya salah satu: WA aktif ATAU Instagram pasti (bukan tebakan)
+- 6–11: Hanya tebakan IG dengan confidence ≥ 70%
+- 0–5: Kontak sangat terbatas, hanya tebakan IG atau tidak ada WA
+
+#### PRIORITY TIER (berdasarkan total score):
+- 🔥 HOT (70–100): Blast sekarang. Auto-queue ke pipeline aktif.
+- ⚡ WARM (40–69): Layak diproses setelah HOT selesai.
+- 🧊 COLD (< 40): Simpan untuk batch berikutnya atau skip jika kapasitas penuh.
+
+---
+
+### OUTPUT FORMAT (JSON ONLY — no extra text):
 {
   "decision": "PROCEED" atau "SKIP",
   "name": "nama bisnis yang sudah dibersihkan",
   "wa": "format 628xxx atau string kosong jika bukan HP",
   "ig": "username tanpa @ atau null",
-  "reason": "alasan singkat (misal: 'High quality brand', 'Generic name skipped', 'Landline without IG')"
+  "reason": "alasan singkat keputusan filter",
+  "score": 85,
+  "priority_tier": "HOT",
+  "score_breakdown": {
+    "brand_strength": 22,
+    "review_signal": 20,
+    "website_gap_urgency": 28,
+    "contact_reachability": 15,
+    "total": 85
+  }
 }
+
+Catatan: Jika decision = "SKIP", field score, priority_tier, dan score_breakdown TETAP diisi dengan nilai 0 dan tier "SKIPPED" agar data tetap konsisten untuk logging.
 
 ### DATA BISNIS:
 - Nama: [name]
@@ -425,6 +479,8 @@ Tugasmu adalah memvalidasi kualitas bisnis dan menentukan kontak terbaik. Kita h
 - Kota: [city], [province]
 - Nomor: [wa]
 - Website: [website]
+- Rating: [rating]
+- Jumlah Review: [reviewsCount]
 - Deskripsi Bisnis: [about]
 `;
 
@@ -1174,3 +1230,311 @@ WA: {{my_wa}}
 IG: {{my_ig}}
 `;
 
+// ============================================================
+// PROPOSAL_GENERATOR_PROMPT — Personalized Web Proposal
+// Generate proposal penawaran pembuatan website yang personal
+// berdasarkan data klien yang sudah di-enrich dari pipeline
+// ============================================================
+export const PROPOSAL_GENERATOR_PROMPT = `
+### ROLE: SENIOR BUSINESS PROPOSAL WRITER & WEB CONSULTANT
+Kamu adalah konsultan web profesional yang sedang menulis proposal penawaran pembuatan website
+untuk bisnis "[businessName]". Proposal ini harus terasa DITULIS KHUSUS untuk mereka —
+bukan template copy-paste yang bisa ditebak.
+
+---
+
+### DATA KLIEN (GUNAKAN SEMUA — JANGAN ABAIKAN):
+- Nama Bisnis     : [businessName]
+- Kategori        : [category]
+- Lokasi          : [address], [city], [province]
+- Rating GMaps    : [rating] (dari [reviewsCount] ulasan)
+- Website Saat Ini: [currentWebsite]
+- Instagram       : [igUsername]
+- Pain Points     : [painPoints]
+- Brand Tagline   : [brandTagline]
+- Style DNA       : [styleDNA]
+- Nama Penawar    : [myBusinessName]
+- Kontak Penawar  : WA [myWa] | IG [myIg]
+- Tanggal Proposal: [proposalDate]
+
+---
+
+### INSTRUKSI PENULISAN:
+
+Tulis proposal dalam Bahasa Indonesia yang profesional namun hangat — bukan bahasa hukum kaku,
+bukan bahasa iklan murahan. Gaya seperti konsultan senior yang sudah riset bisnis klien
+sebelum meeting pertama.
+
+WAJIB personalisasi setiap bagian menggunakan data klien di atas:
+- Sebutkan nama bisnis spesifik, bukan placeholder.
+- Gunakan rating dan jumlah review sebagai bahan analisis nyata.
+- Rujuk kondisi online presence mereka saat ini (kosong / hanya IG / hanya Linktree).
+- Pain points harus tercermin di bagian "Masalah yang Kami Identifikasi".
+- Style DNA harus tercermin di bagian deskripsi desain.
+
+---
+
+### STRUKTUR PROPOSAL (WAJIB IKUTI URUTAN INI):
+
+**1. HEADER**
+Judul: "Proposal Penawaran Pembuatan Website Profesional"
+Untuk: [businessName]
+Dari: [myBusinessName]
+Tanggal: [proposalDate]
+
+**2. PEMBUKA — TENTANG ANDA (2–3 paragraf)**
+Tunjukkan bahwa kamu sudah riset bisnis mereka sebelum menulis ini.
+Sebutkan kategori bisnis, lokasi, rating mereka secara natural.
+Akui pencapaian mereka (rating bagus = kepercayaan pelanggan nyata).
+Hubungkan ke gap: reputasi offline yang belum terwakili secara online.
+
+**3. MASALAH YANG KAMI IDENTIFIKASI (3 poin)**
+Tulis 3 pain point spesifik berdasarkan [painPoints] dan kondisi online presence mereka.
+Format: judul pain point singkat + 1–2 kalimat penjelasan yang terasa relevan.
+Contoh angle: kehilangan calon pelanggan yang cari via Google, tidak ada tempat untuk
+testimonial terstruktur, tidak bisa jelaskan layanan lengkap di IG bio.
+
+**4. SOLUSI YANG KAMI TAWARKAN**
+Deskripsikan website yang akan dibuat — spesifik ke kategori dan style DNA mereka.
+Sebutkan elemen kunci yang relevan dengan bisnis mereka (bukan generic "landing page modern").
+Contoh: untuk Klinik → appointment section, doctor profiles, FAQ medis.
+Contoh: untuk Restoran → menu highlight, reservation CTA, gallery makanan.
+
+**5. PAKET & INVESTASI**
+Buat 3 tier paket. Nama paket harus kreatif dan relevan dengan kategori bisnis
+(bukan "Basic/Standard/Premium" yang generik):
+
+Paket 1 — [nama kreatif]:
+- Harga: Rp [price_tier_1]
+- Fitur: 5 poin fitur yang relevan dengan bisnis ini
+- Cocok untuk: [kondisi bisnis yang pas untuk paket ini]
+
+Paket 2 — [nama kreatif] (REKOMENDASIKAN INI):
+- Harga: Rp [price_tier_2]
+- Fitur: 7–8 poin fitur (termasuk semua paket 1 + tambahan)
+- Cocok untuk: [kondisi bisnis yang pas]
+
+Paket 3 — [nama kreatif]:
+- Harga: Rp [price_tier_3]
+- Fitur: 10+ poin fitur (full package)
+- Cocok untuk: [kondisi bisnis yang pas]
+
+**6. TIMELINE PENGERJAAN**
+Buat timeline realistis dalam format tahapan:
+- Hari 1–2: [tahap]
+- Hari 3–5: [tahap]
+- Hari 6–8: [tahap]
+- Hari 9–10: Revisi & finalisasi
+- Hari 11–12: Launch & serah terima
+
+**7. MENGAPA KAMI**
+3–4 poin diferensiasi yang terasa genuine, bukan klaim kosong.
+Fokus pada: proses kerja, pendekatan personal, pemahaman bisnis lokal.
+HINDARI: "tim berpengalaman", "terbaik", "terpercaya" tanpa konteks.
+
+**8. PENUTUP & NEXT STEP**
+Tutup dengan hangat. Ajak mereka untuk diskusi — bukan tekanan closing.
+Sertakan soft CTA: "Kalau ada bagian yang ingin disesuaikan atau ditanyakan,
+saya siap diskusi kapan saja."
+Cantumkan kontak [myBusinessName], WA [myWa], IG [myIg].
+
+---
+
+### ATURAN OUTPUT:
+- Bahasa Indonesia profesional — bukan bahasa iklan, bukan bahasa hukum kaku.
+- Setiap section harus terasa ditulis untuk [businessName], bukan bisnis lain.
+- Jangan sebut angka harga yang ngarang — gunakan placeholder [price_tier_1/2/3]
+  yang nanti diisi dari config aplikasi.
+- Panjang ideal: cukup komprehensif tapi tidak membosankan (~600–900 kata).
+- Output: Teks proposal lengkap siap pakai. Tanpa penjelasan meta, tanpa intro.
+`;
+export const PROPOSAL_STYLE_CONFIGS: Record<string, any> = {
+  "clean-minimal": {
+    bg: "#FFFFFF", surface: "#F8F9FA", text: "#2C3E50", accent: "#3498DB",
+    accent2: "#2980B9", border: "#E0E0E0", heading: "Inter, sans-serif",
+    body: "Lato, sans-serif", headingW: "700", radius: "8px",
+    headerBg: "#2C3E50", headerText: "#FFFFFF"
+  },
+  "bold-modern": {
+    bg: "#FFFFFF", surface: "#F5F5F5", text: "#000000", accent: "#FF3D00",
+    accent2: "#CC3000", border: "#000000", heading: "Montserrat, sans-serif",
+    body: "Poppins, sans-serif", headingW: "800", radius: "6px",
+    headerBg: "#000000", headerText: "#FFFFFF"
+  },
+  "premium-elegant": {
+    bg: "#0A0A0A", surface: "#141414", text: "#FFFFFF", accent: "#D4AF37",
+    accent2: "#B8960C", border: "rgba(212,175,55,0.3)", heading: "Playfair Display, serif",
+    body: "Lato, sans-serif", headingW: "700", radius: "4px",
+    headerBg: "#141414", headerText: "#D4AF37"
+  },
+  "playful-creative": {
+    bg: "#FFFFFF", surface: "#F7FFF7", text: "#292F36", accent: "#FF6B6B",
+    accent2: "#4ECDC4", border: "#FF6B6B", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "700", radius: "20px",
+    headerBg: "#FF6B6B", headerText: "#FFFFFF"
+  },
+  "corporate-professional": {
+    bg: "#FFFFFF", surface: "#F7FAFC", text: "#1A202C", accent: "#1E3A5F",
+    accent2: "#4299E1", border: "#E2E8F0", heading: "Roboto, sans-serif",
+    body: "Open Sans, sans-serif", headingW: "700", radius: "6px",
+    headerBg: "#1E3A5F", headerText: "#FFFFFF"
+  },
+  "tech-futuristic": {
+    bg: "#0A0A0F", surface: "#12121A", text: "#FFFFFF", accent: "#00F0FF",
+    accent2: "#BD00FF", border: "#00F0FF", heading: "Orbitron, sans-serif",
+    body: "Rajdhani, sans-serif", headingW: "700", radius: "0px",
+    headerBg: "#12121A", headerText: "#00F0FF"
+  },
+  "organic-natural": {
+    bg: "#FDFBF7", surface: "#F5F0E6", text: "#3D3D3D", accent: "#5D8A66",
+    accent2: "#8B7355", border: "#D4C4B0", heading: "Merriweather, serif",
+    body: "Lora, serif", headingW: "700", radius: "12px",
+    headerBg: "#5D8A66", headerText: "#FFFFFF"
+  },
+  "retro-vintage": {
+    bg: "#F5E6C8", surface: "#EDD8A8", text: "#2C1810", accent: "#C94C22",
+    accent2: "#1B4965", border: "#8B6914", heading: "Playfair Display, serif",
+    body: "Georgia, serif", headingW: "700", radius: "4px",
+    headerBg: "#C94C22", headerText: "#FFFFFF"
+  },
+  "dark-neon": {
+    bg: "#0D0D1A", surface: "#151528", text: "#FFFFFF", accent: "#9B59B6",
+    accent2: "#1ABC9C", border: "rgba(155,89,182,0.4)", heading: "Rajdhani, sans-serif",
+    body: "Roboto, sans-serif", headingW: "700", radius: "6px",
+    headerBg: "#151528", headerText: "#9B59B6"
+  },
+  "warm-friendly": {
+    bg: "#FFF8F0", surface: "#FFF0E0", text: "#3D2B1F", accent: "#E07B39",
+    accent2: "#D4A857", border: "#F5D5B0", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "600", radius: "12px",
+    headerBg: "#E07B39", headerText: "#FFFFFF"
+  },
+  "pastel-soft": {
+    bg: "#FEFEFE", surface: "#F9F4FF", text: "#3D3D5C", accent: "#B5D5F5",
+    accent2: "#FFB3BA", border: "#E8D8F8", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "600", radius: "16px",
+    headerBg: "#B5D5F5", headerText: "#3D3D5C"
+  },
+  "minimalist-swiss": {
+    bg: "#F1FAEE", surface: "#FFFFFF", text: "#1D1D1D", accent: "#E63946",
+    accent2: "#457B9D", border: "#1D1D1D", heading: "Arial Black, sans-serif",
+    body: "Helvetica, Arial, sans-serif", headingW: "900", radius: "0px",
+    headerBg: "#E63946", headerText: "#FFFFFF"
+  },
+  "neomorphic": {
+    bg: "#E0E5EC", surface: "#E8EDF4", text: "#3D5A80", accent: "#6C63FF",
+    accent2: "#3D5A80", border: "#CCCCDD", heading: "Inter, sans-serif",
+    body: "Inter, sans-serif", headingW: "700", radius: "16px",
+    headerBg: "#D0D8E4", headerText: "#3D5A80"
+  },
+  "magazine-editorial": {
+    bg: "#FFFFFF", surface: "#F5F5F5", text: "#111111", accent: "#FF5733",
+    accent2: "#111111", border: "#111111", heading: "Georgia, serif",
+    body: "Helvetica, Arial, sans-serif", headingW: "900", radius: "0px",
+    headerBg: "#111111", headerText: "#FF5733"
+  },
+  "tropical-vibrant": {
+    bg: "#FAFFF8", surface: "#F0FFF4", text: "#264653", accent: "#2A9D8F",
+    accent2: "#E63946", border: "#A8D8B9", heading: "Poppins, sans-serif",
+    body: "Nunito, sans-serif", headingW: "700", radius: "12px",
+    headerBg: "#2A9D8F", headerText: "#FFFFFF"
+  },
+  "dark-corporate": {
+    bg: "#111827", surface: "#1F2937", text: "#F9FAFB", accent: "#3B82F6",
+    accent2: "#60A5FA", border: "#374151", heading: "Inter, sans-serif",
+    body: "Inter, sans-serif", headingW: "700", radius: "8px",
+    headerBg: "#1F2937", headerText: "#3B82F6"
+  },
+  "gradient-aurora": {
+    bg: "#FFFFFF", surface: "#F8F6FF", text: "#1A1A2E", accent: "#667EEA",
+    accent2: "#F093FB", border: "#E0D8FF", heading: "Poppins, sans-serif",
+    body: "DM Sans, sans-serif", headingW: "700", radius: "12px",
+    headerBg: "linear-gradient(135deg, #667EEA, #F093FB)", headerText: "#FFFFFF"
+  },
+  "monochrome-brutal": {
+    bg: "#FFFFFF", surface: "#FFFFFF", text: "#000000", accent: "#000000",
+    accent2: "#FFFF00", border: "#000000", heading: "Arial Black, Impact, sans-serif",
+    body: "Arial, sans-serif", headingW: "900", radius: "0px",
+    headerBg: "#000000", headerText: "#FFFF00"
+  },
+  "geometric-precision": {
+    bg: "#FFFFFF", surface: "#F8FAFC", text: "#2C3E50", accent: "#E74C3C",
+    accent2: "#3498DB", border: "#2C3E50", heading: "Rajdhani, sans-serif",
+    body: "Roboto, sans-serif", headingW: "700", radius: "0px",
+    headerBg: "#2C3E50", headerText: "#FFFFFF"
+  },
+  "handdrawn-artistic": {
+    bg: "#FEF9E7", surface: "#FCF3CF", text: "#2C3E50", accent: "#E67E22",
+    accent2: "#27AE60", border: "#E67E22", heading: "Amatic SC, cursive",
+    body: "Patrick Hand, cursive", headingW: "700", radius: "255px 15px 225px 15px / 15px 225px 15px 255px",
+    headerBg: "#E67E22", headerText: "#FFFFFF"
+  },
+};
+
+export function buildHtmlProposalPrompt(data: any, styleId: string) {
+  const config = PROPOSAL_STYLE_CONFIGS[styleId] || PROPOSAL_STYLE_CONFIGS['clean-minimal'];
+  const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const prices = {
+    price1: data.price1 && data.price1 !== '-' ? `Rp ${data.price1}` : 'TIDAK TERSEDIA',
+    price2: data.price2 && data.price2 !== '-' ? `Rp ${data.price2}` : 'TIDAK TERSEDIA',
+    price3: data.price3 && data.price3 !== '-' ? `Rp ${data.price3}` : 'TIDAK TERSEDIA',
+  };
+
+  return `Kamu adalah konsultan web senior yang menulis proposal penawaran KHUSUS untuk klien bernama "${data.businessName}".
+
+DATA KLIEN:
+- Nama Bisnis: ${data.businessName}
+- Kategori: ${data.category}
+- Lokasi: ${data.address}, ${data.city}
+- Rating GMaps: ${data.rating} (dari ${data.reviewsCount} ulasan)
+- Website Saat Ini: ${data.currentWebsite}
+- Instagram: ${data.igUsername}
+- Pain Points: ${data.painPoints}
+- Brand Tagline: ${data.brandTagline}
+- Style DNA: ${data.styleDNA}
+- Nama Penawar: ${data.myBusinessName}
+- WhatsApp: ${data.myWa} | IG: ${data.myIg}
+- Tanggal: ${today}
+- Harga Paket 1: ${prices.price1}
+- Harga Paket 2: ${prices.price2}
+- Harga Paket 3: ${prices.price3}
+
+GAYA VISUAL PROPOSAL: ${styleId}
+
+TUGAS: Tulis proposal penawaran pembuatan website dalam Bahasa Indonesia yang profesional namun hangat. 
+Output harus berupa HTML yang SIAP RENDER dengan gaya visual yang diminta.
+Gunakan CSS inline dan tag HTML. Wrap semua dalam <div class="proposal-content" style="max-width: 100%; overflow-x: hidden; box-sizing: border-box;">.
+
+CSS VARIABLES yang wajib digunakan dalam CSS inline:
+- Background utama: ${config.bg}
+- Surface/card: ${config.surface}
+- Teks: ${config.text}
+- Accent/warna utama: ${config.accent}
+- Secondary accent: ${config.accent2}
+- Border: ${config.border}
+- Heading font: ${config.heading}
+- Body font: ${config.body}
+- Heading weight: ${config.headingW}
+- Border radius: ${config.radius}
+- Header bg: ${config.headerBg}
+- Header text: ${config.headerText}
+
+STRUKTUR PROPOSAL (dalam HTML):
+1. HEADER — nama bisnis klien, nama penawar, tanggal — styled dengan ${config.headerBg} background
+2. PEMBUKA — 2-3 paragraf yang menunjukkan kamu sudah riset bisnis mereka. Sebutkan rating, lokasi, kategori secara natural.
+3. MASALAH YANG KAMI IDENTIFIKASI — 3 pain point spesifik dalam card/box styled
+4. SOLUSI YANG KAMI TAWARKAN — deskripsi website yang relevan dengan kategori dan style DNA mereka
+5. PAKET & INVESTASI — Tampilkan HANYA paket yang harganya "TIDAK TERSEDIA" (abaikan paket tersebut). Gunakan nama kreatif (BUKAN Basic/Standard/Premium). Jika ada lebih dari 1 paket, tandai satu sebagai "REKOMENDASI".
+6. TIMELINE — dalam format visual steps/tahapan
+7. MENGAPA KAMI — 3-4 diferensiasi genuine
+8. PENUTUP — hangat, cantumkan kontak
+
+ATURAN HTML OUTPUT:
+- Gunakan style inline untuk semua elemen
+- Gunakan Google Fonts import jika diperlukan (@import)
+- Pastikan estetika mencerminkan gaya: ${styleId}
+- Proposal harus terasa DITULIS KHUSUS untuk ${data.businessName}, bukan template generik
+- Gunakan class "proposal-section" atau "card" dengan style "page-break-inside: avoid;" agar tidak terpotong saat jadi PDF
+- Jangan tambahkan penjelasan atau komentar di luar HTML
+- Output HANYA HTML, mulai dari <style> atau langsung <div class="proposal-content">`;
+}

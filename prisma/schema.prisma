@@ -40,6 +40,7 @@ model Lead {
   website             String        @default("N/A")
   mapsUrl             String?
   reviews             Json          @default("[]")
+  reviewCount         Int           @default(0)
   status              LeadStatus    @default(FRESH)
   isPro               Boolean       @default(false)
   brandData           Json?
@@ -78,7 +79,10 @@ model Lead {
   b2bType             String?
   b2bNotes            String?
   prospectNotes       String?
-
+  score               Int?
+  priorityTier        String?
+  
+  proposal            Proposal?
   events              ProspectEvent[]
   tokens              TrackingToken[]
   followupQueue       FollowupQueue[]
@@ -227,4 +231,16 @@ model B2BEcosystemMap {
   createdAt       DateTime @default(now())
 
   @@index([categoryFocus])
+}
+
+model Proposal {
+  id              String   @id @default(cuid())
+  leadId          String   @unique
+  html            String
+  styleId         String?
+  prices          Json?
+  clientOverrides Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 }

@@ -55,60 +55,61 @@ export default function LiveEditModal({ isOpen, onClose, lead }: LiveEditModalPr
             {isOpen && (
                 <div className="fixed inset-0 z-[1000] flex flex-col bg-zinc-950 text-white">
                     {/* Toolbar Header */}
-                    <div className="flex items-center justify-between px-8 py-4 border-b border-white/10 bg-zinc-900/50 backdrop-blur-xl">
-                        <div className="flex items-center gap-6">
-                            <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
-                                <Code2 className="text-accent-gold" size={20} />
+                    <div className="flex flex-col md:flex-row items-center justify-between px-4 md:px-8 py-3 md:py-4 border-b border-white/10 bg-zinc-900/50 backdrop-blur-xl gap-4 md:gap-0">
+                        <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto">
+                            <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20 shrink-0">
+                                <Code2 className="text-accent-gold" size={18} />
                             </div>
-                            <div>
-                                <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                                    Edit Content: <span className="text-accent-gold">{lead.name}</span>
+                            <div className="min-w-0 flex-1">
+                                <h2 className="text-xs md:text-sm font-black uppercase tracking-widest flex items-center gap-2 truncate">
+                                    Edit: <span className="text-accent-gold truncate">{lead.name}</span>
                                 </h2>
-                                <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-0.5">Live Editor & Code Preview</p>
+                                <p className="text-[9px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest mt-0.5 hidden xs:block">Live Editor & Code Preview</p>
                             </div>
                         </div>
 
-                        {/* View Controls */}
-                        <div className="hidden md:flex items-center gap-1 p-1 bg-white/5 rounded-2xl border border-white/5">
+                        {/* View Controls (Desktop only) */}
+                        <div className="hidden lg:flex items-center gap-1 p-1 bg-white/5 rounded-2xl border border-white/5">
                             <button 
                                 onClick={() => { setPreviewMode(true); setViewMode('desktop'); }}
-                                className={`p-2.5 rounded-xl transition-all ${viewMode === 'desktop' && previewMode ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                                className={`p-2 rounded-xl transition-all ${viewMode === 'desktop' && previewMode ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
                             >
-                                <Monitor size={18} />
+                                <Monitor size={16} />
                             </button>
                             <button 
                                 onClick={() => { setPreviewMode(true); setViewMode('tablet'); }}
-                                className={`p-2.5 rounded-xl transition-all ${viewMode === 'tablet' && previewMode ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                                className={`p-2 rounded-xl transition-all ${viewMode === 'tablet' && previewMode ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
                             >
-                                <Tablet size={18} />
+                                <Tablet size={16} />
                             </button>
                             <button 
                                 onClick={() => { setPreviewMode(true); setViewMode('mobile'); }}
-                                className={`p-2.5 rounded-xl transition-all ${viewMode === 'mobile' && previewMode ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                                className={`p-2 rounded-xl transition-all ${viewMode === 'mobile' && previewMode ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
                             >
-                                <Smartphone size={18} />
+                                <Smartphone size={16} />
                             </button>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                             <button 
                                 onClick={() => setPreviewMode(!previewMode)}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest border ${previewMode ? 'bg-white/10 text-white border-white/20' : 'bg-accent-gold text-black border-accent-gold/20'}`}
+                                className={`flex items-center justify-center gap-2 px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl transition-all font-black text-[9px] md:text-[10px] uppercase tracking-widest border flex-1 md:flex-none ${previewMode ? 'bg-white/10 text-white border-white/20' : 'bg-accent-gold text-black border-accent-gold/20'}`}
                             >
-                                {previewMode ? <><Code2 size={14} /> Back to Code</> : <><Eye size={14} /> Live Preview</>}
+                                {previewMode ? <><Code2 size={12} /> Code</> : <><Eye size={12} /> Preview</>}
                             </button>
                             <button 
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-green-500 hover:bg-green-400 text-black font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest shadow-xl shadow-green-900/10 disabled:opacity-50"
+                                className="flex items-center justify-center gap-2 px-4 md:px-6 py-2 md:py-2.5 bg-green-500 hover:bg-green-400 text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-900/20 disabled:opacity-50 flex-1 md:flex-none"
                             >
-                                <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
+                                {saving ? <RotateCcw className="animate-spin" size={12} /> : <Save size={12} />}
+                                <span>{saving ? 'Saving' : 'Save'}</span>
                             </button>
                             <button 
                                 onClick={onClose}
-                                className="p-2.5 hover:bg-white/10 rounded-xl text-white/40 hover:text-white transition-all ml-2"
+                                className="p-2 md:p-2.5 hover:bg-white/10 rounded-xl text-white/40 hover:text-white transition-all ml-1"
                             >
-                                <X size={24} />
+                                <X size={20} />
                             </button>
                         </div>
                     </div>

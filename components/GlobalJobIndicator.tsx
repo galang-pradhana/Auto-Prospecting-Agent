@@ -51,9 +51,14 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                     <ServerCog size={14} className="text-emerald-400" />
                 )}
                 
-                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300 hidden sm:block">
                     {activeCount > 0 ? `Active Tasks (${activeCount})` : `System OK`}
                 </span>
+                {activeCount > 0 && (
+                    <span className="sm:hidden bg-accent-gold text-black text-[10px] font-black px-1.5 rounded-md min-w-[18px] text-center">
+                        {activeCount}
+                    </span>
+                )}
             </button>
 
             <AnimatePresence>
@@ -62,7 +67,7 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute top-full right-0 mt-3 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-[9999]"
+                        className="absolute top-full right-0 mt-3 w-[280px] sm:w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-[9999]"
                     >
                         <div className="px-4 py-3 border-b border-zinc-800/80 bg-zinc-900/20 flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase text-zinc-400">Background Tasks</span>

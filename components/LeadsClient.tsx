@@ -66,6 +66,8 @@ interface Lead {
     outreachDraft?: string | null;
     ig?: string | null;
     styleDNA?: string | null;
+    score?: number | null;
+    priorityTier?: string | null;
 }
 
 interface LeadsClientProps {
@@ -86,6 +88,12 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }>
     replied: { bg: 'bg-purple-500/10', text: 'text-purple-400', label: 'REPLIED' },
     deal: { bg: 'bg-green-500/20', text: 'text-green-300', label: 'DEAL' },
     closed_lost: { bg: 'bg-rose-500/10', text: 'text-rose-400', label: 'LOST' },
+};
+
+const PRIORITY_BADGES: Record<string, { bg: string; text: string; label: string; icon: any }> = {
+    HOT: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'HOT', icon: Zap },
+    WARM: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'WARM', icon: Sparkles },
+    COLD: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'COLD', icon: CircleDashed },
 };
 
 
@@ -419,19 +427,19 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
         <div className="space-y-8 pb-32">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <h1 className="text-4xl font-black mb-2 tracking-tighter text-white">Lead Intelligence</h1>
-                    <p className="text-white/40 italic font-medium">Database-powered repository. Filtered by status & category.</p>
+                    <h1 className="text-2xl md:text-4xl font-black mb-2 tracking-tighter text-white">Lead Intelligence</h1>
+                    <p className="text-white/40 italic text-xs md:text-sm font-medium">Database-powered repository. Filtered by status & category.</p>
                 </div>
                 
-                <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-6 py-3 rounded-2xl">
+                <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-4 md:px-6 py-3 rounded-2xl w-full md:w-auto justify-between md:justify-start">
                     <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Total</span>
-                        <span className="text-xl font-mono font-bold text-accent-gold">{totalLeads}</span>
+                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Total</span>
+                        <span className="text-lg md:text-xl font-mono font-bold text-accent-gold">{totalLeads}</span>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Fresh</span>
-                        <span className="text-xl font-mono font-bold text-green-400">{leads.filter(l => l.status === 'FRESH').length}</span>
+                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Fresh</span>
+                        <span className="text-lg md:text-xl font-mono font-bold text-green-400">{leads.filter(l => l.status === 'FRESH').length}</span>
                     </div>
                 </div>
             </div>
@@ -450,11 +458,11 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                         />
                     </div>
 
-                    <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-                        <div className="relative group/filter min-w-[180px] shrink-0">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <div className="relative group/filter w-full sm:min-w-[180px] shrink-0">
                             <Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/filter:text-accent-gold transition-colors" />
                             <select 
-                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[10px] md:text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
                                 value={filterCategory}
                                 onChange={(e) => {
                                     setFilterCategory(e.target.value);
@@ -468,10 +476,10 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
                         </div>
 
-                        <div className="relative group/city min-w-[160px] shrink-0">
+                        <div className="relative group/city w-full sm:min-w-[160px] shrink-0">
                             <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/city:text-accent-gold transition-colors" />
                             <select 
-                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[10px] md:text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
                                 value={filterCity}
                                 onChange={(e) => {
                                     setFilterCity(e.target.value);
@@ -484,8 +492,6 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                             </select>
                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
                         </div>
-
-
                     </div>
                 </div>
             </div>
@@ -590,6 +596,16 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                                                 <div className={`px-2 py-0.5 ${badge.bg} ${badge.text} text-[8px] font-black uppercase rounded-md border border-current/20 flex items-center gap-1`}>
                                                                     <Sparkles size={8} /> {badge.label}
                                                                 </div>
+                                                                {lead.priorityTier && (
+                                                                    <div className={`px-2 py-0.5 ${PRIORITY_BADGES[lead.priorityTier]?.bg || 'bg-white/5'} ${PRIORITY_BADGES[lead.priorityTier]?.text || 'text-white/40'} text-[8px] font-black uppercase rounded-md border border-current/20 flex items-center gap-1`}>
+                                                                        {lead.priorityTier === 'HOT' ? '🔥' : lead.priorityTier === 'WARM' ? '⚡' : '🧊'} {lead.priorityTier}
+                                                                    </div>
+                                                                )}
+                                                                {lead.score !== null && lead.score !== undefined && (
+                                                                    <div className="px-2 py-0.5 bg-white/5 text-white/60 text-[8px] font-black uppercase rounded-md border border-white/10">
+                                                                        Score: {lead.score}
+                                                                    </div>
+                                                                )}
                                                                 {lead.status === 'LIVE' && (
                                                                     <div className={`px-2 py-0.5 rounded-md border text-[8px] font-black uppercase flex items-center gap-1 ${lead.isPro ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-white/5 text-white/40 border-white/10'}`}>
                                                                         {lead.isPro ? '✨ PRO' : 'STD'}
@@ -731,8 +747,79 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                         </AnimatePresence>
                     </div>
                 ) : (
-                    /* Paginated Table View */
-                    <div className="glass overflow-hidden rounded-[32px] border-white/5 w-full">
+                    <>
+                        <div className="grid grid-cols-1 gap-4 md:hidden w-full pb-20">
+                        <AnimatePresence mode="popLayout">
+                            {isLoading ? (
+                                <div className="p-20 text-center glass rounded-3xl border-white/5">
+                                    <Loader2 className="animate-spin text-accent-gold mx-auto mb-4" size={32} />
+                                    <p className="text-white/40 font-bold uppercase tracking-widest text-xs">Querying Leads...</p>
+                                </div>
+                            ) : leads.length > 0 ? (
+                                leads.map((lead) => (
+                                    <motion.div
+                                        key={lead.id}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        onClick={() => {
+                                            setDetailLead(lead);
+                                            setIsDetailModalOpen(true);
+                                        }}
+                                        className="glass p-5 rounded-3xl border-white/5 space-y-4 relative overflow-hidden group active:scale-[0.98] transition-all"
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div className="space-y-1 pr-10">
+                                                <h4 className="font-bold text-white text-base leading-tight group-hover:text-accent-gold transition-colors">{lead.name}</h4>
+                                                <p className="text-[10px] text-white/30 font-mono">{lead.id.slice(0, 8)}</p>
+                                            </div>
+                                            <div 
+                                                onClick={(e) => { e.stopPropagation(); toggleSelect(lead.id); }}
+                                                className="absolute top-5 right-5"
+                                            >
+                                                {selectedIds.includes(lead.id) ? (
+                                                    <CheckSquare size={22} className="text-accent-gold" />
+                                                ) : (
+                                                    <Square size={22} className="text-white/10" />
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                            <div className="px-2.5 py-1 bg-white/5 rounded-lg border border-white/10 text-[9px] font-bold text-zinc-400 flex items-center gap-1.5 uppercase">
+                                                <Building2 size={10} className="text-accent-gold" /> {lead.category}
+                                            </div>
+                                            {lead.priorityTier && (
+                                                <div className={`px-2 py-1 ${PRIORITY_BADGES[lead.priorityTier]?.bg} ${PRIORITY_BADGES[lead.priorityTier]?.text} text-[9px] font-black uppercase rounded-lg border border-current/10 flex items-center gap-1`}>
+                                                    {lead.priorityTier === 'HOT' ? '🔥' : lead.priorityTier === 'WARM' ? '⚡' : '🧊'} {lead.priorityTier}
+                                                </div>
+                                            )}
+                                            <div className={`px-2.5 py-1 ${(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).bg} ${(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).text} text-[9px] font-black uppercase rounded-lg border border-current/10`}>
+                                                {(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).label}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 pt-2 border-t border-white/5">
+                                            <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-lg">
+                                                <Star size={10} fill="currentColor" className="text-accent-gold" />
+                                                <span className="text-[11px] font-bold text-white">{lead.rating || '0.0'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-1 truncate">
+                                                <MapPin size={10} className="text-white/20" />
+                                                <span className="text-[10px] text-white/40 truncate">{lead.city || lead.address}</span>
+                                            </div>
+                                            <ChevronRight size={14} className="text-white/20" />
+                                        </div>
+                                    </motion.div>
+                                ))
+                            ) : (
+                                <div className="p-20 text-center glass rounded-3xl border-white/5">
+                                    <p className="text-white/20 font-bold uppercase tracking-widest text-xs">Empty Database</p>
+                                </div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <div className="glass overflow-hidden rounded-[32px] border-white/5 w-full hidden md:block">
                         <div className="overflow-x-auto scrollbar-hide">
                             <table className="w-full text-left border-collapse min-w-[800px]">
                                 <thead>
@@ -756,6 +843,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Category</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Location</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Engagement</th>
+                                        <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Priority</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40">Pipeline</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Contact</th>
                                         <th className="p-5 text-[10px] font-black uppercase tracking-widest text-white/40 text-center">Status</th>
@@ -824,6 +912,20 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                                                     <Clock size={10} className="text-indigo-400" />
                                                                     <span className="text-[10px] font-bold text-indigo-400/80">{lead.totalTimeOnPage}s</span>
                                                                 </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-5">
+                                                        <div className="flex flex-col gap-1">
+                                                            {lead.priorityTier ? (
+                                                                <div className={`px-2 py-0.5 w-fit ${PRIORITY_BADGES[lead.priorityTier]?.bg} ${PRIORITY_BADGES[lead.priorityTier]?.text} text-[8px] font-black uppercase rounded-md border border-current/20 flex items-center gap-1`}>
+                                                                    {lead.priorityTier === 'HOT' ? '🔥' : lead.priorityTier === 'WARM' ? '⚡' : '🧊'} {lead.priorityTier}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-[10px] text-white/10 font-bold uppercase tracking-widest">Unscored</span>
+                                                            )}
+                                                            {lead.score !== null && lead.score !== undefined && (
+                                                                <span className="text-[9px] font-bold text-white/40 uppercase tracking-tighter">Score: {lead.score}</span>
                                                             )}
                                                         </div>
                                                     </td>
@@ -948,6 +1050,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                             </div>
                         )}
                     </div>
+                    </>
                 )}
             </div>
 

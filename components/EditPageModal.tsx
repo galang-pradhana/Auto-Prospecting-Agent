@@ -49,6 +49,7 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
     const [unsplashResults, setUnsplashResults] = useState<{ id: string, urls: { regular: string, small: string }, alt_description: string, width: number, height: number }[]>([]);
     const [isSearchingUnsplash, setIsSearchingUnsplash] = useState(false);
     const [activePanel, setActivePanel] = useState<'tools' | 'images'>('tools');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     useEffect(() => {
         async function load() {
@@ -543,7 +544,7 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.97, y: 16 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-                    className="relative w-full max-w-[1600px] h-[96vh] mx-4 bg-zinc-950 border border-white/8 rounded-[28px] overflow-hidden flex shadow-2xl"
+                    className="relative w-full max-w-[1600px] h-[98vh] md:h-[96vh] mx-auto md:mx-4 bg-zinc-950 border border-white/8 rounded-none md:rounded-[28px] overflow-hidden flex flex-col lg:flex-row shadow-2xl"
                 >
                     {/* ── LEFT: iframe canvas ── */}
                     <div className="flex-1 flex flex-col border-r border-white/5 min-w-0">
@@ -551,15 +552,15 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                         {/* Top bar */}
                         <div className="h-14 shrink-0 bg-zinc-900/60 border-b border-white/5 flex items-center gap-3 px-5">
                             {/* Lead name badge */}
-                            <div className="flex items-center gap-2.5 mr-2">
-                                <div className="w-7 h-7 rounded-xl bg-accent-gold/15 flex items-center justify-center border border-accent-gold/25">
+                            <div className="flex items-center gap-2.5 mr-2 overflow-hidden">
+                                <div className="w-7 h-7 shrink-0 rounded-xl bg-accent-gold/15 flex items-center justify-center border border-accent-gold/25">
                                     <Layers size={13} className="text-accent-gold" />
                                 </div>
-                                <span className="text-[11px] font-black text-white uppercase tracking-widest truncate max-w-[180px]">
+                                <span className="text-[11px] font-black text-white uppercase tracking-widest truncate max-w-[80px] md:max-w-[180px]">
                                     {lead.name}
                                 </span>
-                                <span className="text-[9px] text-white/20 font-black uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full">
-                                    Live Preview
+                                <span className="hidden sm:inline-block text-[9px] text-white/20 font-black uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full">
+                                    Live
                                 </span>
                             </div>
 
@@ -576,7 +577,7 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                 }`}
                             >
                                 <Code2 size={12} />
-                                {isCodeEditorOpen ? 'Close Code' : 'View Code'}
+                                <span className="hidden md:inline">{isCodeEditorOpen ? 'Close Code' : 'View Code'}</span>
                             </button>
 
                             {/* Direct edit toggle */}
@@ -590,7 +591,7 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                 }`}
                             >
                                 <Type size={12} />
-                                {isDirectEditEnabled ? 'Editing On' : 'Text Editor'}
+                                <span className="hidden md:inline">{isDirectEditEnabled ? 'Editing On' : 'Text Editor'}</span>
                             </button>
 
                             {/* Revert button (conditional) */}
@@ -614,20 +615,35 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                             {/* Preview in new tab */}
                             <button
                                 onClick={handlePreviewLive}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/4 text-white/40 hover:text-white border border-white/8 hover:bg-white/8 transition-all"
+                                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/4 text-white/40 hover:text-white border border-white/8 hover:bg-white/8 transition-all"
                                 title="Open in new tab"
                             >
-                                <ExternalLink size={12} /> Preview
+                                <ExternalLink size={12} /> <span className="hidden md:inline">Preview</span>
                             </button>
 
                             {/* Save button */}
                             <button
                                 onClick={handleSaveDirectHTML}
                                 disabled={isSaving}
-                                className="flex items-center gap-2 px-5 py-2 bg-accent-gold hover:bg-yellow-300 active:scale-95 text-black rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-accent-gold/15 disabled:opacity-50"
+                                className="flex items-center gap-2 px-4 md:px-5 py-2 bg-accent-gold hover:bg-yellow-300 active:scale-95 text-black rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-accent-gold/15 disabled:opacity-50"
                             >
                                 {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                Save HTML
+                                <span className="whitespace-nowrap">Save HTML</span>
+                            </button>
+
+                            {/* Mobile Toggle Tools */}
+                            <button
+                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                className="lg:hidden p-2.5 bg-white/5 border border-white/10 rounded-lg text-white/40"
+                            >
+                                <Edit3 size={16} />
+                            </button>
+
+                            <button 
+                                onClick={onClose}
+                                className="lg:hidden p-2.5 hover:bg-white/10 rounded-lg text-white/40 transition-all"
+                            >
+                                <X size={20} />
                             </button>
                         </div>
 
@@ -691,7 +707,14 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                     </div>
 
                     {/* ── RIGHT PANEL: Tools ── */}
-                    <div className="w-[340px] shrink-0 bg-zinc-950 flex flex-col border-l border-white/5">
+                    <AnimatePresence>
+                        {isSidebarOpen && (
+                            <motion.div 
+                                initial={{ x: 340 }}
+                                animate={{ x: 0 }}
+                                exit={{ x: 340 }}
+                                className="fixed lg:relative inset-y-0 right-0 z-[210] lg:z-auto w-[320px] md:w-[340px] shrink-0 bg-zinc-950 flex flex-col border-l border-white/5 shadow-2xl lg:shadow-none"
+                            >
 
                         {/* Panel Header */}
                         <div className="h-14 shrink-0 flex items-center justify-between px-5 border-b border-white/5 bg-zinc-900/40">
@@ -940,7 +963,9 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
                     {/* ── Toast ── */}
                     <AnimatePresence>

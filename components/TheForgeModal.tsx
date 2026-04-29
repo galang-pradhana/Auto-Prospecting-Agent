@@ -60,17 +60,45 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
     const handleGenerate = async () => {
         setIsGenerating(true);
         try {
-            const result = await generateForgeCode(lead.id);
-            if (result.success && result.html) {
-                setHtmlCode(result.html);
-                setActiveTab('manual');
-                showMessage('success', 'Website code generated successfully!');
-            } else {
-                showMessage('error', result.message || 'Failed to generate code');
-            }
-        } catch (error) {
-            showMessage('error', 'An error occurred during generation.');
-        } finally {
+            const res = await fetch('/api/forge/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadId: lead.id })
+            });
+            const data = await res.json();
+            
+            if (!res.ok) throw new Error(data.message || 'Failed to start generation');
+
+            // Polling for status
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusRes = await fetch(`/api/jobs/status?id=${data.jobId}`);
+                    const statusData = await statusRes.json();
+
+                    if (statusData.job?.status === 'COMPLETED') {
+                        clearInterval(pollInterval);
+                        setIsGenerating(false);
+                        // Fetch the updated lead to get the htmlCode
+                        const leadRes = await fetch(`/api/leads/${lead.id}`);
+                        const leadData = await leadRes.json();
+                        if (leadData.lead?.htmlCode) {
+                            setHtmlCode(leadData.lead.htmlCode);
+                            setActiveTab('manual');
+                            showMessage('success', 'Website code generated successfully!');
+                        }
+                    } else if (statusData.job?.status === 'FAILED') {
+                        clearInterval(pollInterval);
+                        setIsGenerating(false);
+                        showMessage('error', statusData.job.message || 'Failed to generate code');
+                    }
+                } catch (e) {
+                    console.error("Polling error:", e);
+                }
+            }, 3000);
+
+            showMessage('success', 'AI Forge started in background...');
+        } catch (error: any) {
+            showMessage('error', error.message || 'An error occurred during generation.');
             setIsGenerating(false);
         }
     };
@@ -97,46 +125,48 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
                     className="relative w-full max-w-5xl h-[85vh] bg-zinc-950 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden flex flex-col"
                 >
                     {/* Header */}
-                    <div className="p-8 border-b border-white/5 flex justify-between items-center bg-zinc-900/50">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-orange-500/10 rounded-2xl flex items-center justify-center border border-orange-500/20">
-                                <Hammer className="w-6 h-6 text-orange-500" />
+                    <div className="p-5 md:p-8 border-b border-white/5 flex justify-between items-center bg-zinc-900/50">
+                        <div className="flex items-center gap-3 md:gap-4">
+                            <div className="w-10 h-10 md:w-12 md:h-12 bg-orange-500/10 rounded-xl md:rounded-2xl flex items-center justify-center border border-orange-500/20 shrink-0">
+                                <Hammer className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
                             </div>
-                            <div>
-                                <h2 className="text-2xl font-black text-white tracking-tighter uppercase">The Forge</h2>
-                                <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-0.5">
+                            <div className="min-w-0">
+                                <h2 className="text-lg md:text-2xl font-black text-white tracking-tighter uppercase truncate">The Forge</h2>
+                                <p className="text-white/40 text-[8px] md:text-[10px] font-black uppercase tracking-widest mt-0.5 truncate">
                                     Project: <span className="text-white">{lead.name}</span>
                                 </p>
                             </div>
                         </div>
                         <button 
                             onClick={onClose}
-                            className="p-3 hover:bg-white/5 rounded-2xl text-white/20 hover:text-white transition-all"
+                            className="p-2 md:p-3 hover:bg-white/5 rounded-xl md:rounded-2xl text-white/20 hover:text-white transition-all"
                         >
-                            <X size={24} />
+                            <X size={20} />
                         </button>
                     </div>
 
                     {/* Tabs Navigation */}
-                    <div className="px-8 pt-6">
-                        <div className="flex gap-2 p-1.5 bg-white/5 border border-white/10 rounded-2xl w-fit">
+                    <div className="px-5 md:px-8 pt-4 md:pt-6">
+                        <div className="flex gap-1.5 md:gap-2 p-1 md:p-1.5 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl w-full sm:w-fit">
                             <button 
                                 onClick={() => setActiveTab('manual')}
-                                className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'manual' ? 'bg-orange-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                                className={`flex-1 sm:flex-none px-4 md:px-6 py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeTab === 'manual' ? 'bg-orange-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
                             >
-                                <Code2 size={14} /> Manual Editor
+                                <Code2 size={14} /> <span className="hidden xs:inline">Manual Editor</span>
+                                <span className="xs:hidden">Editor</span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('ai')}
-                                className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'ai' ? 'bg-purple-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                                className={`flex-1 sm:flex-none px-4 md:px-6 py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeTab === 'ai' ? 'bg-purple-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
                             >
-                                <Wand2 size={14} /> AI Generator
+                                <Wand2 size={14} /> <span className="hidden xs:inline">AI Generator</span>
+                                <span className="xs:hidden">AI</span>
                             </button>
                         </div>
                     </div>
 
                     {/* Content Area */}
-                    <div className="flex-1 overflow-hidden p-8">
+                    <div className="flex-1 overflow-hidden p-4 md:p-8">
                         {activeTab === 'manual' ? (
                             <div className="h-full flex flex-col gap-4">
                                 <textarea

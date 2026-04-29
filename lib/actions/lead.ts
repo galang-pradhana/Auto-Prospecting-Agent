@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { isMobileNumber, isValidWhatsApp, sanitizeWaNumber, isRecentLead } from '@/lib/utils';
+import { prepareForgeUpdateData } from '@/lib/lead-logic';
 
 // --- Activity Logging ---
 
@@ -289,7 +290,6 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
             create: { token, prospectId: leadId },
         });
 
-        // Inject Tracker Script before </body>.
         // [RISK-2 FIX] Strip any existing tracker script tags first to avoid
         // duplicate <script> injections on re-forge.
         const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:8080';
@@ -302,22 +302,12 @@ export async function saveForgeCode(leadId: string, htmlCode: string) {
             ? cleanHtml.replace('</body>', `${trackerScript}</body>`)
             : `${cleanHtml}${trackerScript}`;
 
-        // Preserve followupCount if this is a re-forge (already LIVE)
         const isReforge = lead.status === 'LIVE';
+        const updateData = prepareForgeUpdateData(lead, updatedHtml, slug);
 
         await prisma.lead.update({
             where: { id: leadId },
-            data: {
-                htmlCode: updatedHtml,
-                status: 'LIVE',
-                slug,
-                // PENTING: nextFollowupAt TIDAK di-set otomatis saat forge.
-                // Hanya di-set saat user klik "Pindah ke Monitoring" secara manual.
-                nextFollowupAt: isReforge ? lead.nextFollowupAt : null,
-                lastContactAt: isReforge ? lead.lastContactAt : new Date(),
-                followupStage: isReforge ? lead.followupStage : 'sent',
-                followupCount: isReforge ? lead.followupCount : 0,
-            }
+            data: updateData
         });
 
         await logActivity(leadId, isReforge ? 'REFORGE' : 'LIVE', `Website published to ${slug}`, { slug });

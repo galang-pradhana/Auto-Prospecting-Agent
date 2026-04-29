@@ -6,7 +6,7 @@ import {
     X, Building2, MapPin, Star, Globe, Phone, 
     Sparkles, Copy, Check, Zap, Lightbulb,
     Target, Layout, Palette, Code2, AlertCircle, Save, Edit2,
-    Instagram, MessageCircle, ExternalLink, ChevronRight, Loader2
+    Instagram, MessageCircle, ExternalLink, ChevronRight, Loader2, Sliders
 } from 'lucide-react';
 import { ActivityTimeline } from './ActivityTimeline';
 import { updateLeadEnrichmentData, logActivity, saveOutreachDraft } from '@/lib/actions/lead';
@@ -152,6 +152,12 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
         }
     };
 
+    const totalReviews = lead.reviewCount || (Array.isArray(lead.reviews) ? lead.reviews.length : 0);
+    const reviews = Array.isArray(lead.reviews) ? lead.reviews : [];
+    const positiveReviews = reviews.filter((r: any) => (r.Stars || r.Rating || 0) >= 4).length;
+    const lastReview = reviews.length > 0 ? [...reviews].sort((a: any, b: any) => new Date(b.When || 0).getTime() - new Date(a.When || 0).getTime())[0] : null;
+    const lastReviewDate = lastReview?.When ? new Date(lastReview.When).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+
     const handleEnrich = async () => {
         if (enriching) return;
         setEnriching(true);
@@ -203,25 +209,25 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                         className="relative w-full max-w-6xl h-[90vh] bg-zinc-950 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden flex flex-col"
                     >
                         {/* Header */}
-                        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-zinc-900/50">
-                            <div className="flex items-center gap-6">
-                                <div className="w-16 h-16 bg-accent-gold/10 rounded-[28px] flex items-center justify-center border border-accent-gold/20 shadow-lg shadow-accent-gold/5">
-                                    <Building2 className="w-8 h-8 text-accent-gold" />
+                        <div className="p-5 md:p-8 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-zinc-900/50">
+                            <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto">
+                                <div className="w-12 h-12 md:w-16 md:h-16 bg-accent-gold/10 rounded-2xl md:rounded-[28px] flex items-center justify-center border border-accent-gold/20 shadow-lg shrink-0">
+                                    <Building2 className="w-6 h-6 md:w-8 md:h-8 text-accent-gold" />
                                 </div>
-                                <div>
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <h2 className="text-3xl font-black text-white tracking-tighter uppercase">{lead.name}</h2>
-                                        <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-current/20 ${lead.status === 'FRESH' ? 'bg-zinc-500/10 text-zinc-400' : 'bg-green-500/10 text-green-400'}`}>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                        <h2 className="text-xl md:text-3xl font-black text-white tracking-tighter uppercase truncate">{lead.name}</h2>
+                                        <div className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-current/20 ${lead.status === 'FRESH' ? 'bg-zinc-500/10 text-zinc-400' : 'bg-green-500/10 text-green-400'}`}>
                                             {lead.status}
                                         </div>
                                     </div>
-                                    <p className="text-white/40 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                                        <Target size={14} className="text-accent-gold" />
-                                        {lead.category} • {lead.city}, {lead.province}
+                                    <p className="text-white/40 text-[10px] md:text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                                        <Target size={12} className="text-accent-gold" />
+                                        <span className="truncate">{lead.category} • {lead.city}</span>
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
                                 {!isEditing && isEnriched && (
                                     <button 
                                         onClick={() => setIsEditing(true)}
@@ -431,18 +437,58 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                                                         </div>
                                                     </div>
 
-                                                    <div className="bg-accent-gold/5 border border-accent-gold/10 p-8 rounded-[40px] flex flex-col items-center justify-center text-center gap-6 py-12">
-                                                        <div className="w-20 h-20 bg-accent-gold/10 rounded-full flex items-center justify-center border border-accent-gold/20 shadow-2xl shadow-accent-gold/10">
-                                                            <Zap size={32} className="text-accent-gold fill-accent-gold animate-pulse" />
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-2">
+                                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/20">Total Reviews</div>
+                                                            <div className="text-2xl font-black text-white">{totalReviews}</div>
                                                         </div>
-                                                        <h4 className="text-xl font-black text-white uppercase tracking-tight">Ready for Enrichment</h4>
-                                                        <button 
-                                                            onClick={handleEnrich}
-                                                            disabled={enriching}
-                                                            className="px-10 py-5 bg-accent-gold text-black font-black rounded-full transition-all text-xs uppercase tracking-[0.2em]"
-                                                        >
-                                                            {enriching ? 'Enriching...' : 'Fire Enrichment AI'}
-                                                        </button>
+                                                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-2">
+                                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/20">Positive Signal</div>
+                                                            <div className="text-2xl font-black text-green-400">{positiveReviews} <span className="text-xs text-white/20">/ {totalReviews}</span></div>
+                                                        </div>
+                                                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-2">
+                                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/20">Last Activity</div>
+                                                            <div className="text-lg font-black text-accent-gold">{lastReviewDate}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[40px] space-y-6">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 bg-accent-gold/10 rounded-2xl flex items-center justify-center border border-accent-gold/20">
+                                                                <Star size={24} className="text-accent-gold fill-accent-gold" />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="text-lg font-black text-white uppercase tracking-tight">Lead Reputation Score</h4>
+                                                                <p className="text-xs text-white/40">Verified social proof from Google Maps data</p>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div className="space-y-4">
+                                                                <div className="flex justify-between text-[10px] font-black uppercase text-white/40">
+                                                                    <span>Sentiment Growth</span>
+                                                                    <span>{Math.round((positiveReviews/totalReviews)*100 || 0)}%</span>
+                                                                </div>
+                                                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                                                    <div 
+                                                                        className="h-full bg-green-500 rounded-full" 
+                                                                        style={{ width: `${(positiveReviews/totalReviews)*100 || 0}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-4">
+                                                                <div className="flex justify-between text-[10px] font-black uppercase text-white/40">
+                                                                    <span>AI Trust Factor</span>
+                                                                    <span>{lead.score || 0}%</span>
+                                                                </div>
+                                                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                                                    <div 
+                                                                        className="h-full bg-accent-gold rounded-full" 
+                                                                        style={{ width: `${lead.score || 0}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </section>
                                             )}
@@ -563,12 +609,41 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                                 {/* Right Column: Meta & Logs */}
                                 {!isLive && (
                                     <div className="lg:col-span-4 bg-zinc-900/20 p-8 space-y-10">
-                                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-3">
-                                            <div className="flex items-center gap-2 text-white/40">
-                                                <Star size={14} className="text-accent-gold" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">Market Status</span>
+                                        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-4">
+                                            <div className="flex justify-between items-start">
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-2 text-white/40">
+                                                        <Star size={14} className="text-accent-gold" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest">Market Status</span>
+                                                    </div>
+                                                    <p className="text-2xl font-black text-white">{lead.rating || '0.0'} <span className="text-xs text-white/20">Rating</span></p>
+                                                </div>
+                                                {lead.score !== null && lead.score !== undefined && (
+                                                    <div className="text-right space-y-1">
+                                                        <div className="text-[10px] font-black uppercase tracking-widest text-white/20">Priority Score</div>
+                                                        <div className="text-3xl font-black text-accent-gold">{lead.score}</div>
+                                                        <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase inline-block border border-current/20 ${lead.priorityTier === 'HOT' ? 'bg-red-500/10 text-red-400' : lead.priorityTier === 'WARM' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                                            {lead.priorityTier}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-2xl font-black text-white">{lead.rating || '0.0'} <span className="text-xs text-white/20">Rating</span></p>
+
+                                            {lead.aiAnalysis?.score_breakdown && (
+                                                <div className="pt-4 border-t border-white/5 space-y-3">
+                                                    <div className="text-[10px] font-black uppercase tracking-widest text-white/20 flex items-center gap-2">
+                                                        <Sliders size={10} /> Score Breakdown
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {Object.entries(lead.aiAnalysis.score_breakdown).map(([key, val]: [string, any]) => (
+                                                            <div key={key} className="flex justify-between items-center">
+                                                                <span className="text-[10px] text-white/40 uppercase font-medium">{key.replace(/_/g, ' ')}</span>
+                                                                <span className="text-[10px] font-bold text-white/60">{val} pts</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <section className="space-y-4">
                                             <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Core Contact</h3>
@@ -582,9 +657,27 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                                             </div>
                                         </section>
                                         <section className="space-y-4">
-                                            <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Operational History</h3>
-                                            <div className="max-h-[300px] overflow-y-auto">
-                                                <ActivityTimeline leadId={lead.id} />
+                                            <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Market Data Signal</h3>
+                                            <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-white/20 uppercase">Total Review</span>
+                                                    <span className="text-xs font-black text-white">{totalReviews}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-white/20 uppercase">Rating Avg</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <Star size={10} className="text-accent-gold fill-accent-gold" />
+                                                        <span className="text-xs font-black text-white">{lead.rating}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-white/20 uppercase">Positive (4-5★)</span>
+                                                    <span className="text-xs font-black text-green-400">{positiveReviews}</span>
+                                                </div>
+                                                <div className="pt-2 border-t border-white/5">
+                                                    <div className="text-[10px] font-bold text-white/20 uppercase mb-1">Last Review</div>
+                                                    <div className="text-[11px] font-medium text-white/60 italic">"{lastReview?.Content?.substring(0, 60) || 'No content'}..."</div>
+                                                </div>
                                             </div>
                                         </section>
                                     </div>
@@ -593,16 +686,28 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                         </div>
 
                         {/* Footer */}
-                        <div className="p-8 border-t border-white/5 bg-zinc-900/50 flex justify-between items-center">
-                            <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                        <div className="p-6 md:p-8 border-t border-white/5 bg-zinc-900/50 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest hidden md:block">
                                 Lead ID: {lead.id}
                             </div>
-                            <button 
-                                onClick={onClose}
-                                className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/10"
-                            >
-                                Close
-                            </button>
+                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                                {!isEnriched && !isEditing && (
+                                    <button 
+                                        onClick={handleEnrich}
+                                        disabled={enriching}
+                                        className="w-full sm:w-auto px-8 py-4 bg-accent-gold text-black font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
+                                    >
+                                        {enriching ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                                        {enriching ? 'Enriching...' : 'Fire Enrichment AI'}
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={onClose}
+                                    className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-black rounded-2xl transition-all text-[10px] uppercase tracking-widest border border-white/10"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
 
                         <AnimatePresence>

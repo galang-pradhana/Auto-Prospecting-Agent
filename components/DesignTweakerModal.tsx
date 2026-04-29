@@ -101,25 +101,25 @@ export default function DesignTweakerModal({ isOpen, onClose, lead, onSuccess }:
                         className="relative w-full max-w-lg bg-zinc-950 border border-white/10 rounded-[40px] shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col"
                     >
                         {/* Header */}
-                        <div className="p-8 border-b border-white/5 flex justify-between items-center">
-                            <div>
-                                <h2 className="text-2xl font-black text-white tracking-tighter uppercase flex items-center gap-3">
-                                    <Palette className="text-amber-400" /> Style Refiner
+                        <div className="p-6 md:p-8 border-b border-white/5 flex justify-between items-center">
+                            <div className="min-w-0">
+                                <h2 className="text-xl md:text-2xl font-black text-white tracking-tighter uppercase flex items-center gap-3 truncate">
+                                    <Palette className="text-amber-400 shrink-0" /> <span className="truncate">Style Refiner</span>
                                 </h2>
-                                <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-1">
+                                <p className="text-white/40 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1 truncate">
                                     DNA Evolution for <span className="text-white">{lead?.name}</span>
                                 </p>
                             </div>
                             <button 
                                 onClick={onClose}
                                 disabled={isRegenerating}
-                                className="p-3 hover:bg-white/5 rounded-2xl text-white/20 hover:text-white transition-all disabled:opacity-50 border border-white/5"
+                                className="p-2 md:p-3 hover:bg-white/5 rounded-xl md:rounded-2xl text-white/20 hover:text-white transition-all disabled:opacity-50 border border-white/5 shrink-0"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="p-8 space-y-8 flex-1 overflow-visible">
+                        <div className="p-6 md:p-8 space-y-6 md:space-y-8 flex-1 overflow-visible">
                             <div className="space-y-4">
                                 <label className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-1">Select Visual DNA Model</label>
                                 
@@ -216,12 +216,12 @@ export default function DesignTweakerModal({ isOpen, onClose, lead, onSuccess }:
                                 </div>
                             </div>
 
-                            <div className="p-6 bg-amber-400/5 border border-amber-400/10 rounded-3xl space-y-2">
-                                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                            <div className="p-5 md:p-6 bg-amber-400/5 border border-amber-400/10 rounded-3xl space-y-2">
+                                <p className="text-[9px] md:text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
                                     <Sparkles size={12} /> Blueprint Evolution
                                 </p>
-                                <p className="text-[11px] text-white/60 leading-relaxed font-medium">
-                                    Action ini akan memperbarui "Master Blueprint" lead ini dengan DNA desain yang dipilih. Perubahan bersifat kumulatif dan tidak dikenakan biaya kredit tambahan selama fase blueprint.
+                                <p className="text-[10px] md:text-[11px] text-white/60 leading-relaxed font-medium">
+                                    Action ini akan memperbarui "Master Blueprint" lead ini dengan DNA desain yang dipilih.
                                 </p>
                             </div>
                         </div>

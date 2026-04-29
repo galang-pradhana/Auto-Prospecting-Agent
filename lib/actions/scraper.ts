@@ -110,27 +110,31 @@ async function executeScraperProcess(
 
     return new Promise((resolve, reject) => {
         const scraperArgs = [
-            "-c", "2", // Concurrency, tuned for typical CPU load
-            "-json",   // Output in JSON format for parsing
+            "-c", "2", // Concurrency back to 2 for stability
+            "-json",
             "-input", queryFilePath,
-            "-results", "stdout", // Direct output to stream
-            "-email",             // Extract emails
-            "--extra-reviews",    // Get richer review data
-            "-depth", "5"         // Set depth to 5
+            "-results", "stdout",
+            "-lang", "id",
+            "--extra-reviews",
+            "-depth", "5"         // Depth back to 5 for thorough scraping
         ];
 
         // --- Coordinate Injection ---
         if (lat && lng) {
             const geoString = `${lat},${lng}`;
             scraperArgs.push("-geo", geoString);
+            scraperArgs.push("-zoom", "14"); // Surgical zoom for kecamatan
             
-            // Precision radius: Use AI estimated radius or fall back to 4km
-            const finalRadius = radius || 4000;
-            scraperArgs.push("-radius", String(finalRadius));
-            console.log(`[Scraper] Geo-Lock Activated: ${geoString} (Radius: ${finalRadius}m)`);
+            // PRIORITY: Use radius from AI estimation (passed as argument)
+            // Fallback to 4000 (4km) only if radius is not provided
+            const searchRadius = radius && radius > 0 ? radius : 4000;
+            scraperArgs.push("-radius", String(searchRadius));
+            scraperArgs.push("-exit-on-inactivity", "5m"); 
+            console.log(`[Scraper] Surgical Geo-Lock: ${geoString} (Radius: ${searchRadius}m, Zoom: 14)`);
         } else {
-            // Default radius for general keyword search
-            scraperArgs.push("-radius", String(radius || 10000));
+            const searchRadius = radius && radius > 0 ? radius : 10000;
+            scraperArgs.push("-radius", String(searchRadius));
+            scraperArgs.push("-exit-on-inactivity", "5m");
         }
 
         const scraperProcess = spawn(binaryPath, scraperArgs);
@@ -143,13 +147,34 @@ async function executeScraperProcess(
         let buffer = '';
         let idleTimer: NodeJS.Timeout;
 
+        // --- Concurrency Control for AI Calls ---
+        const CONCURRENCY_LIMIT = 2;
+        let activeCount = 0;
+        const queue: (() => void)[] = [];
+
+        const runWithLimit = async (fn: () => Promise<void>) => {
+            if (activeCount >= CONCURRENCY_LIMIT) {
+                await new Promise<void>(resolve => queue.push(resolve));
+            }
+            activeCount++;
+            try {
+                await fn();
+            } finally {
+                activeCount--;
+                if (queue.length > 0) {
+                    const next = queue.shift();
+                    if (next) next();
+                }
+            }
+        };
+
         const resetIdleTimer = () => {
             clearTimeout(idleTimer);
-            // If the Go Engine stops outputting data for 45 seconds, assume it's stuck or done
+            // If the Go Engine stops outputting data for 60 seconds, assume it's stuck or done
             idleTimer = setTimeout(() => {
-                console.log("[Scraper System]: Idle timeout (45s). Process seems done or stuck. Forcing exit...");
+                console.log("[Scraper System]: Idle timeout (60s). Process seems done or stuck. Forcing exit...");
                 try { scraperProcess.kill('SIGKILL'); } catch(e) {}
-            }, 45000);
+            }, 60000);
         };
 
         resetIdleTimer(); // Initial start
@@ -172,13 +197,14 @@ async function executeScraperProcess(
                             process.kill(scraperProcess.pid!, 0); 
                             scraperProcess.kill('SIGKILL');
                         } catch (e) {}
-                    }, 5000);
+                    }, 10000); // 10s buffer
                 }
 
                 if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
                     try {
                         const item = JSON.parse(trimmed);
-                        const p = onLead(item);
+                        // Process with limit
+                        const p = runWithLimit(() => onLead(item));
                         pendingLeads.push(p);
                     } catch (err) {
                         console.error("[Scraper] Malformed JSON ignored:", trimmed);
@@ -251,12 +277,22 @@ export async function runScraper(
     const queryFilePath = path.join(process.cwd(), `queries_${Date.now()}.txt`);
 
     try {
-        // Construct surgical query
-        const keyword = district 
-            ? `${category} in ${district}, ${city}, ${province}`
-            : `${category} in ${city}, ${province}`;
-            
-        fs.writeFileSync(queryFilePath, keyword, 'utf8');
+        // --- 5-VARIANT SEARCH STRATEGY ---
+        const loc = district ? `${district}, ${city}` : city;
+        const sub = category.toLowerCase(); // Assume 'category' is specific like 'Toko Kain'
+        const main = province; // Use province or a parent category if available
+
+        const variants = [
+            `${sub} ${category} in ${loc}`,                // Variant 1: Surgical
+            `${sub} near ${loc}`,                         // Variant 2: Proximity
+            `${category} ${sub} ${district || city}`,      // Variant 3: Tactical
+            `${sub} ${city} ${district || ''}`,           // Variant 4: Local
+            `${sub} store in ${loc}`                       // Variant 5: English fallback
+        ];
+        
+        const queryContent = variants.map(v => v.trim()).join('\n');
+        fs.writeFileSync(queryFilePath, queryContent, 'utf8');
+        console.log(`[Scraper] Generated 5 query variants for ${sub} in ${loc}`);
 
         // 0. AI RADIUS ESTIMATION (New Optimization)
         let finalRadius = 4000; // Default fallback 4km
@@ -285,7 +321,22 @@ export async function runScraper(
 
         let firstItemLogged = false;
 
+        const seenCids = new Set<string>();
+        const seenTitles = new Set<string>();
+
         const onLeadHandled = async (item: any) => {
+            const cid = item.cid || item.data_id || '';
+            const leadName = item.name || item.title || item.Name || item.Title || 'N/A';
+            const fullAddress = item.address || item.vicinity || item.Address || item.street || item.FullAddress || 'N/A';
+            
+            // --- SESSION DEDUPLICATION LAYER ---
+            const titleAddressKey = `${leadName.toLowerCase().trim()}|${fullAddress.toLowerCase().trim()}`;
+            if (cid && seenCids.has(cid)) return;
+            if (seenTitles.has(titleAddressKey)) return;
+            
+            if (cid) seenCids.add(cid);
+            seenTitles.add(titleAddressKey);
+
             if (!firstItemLogged) {
                 console.log("[Scraper] First Item Keys Received:", Object.keys(item));
                 firstItemLogged = true;
@@ -306,14 +357,12 @@ export async function runScraper(
             }
 
             // 1. DATA EXTRACTION & INITIAL PARSING
-            const leadName = item.name || item.title || item.Name || item.Title || 'N/A';
-            const rawPhone = item.phone || item.wa || item.phone_number || item.Phone || '';
+            const rawPhone = item.phone || item.wa || item.phone_number || item.PhoneNumber || item.Phone || item.Telephone || '';
             const sanitizedWa = sanitizeWaNumber(rawPhone) || null;
-            const website = item.website || item.Website || 'N/A';
-            const mapsUrl = item.url || item.Url || null;
-            const fullAddress = item.address || item.vicinity || item.Address || item.street || 'N/A';
+            const website = item.website || item.Website || item.site || 'N/A';
+            const mapsUrl = item.url || item.Url || item.maps_url || null;
             // NEW: Extract business description/about text — may contain Instagram handles or social info
-            const aboutText = item.about || item.description || item.About || item.Description || 'N/A';
+            const aboutText = item.about || item.description || item.About || item.Description || item.SubTitle || 'N/A';
 
             // 1.1 PARSE RATING & COORDINATES
             // Extensive key check for different scraper versions
@@ -321,7 +370,7 @@ export async function runScraper(
             const rawRating = item.review_rating || item.total_score || item.rating || item.stars || 
                                item.Rating || item.Score || item.avg_rating || 
                                item.rating_value || item['Rating Value'] || '0';
-            const finalRating = parseFloat(rawRating.toString());
+            const finalRating = parseFloat(rawRating.toString()) || 0;
 
             let itemLat = parseFloat(item.lat || item.latitude || item.Lat || item.Latitude || '0');
             // CRITICAL: Scraper has a typo 'longtitude' (with extra t) in some versions
@@ -336,12 +385,12 @@ export async function runScraper(
                 }
             }
 
-            // 2. FILTER LAYER 1: STRICT PURE LOGIC (Save AI Credits)
-            // Updated criteria per user request: Rating >= 3.5, Review Count >= 5
-            const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || 0;
+            // 2. FILTER LAYER 1: STRICT PURE LOGIC (Surgical Settings)
+            // Criteria: Rating 3.5 - 5.0, Review Count >= 5
+            const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || item.TotalReviews || 0;
             
-            if (finalRating < 3.5) {
-                console.log(`[Scraper] Skipping ${leadName}: Rating too low (${finalRating} < 3.5)`);
+            if (finalRating < 3.5 || finalRating > 5.0) {
+                console.log(`[Scraper] Skipping ${leadName}: Rating outside target range (${finalRating})`);
                 return;
             }
             if (reviewCount < 5) {
@@ -448,7 +497,9 @@ export async function runScraper(
                     .replace('[province]', province)
                     .replace('[wa]', rawPhone || 'tidak ada')
                     .replace('[website]', website || 'N/A')
-                    .replace('[about]', aboutText);
+                    .replace('[about]', aboutText)
+                    .replace('[rating]', finalRating.toString())
+                    .replace('[reviewsCount]', reviewCount.toString());
 
                 const aiResponse = await callKieAI(finalPrompt);
                 const rawJson = cleanAIResponse(aiResponse);
@@ -467,7 +518,7 @@ export async function runScraper(
                 const reason = result.reason || 'No reason provided';
 
                 if (decision === 'PROCEED') {
-                    console.log(`[Scraper] AI Decision: PROCEED for ${leadName}`);
+                    console.log(`[Scraper] ✅ AI PROCEED: ${leadName} | Reason: ${reason}`);
                     
                     const rawAiWa = result.wa || null;
                     const rawAiIg = result.ig || null;
@@ -496,6 +547,8 @@ export async function runScraper(
 
                     // Use cleaned name from AI if provided
                     const finalName = result.name || leadName;
+                    const leadScore = result.score ? parseInt(String(result.score)) : null;
+                    const leadPriority = result.priority_tier || null;
 
                     const newLead = await prisma.lead.create({
                         data: {
@@ -511,6 +564,14 @@ export async function runScraper(
                             website,
                             mapsUrl,
                             userId,
+                            score: leadScore,
+                            priorityTier: leadPriority,
+                            aiAnalysis: {
+                                reason: reason,
+                                score_breakdown: result.score_breakdown || null
+                            },
+                            reviews: item.user_reviews || [],
+                            reviewCount: parseInt(reviewCount.toString()) || 0,
                             status: 'FRESH'
                         }
                     });
@@ -546,24 +607,25 @@ export async function runScraper(
         revalidatePath('/dashboard/scraper');
         
         if (jobId) {
+            const skipReason = `Processed: ${totalProcessed}, AI Analysed: ${aiProcessedCount}, New: ${totalInserted}. (AI Rejected: ${aiRejectedCount})`;
             JobRegistry.updateJob(jobId, {
                 status: 'COMPLETED',
                 progress: 100,
-                message: `Scraper finished. Processed: ${totalProcessed}, AI Analysed: ${aiProcessedCount}, New: ${totalInserted}.`,
+                message: skipReason,
                 data: { 
                     processed: totalProcessed, 
                     aiProcessed: aiProcessedCount,
                     new: totalInserted, 
                     aiRejected: aiRejectedCount,
-                    preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount 
+                    preFilterDropped: totalProcessed - aiProcessedCount
                 }
             });
         }
 
         return { 
             success: true, 
-            message: `Scraper finished. Extracted: ${totalProcessed}, AI Analysed: ${aiProcessedCount}, Valid Leads: ${totalInserted}.`,
-            stats: { new: totalInserted, aiRejected: aiRejectedCount, processed: totalProcessed, aiProcessed: aiProcessedCount, preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount }
+            message: `Scraper finished. Processed: ${totalProcessed}, New: ${totalInserted}.`,
+            stats: { new: totalInserted, aiRejected: aiRejectedCount, processed: totalProcessed, aiProcessed: aiProcessedCount, preFilterDropped: totalProcessed - aiProcessedCount }
         };
 
     } catch (err: any) {
