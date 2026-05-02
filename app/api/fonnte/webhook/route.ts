@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendMessage, parseFonnteWebhook } from '@/lib/fonnte';
+import { sanitizeWaNumber } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 

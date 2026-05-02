@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
     Globe, ExternalLink, MapPin, Building2, 
     Calendar, Sliders, Send, X, Loader2, Activity,
-    LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, CheckSquare, ChevronDown, Sparkles, FileText
+    LayoutGrid, List, Clock, Star, Search, RefreshCw, Square, CheckSquare, ChevronDown, Sparkles, FileText, Navigation
 } from 'lucide-react';
 import Link from 'next/link';
 import { PERSONA_OPTIONS } from '@/lib/prompts';
