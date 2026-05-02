@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { leadId, styleId, instructions, previewOnly } = body;
+        const { leadId, styleId, instructions, previewOnly, modelId } = body;
 
         if (!leadId) {
             return NextResponse.json({ success: false, message: 'leadId is required' }, { status: 400 });
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         console.log(`[API Edit] Firing background job ${jobId}...`);
         
         // Fire and forget
-        tweakLeadStyleStrict(leadId, styleId, instructions, previewOnly, jobId).catch(err => {
+        tweakLeadStyleStrict(leadId, styleId, instructions, previewOnly, jobId, modelId).catch(err => {
             console.error(`[Job ${jobId}] Failed:`, err);
             JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message });
         });

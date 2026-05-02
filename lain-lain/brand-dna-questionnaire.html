@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand DNA Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0d0d0d;
+    --paper: #f5f0e8;
+    --cream: #ede8dc;
+    --accent: #c8402a;
+    --accent-warm: #e8a030;
+    --muted: #8a8070;
+    --line: rgba(13,13,13,0.12);
+    --progress-h: 3px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.5;
+  }
+
+  /* ─── PROGRESS BAR ─── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: var(--progress-h);
+    background: var(--accent); z-index: 100;
+    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    position: fixed; top: var(--progress-h); left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    z-index: 50;
+    backdrop-filter: blur(4px);
+  }
+
+  .brand-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.2em;
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .brand-logo-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); display: inline-block;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} }
+
+  .header-meta {
+    font-size: 11px; color: var(--muted); letter-spacing: 0.1em;
+    display: flex; align-items: center; gap: 20px;
+  }
+  #section-counter { font-weight: 500; color: var(--ink); }
+
+  /* ─── MAIN LAYOUT ─── */
+  main {
+    padding-top: 80px;
+    max-width: 780px; margin: 0 auto;
+    padding-left: 24px; padding-right: 24px;
+  }
+
+  /* ─── HERO ─── */
+  #hero {
+    min-height: 100vh; display: flex; flex-direction: column;
+    justify-content: center; padding: 60px 0 80px;
+    position: relative;
+  }
+  .hero-eyebrow {
+    font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 28px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .hero-eyebrow::before {
+    content: ''; width: 32px; height: 1px; background: var(--accent);
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(48px, 8vw, 80px); line-height: 1.05;
+    font-weight: 900; margin-bottom: 32px;
+    letter-spacing: -0.02em;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .hero-desc {
+    font-size: 14px; line-height: 1.8; color: var(--muted);
+    max-width: 520px; margin-bottom: 48px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--line);
+    border-radius: 4px; padding: 28px 32px;
+    display: flex; align-items: center; gap: 20px;
+    cursor: pointer; transition: all 0.2s;
+    background: var(--cream); margin-bottom: 40px;
+    position: relative; overflow: hidden;
+  }
+  .upload-zone:hover { border-color: var(--accent); background: #f0ebe0; }
+  .upload-zone.has-files { border-color: var(--accent-warm); border-style: solid; }
+  .upload-zone input { position: absolute; inset:0; opacity:0; cursor:pointer; }
+  .upload-icon {
+    width: 44px; height: 44px; background: var(--ink);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .upload-icon svg { width: 20px; height: 20px; stroke: var(--paper); fill:none; stroke-width:2; }
+  .upload-text h3 { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; margin-bottom:4px; }
+  .upload-text p { font-size:11px; color:var(--muted); letter-spacing:0.05em; }
+  #file-list { font-size:11px; color:var(--accent-warm); margin-top:8px; }
+
+  /* Start button */
+  .btn-start {
+    display: inline-flex; align-items: center; gap: 12px;
+    background: var(--ink); color: var(--paper);
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 18px 36px; border: none; cursor: pointer;
+    border-radius: 2px; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-start:hover { background: var(--accent); transform: translateY(-2px); }
+  .btn-start svg { width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2; }
+
+  /* ─── SECTIONS ─── */
+  .section {
+    display: none; padding: 60px 0 40px;
+    animation: fadeSlide 0.5s ease both;
+  }
+  .section.active { display: block; }
+  @keyframes fadeSlide {
+    from { opacity:0; transform:translateY(24px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .section-header {
+    display: flex; align-items: flex-start; gap: 24px;
+    margin-bottom: 48px; padding-bottom: 32px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-number {
+    font-family: 'Playfair Display', serif; font-size: 64px;
+    font-weight: 900; line-height: 1; color: var(--line);
+    flex-shrink: 0; letter-spacing: -0.04em;
+    position: relative; top: -8px;
+  }
+  .section-title-group { flex: 1; }
+  .section-eyebrow {
+    font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 4vw, 40px); font-weight: 700;
+    line-height: 1.15; letter-spacing: -0.02em;
+  }
+  h2 em { font-style: italic; }
+  .section-desc { font-size: 13px; color: var(--muted); line-height: 1.7; margin-top: 10px; }
+
+  /* ─── QUESTIONS ─── */
+  .questions { display: flex; flex-direction: column; gap: 36px; }
+
+  .q-block {
+    border-left: 2px solid var(--line);
+    padding-left: 24px; transition: border-color 0.2s;
+  }
+  .q-block:focus-within { border-color: var(--accent); }
+  .q-block.answered { border-color: var(--accent-warm); }
+
+  .q-label {
+    font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .q-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px; font-weight: 400; line-height: 1.5;
+    margin-bottom: 6px;
+  }
+  .q-hint {
+    font-size: 11px; color: var(--muted); margin-bottom: 16px;
+    font-style: italic;
+  }
+
+  /* Inputs */
+  textarea, input[type="text"], select {
+    width: 100%; background: transparent;
+    border: none; border-bottom: 1.5px solid var(--line);
+    padding: 10px 0; font-family: 'DM Mono', monospace;
+    font-size: 13px; color: var(--ink); resize: none;
+    outline: none; transition: border-color 0.2s;
+    border-radius: 0;
+  }
+  textarea { min-height: 80px; line-height: 1.7; }
+  textarea:focus, input[type="text"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+  select { cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8070' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 4px center;
+    padding-right: 24px;
+  }
+
+  /* Radio / checkbox grids */
+  .options-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px; margin-top: 4px;
+  }
+  .opt-label {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border: 1.5px solid var(--line);
+    cursor: pointer; transition: all 0.15s; border-radius: 2px;
+    font-size: 12px; line-height: 1.3;
+    user-select: none;
+  }
+  .opt-label:hover { border-color: var(--muted); background: var(--cream); }
+  .opt-label input { display: none; }
+  .opt-label.selected {
+    border-color: var(--accent); background: #fdf5f3;
+    color: var(--accent); font-weight: 500;
+  }
+  .opt-check {
+    width: 14px; height: 14px; border: 1.5px solid var(--muted);
+    border-radius: 2px; flex-shrink: 0; display:flex;
+    align-items:center; justify-content:center; transition:all .15s;
+  }
+  .opt-label.selected .opt-check {
+    background: var(--accent); border-color: var(--accent);
+  }
+  .opt-check::after {
+    content: '✓'; font-size: 9px; color: white; display:none;
+  }
+  .opt-label.selected .opt-check::after { display:block; }
+
+  /* Scale slider */
+  .scale-row {
+    display:flex; align-items:center; gap:14px; margin-top:10px;
+  }
+  .scale-label { font-size:11px; color:var(--muted); min-width:60px; }
+  .scale-label.right { text-align:right; }
+  input[type="range"] {
+    flex:1; height:3px; appearance:none; background:var(--line);
+    border-radius:2px; cursor:pointer; border:none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance:none; width:16px;height:16px;
+    background:var(--accent); border-radius:50%;
+    box-shadow:0 2px 6px rgba(200,64,42,.3);
+    transition: transform .15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform:scale(1.3); }
+  .scale-val {
+    width:32px; text-align:center; font-size:13px;
+    font-family:'Playfair Display',serif; font-weight:700;
+    color:var(--accent);
+  }
+
+  /* ─── NAV FOOTER ─── */
+  .nav-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--line);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 14px 28px; border: 1.5px solid; cursor: pointer;
+    border-radius: 2px; transition: all 0.2s; background: transparent;
+  }
+  .btn svg { width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2; }
+  .btn-prev { border-color: var(--line); color: var(--muted); }
+  .btn-prev:hover { border-color: var(--muted); color: var(--ink); }
+  .btn-next { border-color: var(--ink); color: var(--ink); }
+  .btn-next:hover { background: var(--ink); color: var(--paper); }
+  .btn-export { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn-export:hover { background: #a83020; border-color: #a83020; }
+
+  .nav-step {
+    font-size: 11px; color: var(--muted); letter-spacing: 0.1em;
+    text-align: center;
+  }
+  .nav-step strong { color: var(--ink); font-weight: 500; }
+
+  /* ─── SUMMARY ─── */
+  #summary { display:none; padding: 60px 0 100px; }
+  #summary.active { display:block; animation: fadeSlide .5s ease both; }
+  .summary-header {
+    text-align: center; margin-bottom: 60px;
+    padding-bottom: 40px; border-bottom: 1px solid var(--line);
+  }
+  .summary-badge {
+    display: inline-block; padding: 6px 16px;
+    background: var(--accent); color: white;
+    font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    border-radius: 2px; margin-bottom: 20px;
+  }
+  .summary-header h2 {
+    font-size: clamp(32px,5vw,52px); margin-bottom: 12px;
+  }
+
+  .summary-section { margin-bottom: 40px; }
+  .summary-section-title {
+    font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .summary-section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+
+  .summary-item {
+    display: grid; grid-template-columns: 180px 1fr; gap: 16px;
+    padding: 12px 0; border-bottom: 1px solid var(--line); font-size:13px;
+  }
+  .summary-item-key { color: var(--muted); font-size:11px; line-height:1.6; }
+  .summary-item-val { line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+  .summary-item-val:empty::after { content:'—'; color:var(--muted); }
+
+  .export-actions {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--line);
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    text-align:center; padding:40px 24px;
+    font-size:11px; color:var(--muted); letter-spacing:0.1em;
+    border-top: 1px solid var(--line);
+  }
+
+  /* Scroll */
+  html { scroll-behavior: smooth; }
+
+  @media(max-width:600px) {
+    header { padding: 14px 20px; }
+    main { padding-left:16px; padding-right:16px; }
+    .options-grid { grid-template-columns: 1fr 1fr; }
+    .summary-item { grid-template-columns: 1fr; gap:4px; }
+    .summary-item-key { color:var(--accent); }
+    .section-number { font-size:44px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<header>
+  <div class="brand-logo">
+    <span class="brand-logo-dot"></span>
+    Brand DNA Explorer
+  </div>
+  <div class="header-meta">
+    <span id="section-counter">Intro</span>
+    <span>·</span>
+    <span id="pct-counter">0%</span>
+  </div>
+</header>
+
+<main>
+
+<!-- ══════════════ HERO ══════════════ -->
+<div id="hero">
+  <div class="hero-eyebrow">Branding Consultation Tool</div>
+  <h1>Temukan<br><em>Brand DNA</em><br>Bisnismu.</h1>
+  <p class="hero-desc">
+    Setiap bisnis punya jiwa — tapi sering tak terucapkan. Tool ini membantu menggali identitas terdalam brandmu secara sistematis, dari purpose hingga kepribadian visual, untuk dasar pembuatan website yang benar-benar <em>authentic</em>.
+  </p>
+
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" multiple accept="image/*,.pdf,.ai,.eps,.png,.jpg,.svg">
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+    </div>
+    <div class="upload-text">
+      <h3>Upload Logo / Brand Assets (Opsional)</h3>
+      <p>Logo, foto brand, moodboard, referensi visual — bisa multiple files</p>
+      <div id="file-list"></div>
+    </div>
+  </div>
+
+  <button class="btn-start" onclick="startForm()">
+    Mulai Eksplorasi
+    <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </button>
+</div>
+
+<!-- ══════════════ SECTION 1: FONDASI ══════════════ -->
+<div class="section" id="sec-1">
+  <div class="section-header">
+    <div class="section-number">01</div>
+    <div class="section-title-group">
+      <div class="section-eyebrow">Fondasi Brand</div>
+      <h2>Siapa kamu,<br><em>sebenarnya?</em></h2>
+      <p class="section-desc">Pondasi brand yang kuat dimulai dari pemahaman tentang eksistensi bisnis itu sendiri.</p>
+    </div>
+  </div>
+
+  <div class="questions">
+
+    <div class="q-block" data-id="business_name">
+      <div class="q-label">Q 01.01</div>
+      <div class="q-text">Nama lengkap bisnis / brand kamu apa?</div>
+      <div class="q-hint">Jika ada nama resmi dan nama panggilan, tulis keduanya.</div>
+      <input type="text" placeholder="Contoh: PT Cahaya Nusantara / BrandKu" oninput="markAnswered(this)">
+    </div>
+
+    <div class="q-block" data-id="tagline">
+      <div class="q-label">Q 01.02</div>
+      <div class="q-text">Apakah ada tagline atau slogan saat ini?</div>
+      <div class="q-hint">Jika belum ada, tuliskan kata-kata yang mewakili brandmu.</div>
+      <input type="text" placeholder="Tagline / slogan kamu..." oninput="markAnswered(this)">
+    </div>
+
+    <div class="q-block" data-id="business_type">
+      <div class="q-label">Q 01.03</div>
+      <div class="q-text">Jenis dan industri bisnis kamu?</div>
+      <div class="q-hint">Pilih semua yang relevan.</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>F&B / Kuliner</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Fashion / Lifestyle</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Beauty / Wellness</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Teknologi / SaaS</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Properti / Real Estate</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Pendidikan / EdTech</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Kesehatan / MedTech</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Jasa Profesional</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>E-Commerce / Retail</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Seni / Kreatif</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Keuangan / Fintech</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Lainnya</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="founding_story">
+      <div class="q-label">Q 01.04</div>
+      <div class="q-text">Ceritakan founding story brandmu. Kenapa bisnis ini lahir?</div>
+      <div class="q-hint">Momen spesifik apa yang membuatmu memulainya? Ada masalah pribadi? Mimpi? Keresahan?</div>
+      <textarea placeholder="Ceritakan dengan jujur — sesering mungkin, origin story yang paling 'biasa' justru paling powerful..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="purpose">
+      <div class="q-label">Q 01.05</div>
+      <div class="q-text">Apa purpose / "mengapa" terdalam bisnis ini eksis — di luar keuntungan finansial?</div>
+      <div class="q-hint">Jika bisnis ini tidak ada, apa yang dunia kehilangan?</div>
+      <textarea placeholder="Di sini bukan tentang profit. Tentang kontribusi..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="vision_10y">
+      <div class="q-label">Q 01.06</div>
+      <div class="q-text">Gambaran visi 10 tahun ke depan: brandmu jadi apa?</div>
+      <div class="q-hint">Bukan target revenue — tapi dampak dan posisi. Siapa yang tahu brandmu? Apa yang mereka rasakan?</div>
+      <textarea placeholder="Gambarkan dengan vivid dan spesifik..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="mission">
+      <div class="q-label">Q 01.07</div>
+      <div class="q-text">Apa misi spesifik yang sedang dikerjakan sekarang untuk menuju visi itu?</div>
+      <textarea placeholder="3 hal konkret yang sedang kamu lakukan untuk mewujudkan visi..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="core_values">
+      <div class="q-label">Q 01.08</div>
+      <div class="q-text">Sebutkan 3–5 nilai inti (core values) yang tidak bisa dikompromikan.</div>
+      <div class="q-hint">Bukan yang terdengar bagus, tapi yang benar-benar dipraktikkan sehari-hari — bahkan ketika sulit.</div>
+      <textarea placeholder="Contoh: Kejujuran radikal, Kesederhanaan yang dipikirkan, Dampak nyata..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+  </div>
+
+  <div class="nav-footer">
+    <button class="btn btn-prev" onclick="goSection(0)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+    </button>
+    <div class="nav-step">Bagian <strong>1</strong> dari <strong>7</strong></div>
+    <button class="btn btn-next" onclick="goSection(2)">
+      Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ SECTION 2: TARGET AUDIENCE ══════════════ -->
+<div class="section" id="sec-2">
+  <div class="section-header">
+    <div class="section-number">02</div>
+    <div class="section-title-group">
+      <div class="section-eyebrow">Target Audience</div>
+      <h2>Untuk siapa<br><em>brand ini ada?</em></h2>
+      <p class="section-desc">Brand yang berbicara ke semua orang, tidak berbicara ke siapapun. Mari definisikan audiens ideal dengan presisi.</p>
+    </div>
+  </div>
+
+  <div class="questions">
+
+    <div class="q-block" data-id="ideal_customer_persona">
+      <div class="q-label">Q 02.01</div>
+      <div class="q-text">Gambarkan satu persona pelanggan ideal kamu secara spesifik.</div>
+      <div class="q-hint">Beri nama, usia, pekerjaan, gaya hidup. Sedetail mungkin — bahkan playlist Spotify-nya jika perlu.</div>
+      <textarea placeholder="Namanya Raka, 28 tahun, UX Designer di startup Jakarta, ngopi 3x sehari, dengarkan lo-fi saat kerja, gelisah dengan karir tapi semangat dengan side project..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="customer_pain">
+      <div class="q-label">Q 02.02</div>
+      <div class="q-text">Apa pain point terdalam yang dirasakan pelanggan idealmu — yang sering tidak mereka ungkapkan?</div>
+      <div class="q-hint">Di luar masalah teknis — ada ketakutan, frustrasi, atau harapan tersembunyi apa?</div>
+      <textarea placeholder="Mereka frustrasi ketika... Mereka takut kalau... Mereka diam-diam berharap..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="customer_aspiration">
+      <div class="q-label">Q 02.03</div>
+      <div class="q-text">Apa aspirasi terbesar mereka — versi terbaik diri mereka yang ingin diwujudkan?</div>
+      <textarea placeholder="Mereka ingin menjadi seseorang yang... Mereka ingin orang lain melihat mereka sebagai..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="customer_segment">
+      <div class="q-label">Q 02.04</div>
+      <div class="q-text">Segmentasi demografis utama.</div>
+      <div class="options-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Gen Z (18–27)</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Millennial (28–42)</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Gen X (43–58)</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Baby Boomer (59+)</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Pria</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Wanita</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Gender-neutral</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>B2B</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>B2C</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>B2B2C</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="market_scope">
+      <div class="q-label">Q 02.05</div>
+      <div class="q-text">Jangkauan pasar saat ini dan yang dituju.</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="radio" name="market_scope" onchange="toggleOpt(this)"><span class="opt-check"></span>Lokal (kota/kabupaten)</label>
+        <label class="opt-label"><input type="radio" name="market_scope" onchange="toggleOpt(this)"><span class="opt-check"></span>Regional (provinsi)</label>
+        <label class="opt-label"><input type="radio" name="market_scope" onchange="toggleOpt(this)"><span class="opt-check"></span>Nasional</label>
+        <label class="opt-label"><input type="radio" name="market_scope" onchange="toggleOpt(this)"><span class="opt-check"></span>Asia Tenggara</label>
+        <label class="opt-label"><input type="radio" name="market_scope" onchange="toggleOpt(this)"><span class="opt-check"></span>Global</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="why_choose">
+      <div class="q-label">Q 02.06</div>
+      <div class="q-text">Kenapa pelanggan memilih kamu dibanding kompetitor — dari sudut pandang <em>mereka</em>?</div>
+      <div class="q-hint">Bukan alasan yang kamu kira, tapi apa yang pernah mereka katakan / testimonikan.</div>
+      <textarea placeholder="Pelanggan terbaik kamu bilang... Mereka kembali lagi karena..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+  </div>
+
+  <div class="nav-footer">
+    <button class="btn btn-prev" onclick="goSection(1)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+    </button>
+    <div class="nav-step">Bagian <strong>2</strong> dari <strong>7</strong></div>
+    <button class="btn btn-next" onclick="goSection(3)">
+      Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ SECTION 3: POSITIONING & KOMPETITOR ══════════════ -->
+<div class="section" id="sec-3">
+  <div class="section-header">
+    <div class="section-number">03</div>
+    <div class="section-title-group">
+      <div class="section-eyebrow">Positioning & Kompetisi</div>
+      <h2>Di mana kamu<br><em>berdiri?</em></h2>
+      <p class="section-desc">Positioning bukan tentang menjadi yang terbaik — tapi tentang menjadi yang paling relevan bagi audiensmu.</p>
+    </div>
+  </div>
+
+  <div class="questions">
+
+    <div class="q-block" data-id="usp">
+      <div class="q-label">Q 03.01</div>
+      <div class="q-text">Apa Unique Selling Proposition (USP) paling kuat brandmu — yang tidak bisa diklaim kompetitor?</div>
+      <div class="q-hint">Bukan fitur produk, tapi transformasi atau janji terdalam yang kamu tawarkan.</div>
+      <textarea placeholder="Hanya kami yang bisa... / Kami adalah satu-satunya yang..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="competitors">
+      <div class="q-label">Q 03.02</div>
+      <div class="q-text">Sebutkan 3–5 kompetitor utama. Apa yang mereka lakukan dengan baik, dan di mana celahnya?</div>
+      <textarea placeholder="Kompetitor 1: [nama] — Kuat di: ... Lemah di: ...&#10;Kompetitor 2: ..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="brand_avoid">
+      <div class="q-label">Q 03.03</div>
+      <div class="q-text">Brand mana yang TIDAK ingin kamu terlihat seperti mereka — dan kenapa?</div>
+      <div class="q-hint">Ini membantu mendefinisikan batas identitasmu.</div>
+      <textarea placeholder="Kami tidak ingin terlihat seperti [brand] karena..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="price_positioning">
+      <div class="q-label">Q 03.04</div>
+      <div class="q-text">Positioning harga di pasar.</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="radio" name="price_pos" onchange="toggleOpt(this)"><span class="opt-check"></span>Budget / Terjangkau</label>
+        <label class="opt-label"><input type="radio" name="price_pos" onchange="toggleOpt(this)"><span class="opt-check"></span>Mid-range</label>
+        <label class="opt-label"><input type="radio" name="price_pos" onchange="toggleOpt(this)"><span class="opt-check"></span>Premium</label>
+        <label class="opt-label"><input type="radio" name="price_pos" onchange="toggleOpt(this)"><span class="opt-check"></span>Luxury / Ultra-premium</label>
+        <label class="opt-label"><input type="radio" name="price_pos" onchange="toggleOpt(this)"><span class="opt-check"></span>Freemium</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="differentiation">
+      <div class="q-label">Q 03.05</div>
+      <div class="q-text">Jika brandmu adalah satu-satunya pilihan di dunia ini, apa yang akan dunia lewatkan jika brandmu menghilang?</div>
+      <textarea placeholder="Jawaban ini adalah intimu yang sejati..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+  </div>
+
+  <div class="nav-footer">
+    <button class="btn btn-prev" onclick="goSection(2)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+    </button>
+    <div class="nav-step">Bagian <strong>3</strong> dari <strong>7</strong></div>
+    <button class="btn btn-next" onclick="goSection(4)">
+      Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ SECTION 4: KEPRIBADIAN BRAND ══════════════ -->
+<div class="section" id="sec-4">
+  <div class="section-header">
+    <div class="section-number">04</div>
+    <div class="section-title-group">
+      <div class="section-eyebrow">Brand Personality</div>
+      <h2>Brandmu<br><em>punya jiwa apa?</em></h2>
+      <p class="section-desc">Jika brandmu adalah manusia — bagaimana dia berbicara, bergerak, dan membuat orang merasa?</p>
+    </div>
+  </div>
+
+  <div class="questions">
+
+    <div class="q-block" data-id="brand_human">
+      <div class="q-label">Q 04.01</div>
+      <div class="q-text">Jika brandmu adalah manusia, gambarkan karakternya dalam 1 paragraf.</div>
+      <div class="q-hint">Usianya berapa? Cara bicaranya? Pakaiannya? Apa yang dia lakukan di weekend?</div>
+      <textarea placeholder="Brand ini adalah seseorang yang berusia... dia berbicara dengan... dia suka..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="brand_archetype">
+      <div class="q-label">Q 04.02</div>
+      <div class="q-text">Pilih archetipe brand yang paling dekat (bisa lebih dari 1).</div>
+      <div class="options-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🦸 The Hero<br><small style="color:var(--muted)">Berani, inspiring</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🧙 The Sage<br><small style="color:var(--muted)">Bijak, expert</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🤡 The Jester<br><small style="color:var(--muted)">Fun, playful</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🌱 The Caregiver<br><small style="color:var(--muted)">Nurturing, empathy</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>👑 The Ruler<br><small style="color:var(--muted)">Authority, prestige</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🎨 The Creator<br><small style="color:var(--muted)">Inovatif, artistik</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🌍 The Explorer<br><small style="color:var(--muted)">Bebas, adventurous</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>❤️ The Lover<br><small style="color:var(--muted)">Passion, intimacy</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🤝 The Everyman<br><small style="color:var(--muted)">Relatable, friendly</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🗡 The Outlaw<br><small style="color:var(--muted)">Rebel, disruptive</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>✨ The Magician<br><small style="color:var(--muted)">Transformatif</small></label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>🕊 The Innocent<br><small style="color:var(--muted)">Pure, optimistik</small></label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="tone_of_voice">
+      <div class="q-label">Q 04.03</div>
+      <div class="q-text">Tone of voice brand kamu — geser slider sesuai karakter.</div>
+      <div style="margin-top:16px">
+        <div style="margin-bottom:20px">
+          <div class="scale-row">
+            <span class="scale-label">Formal</span>
+            <input type="range" min="1" max="10" value="5" oninput="updateScale(this,'sv1')">
+            <span class="scale-val" id="sv1">5</span>
+            <span class="scale-label right">Casual</span>
+          </div>
+        </div>
+        <div style="margin-bottom:20px">
+          <div class="scale-row">
+            <span class="scale-label">Serius</span>
+            <input type="range" min="1" max="10" value="5" oninput="updateScale(this,'sv2')">
+            <span class="scale-val" id="sv2">5</span>
+            <span class="scale-label right">Playful</span>
+          </div>
+        </div>
+        <div style="margin-bottom:20px">
+          <div class="scale-row">
+            <span class="scale-label">Minimal</span>
+            <input type="range" min="1" max="10" value="5" oninput="updateScale(this,'sv3')">
+            <span class="scale-val" id="sv3">5</span>
+            <span class="scale-label right">Expressive</span>
+          </div>
+        </div>
+        <div style="margin-bottom:20px">
+          <div class="scale-row">
+            <span class="scale-label">Tradisional</span>
+            <input type="range" min="1" max="10" value="5" oninput="updateScale(this,'sv4')">
+            <span class="scale-val" id="sv4">5</span>
+            <span class="scale-label right">Modern</span>
+          </div>
+        </div>
+        <div>
+          <div class="scale-row">
+            <span class="scale-label">Mass market</span>
+            <input type="range" min="1" max="10" value="5" oninput="updateScale(this,'sv5')">
+            <span class="scale-val" id="sv5">5</span>
+            <span class="scale-label right">Niche / Eksklusif</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="brand_words">
+      <div class="q-label">Q 04.04</div>
+      <div class="q-text">5 kata yang HARUS merepresentasikan brandmu, dan 5 kata yang TIDAK BOLEH.</div>
+      <textarea placeholder="HARUS: [kata 1], [kata 2], [kata 3], [kata 4], [kata 5]&#10;TIDAK BOLEH: [kata 1], [kata 2], [kata 3], [kata 4], [kata 5]" oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="brand_emotion">
+      <div class="q-label">Q 04.05</div>
+      <div class="q-text">Apa satu emosi utama yang ingin dirasakan seseorang setelah berinteraksi dengan brandmu?</div>
+      <div class="q-hint">Bukan banyak emosi — satu yang paling dominan dan paling kamu inginkan.</div>
+      <input type="text" placeholder="Contoh: Percaya diri, Terinspirasi, Tenang, Bangga, Bersemangat..." oninput="markAnswered(this)">
+    </div>
+
+  </div>
+
+  <div class="nav-footer">
+    <button class="btn btn-prev" onclick="goSection(3)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+    </button>
+    <div class="nav-step">Bagian <strong>4</strong> dari <strong>7</strong></div>
+    <button class="btn btn-next" onclick="goSection(5)">
+      Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ SECTION 5: IDENTITAS VISUAL ══════════════ -->
+<div class="section" id="sec-5">
+  <div class="section-header">
+    <div class="section-number">05</div>
+    <div class="section-title-group">
+      <div class="section-eyebrow">Identitas Visual</div>
+      <h2>Bagaimana<br><em>brand terlihat?</em></h2>
+      <p class="section-desc">Visual bukan hiasan — tapi bahasa nonverbal yang bicara sebelum satu kata pun dibaca.</p>
+    </div>
+  </div>
+
+  <div class="questions">
+
+    <div class="q-block" data-id="existing_visual">
+      <div class="q-label">Q 05.01</div>
+      <div class="q-text">Deskripsikan identitas visual yang sudah ada (logo, warna, tipografi).</div>
+      <div class="q-hint">Jika sudah upload file di awal, jelaskan apa yang sudah ada dan apa yang perlu berubah.</div>
+      <textarea placeholder="Logo saat ini: [deskripsi]&#10;Warna utama: [kode hex atau nama]&#10;Font yang digunakan: [nama font]&#10;Elemen yang ingin dipertahankan: ..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="color_feeling">
+      <div class="q-label">Q 05.02</div>
+      <div class="q-text">Jika brand kamu adalah warna — warna apa dan mengapa?</div>
+      <div class="q-hint">Bukan warna favorit, tapi warna yang paling merepresentasikan jiwa brand. Boleh lebih dari satu.</div>
+      <textarea placeholder="Brand kami adalah [warna] karena... — nuansanya seperti..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="visual_mood">
+      <div class="q-label">Q 05.03</div>
+      <div class="q-text">Pilih mood visual yang paling sesuai.</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Clean & Minimal</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Bold & Striking</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Warm & Organic</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Dark & Dramatic</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Soft & Pastel</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Luxury & Refined</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Playful & Vibrant</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Editorial & Typographic</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Retro / Vintage</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Futuristic / Tech</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Nature / Earthy</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Brutalist / Raw</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="brand_references">
+      <div class="q-label">Q 05.04</div>
+      <div class="q-text">Sebutkan 3–5 brand (boleh dari industri berbeda) yang secara visual kamu kagumi dan alasannya.</div>
+      <div class="q-hint">Ini bukan artinya meniru — tapi memahami selera visual kamu.</div>
+      <textarea placeholder="1. [Brand] — saya suka karena...&#10;2. [Brand] — saya suka karena...&#10;3. ..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="photography_style">
+      <div class="q-label">Q 05.05</div>
+      <div class="q-text">Bagaimana gaya fotografi / imagery yang merepresentasikan brandmu?</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Candid / Lifestyle</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Clean Studio</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Film / Grain</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>High Contrast</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Moody / Dark</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Bright & Airy</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Ilustrasi / Graphic</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Minimal / Abstract</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="visual_dont">
+      <div class="q-label">Q 05.06</div>
+      <div class="q-text">Elemen visual apa yang TIDAK BOLEH ada dalam brand kamu? (Don'ts)</div>
+      <textarea placeholder="Kami tidak menggunakan... / Kami menghindari visual yang..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+  </div>
+
+  <div class="nav-footer">
+    <button class="btn btn-prev" onclick="goSection(4)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+    </button>
+    <div class="nav-step">Bagian <strong>5</strong> dari <strong>7</strong></div>
+    <button class="btn btn-next" onclick="goSection(6)">
+      Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ SECTION 6: WEBSITE & DIGITAL ══════════════ -->
+<div class="section" id="sec-6">
+  <div class="section-header">
+    <div class="section-number">06</div>
+    <div class="section-title-group">
+      <div class="section-eyebrow">Website & Strategi Digital</div>
+      <h2>Website kamu<br><em>harus ngapain?</em></h2>
+      <p class="section-desc">Website yang efektif punya satu tujuan utama yang sangat jelas. Mari definisikan itu.</p>
+    </div>
+  </div>
+
+  <div class="questions">
+
+    <div class="q-block" data-id="website_goal">
+      <div class="q-label">Q 06.01</div>
+      <div class="q-text">Apa SATU tujuan utama website ini — action apa yang ingin dilakukan pengunjung?</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Beli produk / layanan</label>
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Isi form / leads</label>
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Booking / Reservasi</label>
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Hubungi via WhatsApp</label>
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Baca konten / edukasi</label>
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Portfolio showcase</label>
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Daftar membership</label>
+        <label class="opt-label"><input type="radio" name="web_goal" onchange="toggleOpt(this)"><span class="opt-check"></span>Investor relations</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="website_pages">
+      <div class="q-label">Q 06.02</div>
+      <div class="q-text">Halaman apa saja yang dibutuhkan dalam website?</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Home</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>About / Our Story</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Products / Services</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Portfolio / Case Study</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Blog / Article</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Testimonial</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Team / People</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>FAQ</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Pricing</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Contact</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Careers</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>E-commerce</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="website_feel">
+      <div class="q-label">Q 06.03</div>
+      <div class="q-text">Ketika pengunjung pertama kali landing di homepage, apa yang ingin langsung mereka rasakan dalam 3 detik pertama?</div>
+      <textarea placeholder="Rasa pertama yang ingin kami ciptakan adalah... Seperti masuk ke sebuah toko yang..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="competitor_website">
+      <div class="q-label">Q 06.04</div>
+      <div class="q-text">Website kompetitor atau website lain yang kamu suka — dan spesifik apa yang kamu suka dari mereka?</div>
+      <textarea placeholder="www.contoh.com — saya suka: cara mereka menyajikan produk, animasinya, navigasinya, dll..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="digital_channels">
+      <div class="q-label">Q 06.05</div>
+      <div class="q-text">Channel digital apa yang aktif digunakan brandmu?</div>
+      <div class="options-grid">
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Instagram</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>TikTok</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>LinkedIn</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>YouTube</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>WhatsApp / WA Business</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Tokopedia / Shopee</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Email newsletter</label>
+        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Podcast</label>
+      </div>
+    </div>
+
+    <div class="q-block" data-id="website_budget_timeline">
+      <div class="q-label">Q 06.06</div>
+      <div class="q-text">Ekspektasi timeline dan kisaran budget untuk proyek website ini?</div>
+      <textarea placeholder="Target launch: [bulan/tahun]&#10;Budget range: [nominal atau range]&#10;Prioritas: kecepatan / kualitas / budget?" oninput="markAnswered(this)"></textarea>
+    </div>
+
+  </div>
+
+  <div class="nav-footer">
+    <button class="btn btn-prev" onclick="goSection(5)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+    </button>
+    <div class="nav-step">Bagian <strong>6</strong> dari <strong>7</strong></div>
+    <button class="btn btn-next" onclick="goSection(7)">
+      Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ SECTION 7: KONTEKS & ASPIRASI ══════════════ -->
+<div class="section" id="sec-7">
+  <div class="section-header">
+    <div class="section-number">07</div>
+    <div class="section-title-group">
+      <div class="section-eyebrow">Closing Questions</div>
+      <h2>Last but<br><em>not least.</em></h2>
+      <p class="section-desc">Pertanyaan terakhir yang sering mengungkap hal paling penting.</p>
+    </div>
+  </div>
+
+  <div class="questions">
+
+    <div class="q-block" data-id="biggest_fear">
+      <div class="q-label">Q 07.01</div>
+      <div class="q-text">Apa ketakutan terbesar kamu tentang proyek branding / website ini?</div>
+      <div class="q-hint">Kejujuran di sini membantu kami menghindari masalah sebelum terjadi.</div>
+      <textarea placeholder="Saya khawatir kalau... / Pengalaman buruk sebelumnya adalah..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="success_definition">
+      <div class="q-label">Q 07.02</div>
+      <div class="q-text">Bagaimana kamu mendefinisikan "sukses" untuk proyek ini — 6 bulan setelah website live?</div>
+      <div class="q-hint">Bisa berupa angka, perasaan, atau feedback dari pelanggan.</div>
+      <textarea placeholder="Proyek ini sukses kalau... / 6 bulan kemudian saya ingin melihat..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="brand_moment">
+      <div class="q-label">Q 07.03</div>
+      <div class="q-text">Ceritakan momen terbaik brandmu — ketika semuanya terasa "benar" dan pelanggan bereaksi persis seperti yang kamu inginkan.</div>
+      <textarea placeholder="Momen itu terjadi ketika... / Pelanggan berkata... / Saya merasa..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="brand_metaphor">
+      <div class="q-label">Q 07.04</div>
+      <div class="q-text">Jika brandmu adalah [pilih satu]: jenis musik, film, tempat, atau cuaca — apa dan mengapa?</div>
+      <div class="q-hint">Ini pertanyaan kreatif yang membantu kami menangkap "rasa" yang sulit dijelaskan dengan kata-kata bisnis.</div>
+      <textarea placeholder="Brand kami adalah [jazz malam hari / film Wes Anderson / kafe pojok dengan jendela besar / sore cerah setelah hujan] karena..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="additional_notes">
+      <div class="q-label">Q 07.05</div>
+      <div class="q-text">Ada hal lain tentang brandmu yang belum tercakup tapi penting untuk kami ketahui?</div>
+      <textarea placeholder="Hal yang sering disalahpahami tentang brand kami... / Konteks khusus yang perlu kamu tahu..." oninput="markAnswered(this)"></textarea>
+    </div>
+
+    <div class="q-block" data-id="one_sentence">
+      <div class="q-label">Q 07.06 ★</div>
+      <div class="q-text">Deskripsikan brandmu dalam SATU kalimat — untuk seseorang yang belum pernah mendengar tentang kamu.</div>
+      <div class="q-hint">Kalimat terbaik biasanya muncul setelah semua pertanyaan sebelumnya dijawab.</div>
+      <input type="text" placeholder="[Brand kamu] adalah..." oninput="markAnswered(this)">
+    </div>
+
+  </div>
+
+  <div class="nav-footer">
+    <button class="btn btn-prev" onclick="goSection(6)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+    </button>
+    <div class="nav-step">Bagian <strong>7</strong> dari <strong>7</strong></div>
+    <button class="btn btn-export" onclick="generateSummary()">
+      Lihat Brand DNA Summary
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════ SUMMARY ══════════════ -->
+<div id="summary">
+  <div class="summary-header">
+    <div class="summary-badge">Brand DNA Document</div>
+    <h2>Brand DNA<br><em>Summary</em></h2>
+    <p style="font-size:13px;color:var(--muted);margin-top:8px">Dokumen ini merangkum jiwa dan identitas brand kamu.</p>
+  </div>
+  <div id="summary-content"></div>
+  <div class="export-actions">
+    <button class="btn btn-export" onclick="printSummary()">
+      <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+      Print / Save PDF
+    </button>
+    <button class="btn btn-next" onclick="goSection(7)">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Edit Jawaban
+    </button>
+    <button class="btn btn-next" onclick="copyToClipboard()">
+      <svg viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+      Copy Teks
+    </button>
+  </div>
+</div>
+
+</main>
+
+<footer>
+  Brand DNA Explorer &nbsp;·&nbsp; Branding Consultation Tool &nbsp;·&nbsp; v1.0
+</footer>
+
+<script>
+// ─── State ───
+let currentSection = 0; // 0=hero, 1-7=sections, 8=summary
+const TOTAL = 7;
+
+// ─── File Upload ───
+const fileInput = document.getElementById('file-input');
+const fileList  = document.getElementById('file-list');
+const uploadZone = document.getElementById('upload-zone');
+
+fileInput.addEventListener('change', function() {
+  if (this.files.length) {
+    uploadZone.classList.add('has-files');
+    const names = Array.from(this.files).map(f => f.name).join(', ');
+    fileList.textContent = `✓ ${this.files.length} file: ${names}`;
+  }
+});
+
+// ─── Navigation ───
+function startForm() {
+  goSection(1);
+}
+
+function goSection(n) {
+  // hide hero
+  document.getElementById('hero').style.display = 'none';
+  // hide summary
+  document.getElementById('summary').classList.remove('active');
+
+  // hide all sections
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+
+  if (n === 0) {
+    document.getElementById('hero').style.display = 'flex';
+    currentSection = 0;
+  } else if (n >= 1 && n <= TOTAL) {
+    const sec = document.getElementById('sec-' + n);
+    if (sec) { sec.classList.add('active'); }
+    currentSection = n;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (n > TOTAL) {
+    generateSummary();
+    return;
+  }
+  updateProgress();
+}
+
+function updateProgress() {
+  const pct = currentSection === 0 ? 0 : Math.round((currentSection / TOTAL) * 100);
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('pct-counter').textContent = pct + '%';
+  const labels = ['Intro','Fondasi','Audience','Positioning','Personality','Visual','Website','Closing'];
+  document.getElementById('section-counter').textContent = labels[currentSection] || 'Summary';
+}
+
+// ─── Option toggle ───
+function toggleOpt(input) {
+  const label = input.closest('.opt-label');
+  if (input.type === 'radio') {
+    // Deselect siblings
+    const name = input.name;
+    document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+      r.closest('.opt-label').classList.remove('selected');
+    });
+  }
+  label.classList.toggle('selected', input.checked);
+}
+
+// ─── Scale display ───
+function updateScale(input, valId) {
+  document.getElementById(valId).textContent = input.value;
+}
+
+// ─── Mark answered ───
+function markAnswered(el) {
+  const block = el.closest('.q-block');
+  if (block) block.classList.toggle('answered', el.value.trim().length > 0);
+}
+
+// ─── Collect all data ───
+function collectData() {
+  const data = {};
+
+  // Text inputs & textareas
+  document.querySelectorAll('.q-block').forEach(block => {
+    const id = block.dataset.id;
+    if (!id) return;
+    const ta = block.querySelector('textarea');
+    const inp = block.querySelector('input[type="text"]');
+    const sel = block.querySelector('select');
+    const checks = block.querySelectorAll('input[type="checkbox"]:checked, input[type="radio"]:checked');
+
+    if (ta) data[id] = ta.value.trim();
+    else if (inp) data[id] = inp.value.trim();
+    else if (sel) data[id] = sel.value;
+    else if (checks.length) {
+      data[id] = Array.from(checks).map(c => c.closest('.opt-label').textContent.trim()).join(', ');
+    }
+  });
+
+  // Sliders
+  const sliderLabels = ['Formal ↔ Casual','Serius ↔ Playful','Minimal ↔ Expressive','Tradisional ↔ Modern','Mass Market ↔ Niche'];
+  const sliderVals = ['sv1','sv2','sv3','sv4','sv5'];
+  data['tone_sliders'] = sliderVals.map((id, i) => {
+    const v = document.getElementById(id)?.textContent || '5';
+    return `${sliderLabels[i]}: ${v}/10`;
+  }).join(' | ');
+
+  return data;
+}
+
+// ─── Generate Summary ───
+function generateSummary() {
+  const data = collectData();
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('hero').style.display = 'none';
+
+  const sec = document.getElementById('summary');
+  sec.classList.add('active');
+  currentSection = 8;
+  document.getElementById('progress-bar').style.width = '100%';
+  document.getElementById('pct-counter').textContent = '100%';
+  document.getElementById('section-counter').textContent = 'Summary';
+
+  const sections = [
+    {
+      title: '01 — Fondasi Brand',
+      items: [
+        ['Nama Brand', data.business_name],
+        ['Tagline', data.tagline],
+        ['Industri', data.business_type],
+        ['Founding Story', data.founding_story],
+        ['Brand Purpose', data.purpose],
+        ['Visi 10 Tahun', data.vision_10y],
+        ['Misi', data.mission],
+        ['Core Values', data.core_values],
+      ]
+    },
+    {
+      title: '02 — Target Audience',
+      items: [
+        ['Ideal Customer Persona', data.ideal_customer_persona],
+        ['Pain Points', data.customer_pain],
+        ['Aspirasi Pelanggan', data.customer_aspiration],
+        ['Segmentasi Demografis', data.customer_segment],
+        ['Jangkauan Pasar', data.market_scope],
+        ['Alasan Pelanggan Memilih', data.why_choose],
+      ]
+    },
+    {
+      title: '03 — Positioning & Kompetisi',
+      items: [
+        ['Unique Selling Proposition', data.usp],
+        ['Kompetitor & Analisis', data.competitors],
+        ['Brand yang Ingin Dihindari', data.brand_avoid],
+        ['Positioning Harga', data.price_positioning],
+        ['Diferensiasi Sejati', data.differentiation],
+      ]
+    },
+    {
+      title: '04 — Brand Personality',
+      items: [
+        ['Brand sebagai Manusia', data.brand_human],
+        ['Brand Archetype', data.brand_archetype],
+        ['Tone of Voice Sliders', data.tone_sliders],
+        ['Kata Harus & Tidak Boleh', data.brand_words],
+        ['Emosi Utama yang Dihasilkan', data.brand_emotion],
+      ]
+    },
+    {
+      title: '05 — Identitas Visual',
+      items: [
+        ['Visual Existing', data.existing_visual],
+        ['Brand sebagai Warna', data.color_feeling],
+        ['Mood Visual', data.visual_mood],
+        ['Brand Referensi', data.brand_references],
+        ['Gaya Fotografi', data.photography_style],
+        ["Visual Don'ts", data.visual_dont],
+      ]
+    },
+    {
+      title: '06 — Website & Digital',
+      items: [
+        ['Tujuan Utama Website', data.website_goal],
+        ['Halaman yang Dibutuhkan', data.website_pages],
+        ['First Impression yang Diinginkan', data.website_feel],
+        ['Referensi Website', data.competitor_website],
+        ['Channel Digital Aktif', data.digital_channels],
+        ['Timeline & Budget', data.website_budget_timeline],
+      ]
+    },
+    {
+      title: '07 — Closing',
+      items: [
+        ['Ketakutan Terbesar', data.biggest_fear],
+        ['Definisi Sukses', data.success_definition],
+        ['Momen Terbaik Brand', data.brand_moment],
+        ['Brand sebagai Metafora', data.brand_metaphor],
+        ['Catatan Tambahan', data.additional_notes],
+        ['Brand dalam 1 Kalimat ★', data.one_sentence],
+      ]
+    },
+  ];
+
+  const html = sections.map(s => `
+    <div class="summary-section">
+      <div class="summary-section-title">${s.title}</div>
+      ${s.items.map(([k, v]) => `
+        <div class="summary-item">
+          <div class="summary-item-key">${k}</div>
+          <div class="summary-item-val">${v || ''}</div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  document.getElementById('summary-content').innerHTML = html;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── Export actions ───
+function printSummary() {
+  window.print();
+}
+
+function copyToClipboard() {
+  const data = collectData();
+  const sections = [
+    ['FONDASI BRAND', ['business_name','tagline','business_type','founding_story','purpose','vision_10y','mission','core_values']],
+    ['TARGET AUDIENCE', ['ideal_customer_persona','customer_pain','customer_aspiration','customer_segment','market_scope','why_choose']],
+    ['POSITIONING', ['usp','competitors','brand_avoid','price_positioning','differentiation']],
+    ['BRAND PERSONALITY', ['brand_human','brand_archetype','tone_sliders','brand_words','brand_emotion']],
+    ['IDENTITAS VISUAL', ['existing_visual','color_feeling','visual_mood','brand_references','photography_style','visual_dont']],
+    ['WEBSITE & DIGITAL', ['website_goal','website_pages','website_feel','competitor_website','digital_channels','website_budget_timeline']],
+    ['CLOSING', ['biggest_fear','success_definition','brand_moment','brand_metaphor','additional_notes','one_sentence']],
+  ];
+  let text = '═══════════════════════════\nBRAND DNA DOCUMENT\n═══════════════════════════\n\n';
+  sections.forEach(([title, keys]) => {
+    text += `── ${title} ──\n`;
+    keys.forEach(k => { if (data[k]) text += `${k}: ${data[k]}\n`; });
+    text += '\n';
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    alert('✓ Brand DNA berhasil disalin ke clipboard!');
+  }).catch(() => {
+    alert('Clipboard tidak tersedia. Gunakan tombol Print.');
+  });
+}
+
+// ─── Print styles ───
+const printStyle = document.createElement('style');
+printStyle.textContent = `
+  @media print {
+    header, footer, .export-actions, #progress-bar { display:none!important; }
+    main { padding-top:20px!important; }
+    body { background:white!important; }
+    .summary-item { page-break-inside:avoid; }
+  }
+`;
+document.head.appendChild(printStyle);
+
+// Init
+updateProgress();
+</script>
+</body>
+</html>

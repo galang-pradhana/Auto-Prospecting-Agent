@@ -5,6 +5,7 @@ import { JobRegistry } from '@/lib/jobRegistry';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minutes max duration for initial processing
 
 export async function POST(req: NextRequest) {
     try {

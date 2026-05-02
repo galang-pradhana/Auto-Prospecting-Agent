@@ -5,6 +5,7 @@ import { JobRegistry } from '@/lib/jobRegistry';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minutes max duration for initial processing
 
 export async function POST(req: NextRequest) {
     try {
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { leadId } = body;
+        const { leadId, modelId } = body;
 
         if (!leadId) {
             return NextResponse.json({ success: false, message: 'leadId is required' }, { status: 400 });
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
         console.log(`[API Forge] Firing background job ${jobId}...`);
         
         // Fire and forget
-        generateForgeCode(leadId, jobId).catch(err => {
+        generateForgeCode(leadId, jobId, modelId).catch(err => {
             console.error(`[Job ${jobId}] Failed:`, err);
             JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message });
         });

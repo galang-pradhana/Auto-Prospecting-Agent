@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { getSession, getCurrentUser } from '@/lib/auth';
 import { sanitizeWaNumber } from '@/lib/utils';
 import { OUTREACH_GENERATOR_PROMPT, OUTREACH_PERSONAS } from '@/lib/prompts';
+import { getUserSettings, updateUserSettings } from './user-settings';
+import { callAI } from './ai';
 
 // --- WhatsApp Template Management ---
 
@@ -109,11 +111,6 @@ export async function generateWaTemplateDraft(category: string) {
     if (!session) return { success: false, message: 'Not authenticated' };
 
     try {
-        const settings = await getUserSettings();
-        const model = settings?.aiEngine || 'gemini-3.1-pro';
-        const apiKey = settings?.kieAiApiKey || process.env.KIE_AI_API_KEY;
-        const endpoint = `https://api.kie.ai/${model}/v1/chat/completions`;
-
         const personaDefinition = OUTREACH_PERSONAS['professional'];
         const prompt = OUTREACH_GENERATOR_PROMPT
             .replace("[persona_definition]", personaDefinition)
@@ -122,25 +119,12 @@ export async function generateWaTemplateDraft(category: string) {
             .replace("{{pain_points}}", "[Specific Pain Points]")
             .replace("{{idea}}", "[Our Proposed Solution]")
             .replace("{{link}}", "[Preview Link]")
-            .replace("{{my_business_name}}", settings.businessName || "[Nama Bisnis]")
-            .replace("{{my_ig}}", settings.businessIg || "[IG Kamu]")
-            .replace("{{my_wa}}", settings.businessWa || "[WA Kamu]");
+            .replace("{{my_business_name}}", settings?.businessName || "[Nama Bisnis]")
+            .replace("{{my_ig}}", settings?.businessIg || "[IG Kamu]")
+            .replace("{{my_wa}}", settings?.businessWa || "[WA Kamu]");
 
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-                messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-                stream: false
-            }),
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const draft = data.choices?.[0]?.message?.content || '';
-            return { success: true, draft };
-        }
-        return { success: false, message: 'AI Generation failed' };
+        const draft = await callAI(prompt, 'fast');
+        return { success: true, draft };
     } catch (error) {
         console.error('Generate WA Template Draft error:', error);
         return { success: false, message: 'Server error' };
@@ -190,10 +174,6 @@ export async function generateWaLink(leadId: string, templateId?: string) {
             }
         } else {
             activeTemplateName = 'AI Generated (Fallback)';
-            const model = settings?.aiEngine || 'gemini-3.1-pro';
-            const apiKey = settings?.kieAiApiKey || process.env.KIE_AI_API_KEY;
-            const endpoint = `https://api.kie.ai/${model}/v1/chat/completions`;
-
             const personaDefinition = OUTREACH_PERSONAS['casual'];
             const prompt = OUTREACH_GENERATOR_PROMPT
                 .replace("[persona_definition]", personaDefinition)
@@ -203,21 +183,8 @@ export async function generateWaLink(leadId: string, templateId?: string) {
                 .replace("{{idea}}", lead.resolvingIdea || 'solusi digital')
                 .replace("{{link}}", finalLink);
 
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-                    stream: false
-                }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                message = (data.choices?.[0]?.message?.content || 'Halo!') + footer;
-            } else {
-                message = `Halo ${lead.name}, saya punya solusi digital untuk ${lead.category} Anda.\n\nCek di sini: ${finalLink}${footer}`;
-            }
+            const draft = await callAI(prompt, 'fast');
+            message = draft + footer;
         }
 
         const sanitizedPhone = sanitizeWaNumber(lead.wa);
@@ -229,130 +196,154 @@ export async function generateWaLink(leadId: string, templateId?: string) {
     }
 }
 
-// --- User Settings ---
+// --- AI Status & Pulse ---
 
-export async function getUserSettings() {
-    const session = await getSession();
-    if (!session) return null;
-    
-    return prisma.user.findUnique({
-        where: { id: session.userId },
-        select: { 
-            kieAiApiKey: true, 
-            byocMode: true, 
-            aiEngine: true,
-            businessName: true,
-            businessIg: true,
-            businessWa: true,
-            fonnteTokens: true
-        }
-    });
-}
-
-export async function updateUserSettings(data: { 
-    kieAiApiKey?: string,
-    businessName?: string,
-    businessIg?: string,
-    businessWa?: string,
-    fonnteTokens?: string[]
-}) {
-    const session = await getSession();
-    if (!session) return { success: false, message: 'Not authenticated' };
-
-    try {
-        await prisma.user.update({
-            where: { id: session.userId },
-            data: {
-                kieAiApiKey: data.kieAiApiKey,
-                businessName: data.businessName,
-                businessIg: data.businessIg,
-                businessWa: data.businessWa,
-                fonnteTokens: data.fonnteTokens
-            }
-        });
-
-        // Revalidate path agar UI langsung update datanya
-        revalidatePath('/dashboard/settings');
-        return { success: true };
-    } catch (error) {
-        console.error('Update User Settings error:', error);
-        return { success: false, message: 'Failed to update settings' };
-    }
-}
-
-export async function checkKieStatus(manualKey?: string) {
+export async function checkAiStatus(manualKey?: string, provider?: string, forcePing = false) {
     const user = await getCurrentUser();
+    const currentProvider = provider || user?.aiProvider || 'kie';
     
-    // LOGIKA FALLBACK: 
-    // 1. Pake key yang lagi diketik di UI (manualKey) buat testing.
-    // 2. Kalau gak ada, ambil dari DB user.
-    // 3. Kalau gak ada juga, ambil dari .env server.
-    const apiKey = manualKey || user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
-
-    if (!apiKey) {
-        return { success: false, message: 'API Key kosong, mesin gak bisa nyala.' };
+    // Low-verbosity logging for routine checks
+    if (forcePing) {
+        console.log(`[checkAiStatus] Starting FULL health check for provider: ${currentProvider}`);
     }
 
-    const url = "https://api.kie.ai/api/v1/chat/credit";
+    if (currentProvider === 'kie') {
+        const apiKey = manualKey || user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
+        if (!apiKey) return { success: false, message: 'API Key Kie.ai kosong.' };
 
-    try {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json"
-            },
-            cache: 'no-store', // Jangan di-cache biar datanya real-time
-            signal: AbortSignal.timeout(10000) // 10 detik cukup lah
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            const rawCredit = typeof data.data === 'object' ? data.data?.credit : data.data;
-            return { 
-                success: true, 
-                message: 'Connected!', 
-                credit: rawCredit || '0',
-                engine: user?.aiEngine || 'gemini-3.1-pro'
-            };
+        // 1. Fetch Credits (The lightweight "Ping")
+        let credit = '0';
+        try {
+            const resCredit = await fetch("https://api.kie.ai/api/v1/chat/credit", {
+                headers: { "Authorization": `Bearer ${apiKey}` },
+                signal: AbortSignal.timeout(5000),
+                cache: 'no-store'
+            });
+            if (resCredit.ok) {
+                const creditData = await resCredit.json();
+                credit = typeof creditData.data === 'object' ? creditData.data?.credit : creditData.data;
+                
+                // If we just need a routine check, credit success is enough
+                if (!forcePing) {
+                    return { success: true, message: 'Engine Ready!', credit: credit || '0', engine: 'Kie.ai' };
+                }
+            } else if (!forcePing) {
+                return { success: false, message: 'Kie.ai API Key Invalid or Service Offline' };
+            }
+        } catch (e) {
+            if (!forcePing) return { success: false, message: 'Kie.ai Connection Failed' };
         }
 
-        return { 
-            success: false, 
-            message: data.msg || 'API Key Invalid atau Expired.' 
-        };
+        // 2. Actual Ping Test (Only if forced)
+        const url = "https://api.kie.ai/gemini-3.1-pro/v1/chat/completions";
+        const testPrompt = "READY?";
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    messages: [
+                        { role: "user", content: [{ type: "text", text: testPrompt }] }
+                    ],
+                    max_tokens: 5,
+                    stream: false
+                }),
+                cache: 'no-store',
+                signal: AbortSignal.timeout(15000)
+            });
+            
+            if (response.ok) {
+                return { success: true, message: 'Engine Ready!', credit: credit || '0', engine: 'Kie.ai' };
+            }
+            return { success: false, message: 'Kie.ai Rejected Ping.' };
+        } catch (error) {
+            return { success: false, message: 'Kie.ai Ping Timeout.' };
+        }
+    } else {
+        // OpenRouter
+        const apiKey = manualKey || user?.openrouterApiKey || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API;
+        if (!apiKey) return { success: false, message: 'API Key OpenRouter kosong.' };
 
-    } catch (error) {
-        console.error("[checkKieStatus Error]:", error);
-        return { success: false, message: 'Kie.ai Server Timeout / Unreachable.' };
+        // 1. Fetch Credits (The lightweight "Ping")
+        let credit = '0';
+        try {
+            const resCredit = await fetch("https://openrouter.ai/api/v1/credits", {
+                headers: { "Authorization": `Bearer ${apiKey}` },
+                signal: AbortSignal.timeout(5000),
+                cache: 'no-store'
+            });
+            if (resCredit.ok) {
+                const creditData = await resCredit.json();
+                credit = creditData.data?.total_credits?.toFixed(2) || '0';
+                
+                if (!forcePing) {
+                    return { success: true, message: 'Engine Ready!', credit: credit, engine: 'OpenRouter' };
+                }
+            } else if (!forcePing) {
+                return { success: false, message: 'OpenRouter API Key Invalid' };
+            }
+        } catch (e) {
+            if (!forcePing) return { success: false, message: 'OpenRouter Connection Failed' };
+        }
+
+        // 2. Actual Ping Test (Only if forced)
+        const url = "https://openrouter.ai/api/v1/chat/completions";
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    "Authorization": `Bearer ${apiKey}`, 
+                    "Content-Type": "application/json",
+                    "X-Title": "Automated Prospecting Engine"
+                },
+                body: JSON.stringify({
+                    model: "deepseek/deepseek-v4-pro",
+                    messages: [{ role: "user", content: "READY?" }],
+                    max_tokens: 5
+                }),
+                cache: 'no-store',
+                signal: AbortSignal.timeout(15000)
+            });
+            
+            if (response.ok) {
+                return { success: true, message: 'Engine Ready!', credit: credit, engine: 'OpenRouter' };
+            }
+            return { success: false, message: 'OpenRouter Rejected Ping.' };
+        } catch (error: any) {
+            return { success: false, message: 'OpenRouter Ping Timeout.' };
+        }
     }
+}
+
+// Backward compatibility
+export async function checkKieStatus(manualKey?: string) {
+    return checkAiStatus(manualKey, 'kie');
 }
 
 export async function getAiPulseStatus() {
     try {
-        const status = await checkKieStatus(); // Fungsi yang kita buat tadi
+        const user = await getCurrentUser();
+        const status = await checkAiStatus();
         
         if (status.success) {
-            // IJO: Koneksi lancar & saldo ada
             return {
                 status: 'online',
                 color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
                 pulseColor: 'bg-emerald-500',
-                label: `Ready: ${status.credit}`,
+                label: status.credit !== 'N/A' ? `Ready: ${status.credit}` : 'Ready (OR)',
                 credit: status.credit,
+                provider: user?.aiProvider || 'kie'
             };
         } else {
-            // MERAH: Key salah atau expired
             return {
                 status: 'error',
                 color: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
                 pulseColor: 'bg-rose-500',
-                label: 'API Disconnected',
+                label: 'AI Disconnected',
+                provider: user?.aiProvider || 'kie'
             };
         }
     } catch (e) {
-        // KUNING: Masalah network atau Kie.ai lagi down
         return {
             status: 'warning',
             color: 'bg-amber-500/10 text-amber-500 border-amber-500/20',

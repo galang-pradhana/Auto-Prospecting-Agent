@@ -24,7 +24,7 @@ import {
     PROPOSAL_GENERATOR_PROMPT,
 } from '@/lib/prompts';
 import { getEffectivePrompt } from './prompt';
-import { getUserSettings } from './settings';
+import { getUserSettings } from './user-settings';
 
 // --- Kie.ai Credit ---
 
@@ -52,6 +52,34 @@ export async function getKieCredit(): Promise<string> {
         return 'Offline';
     } catch (error) {
         console.error('Failed to fetch Kie credit:', error);
+        return 'Offline';
+    }
+}
+
+export async function getOpenRouterCredit(): Promise<string> {
+    const user = await getCurrentUser();
+    const apiKey = user?.openrouterApiKey || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API;
+    const url = "https://openrouter.ai/api/v1/credits";
+
+    if (!apiKey) return 'N/A';
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            signal: AbortSignal.timeout(10000)
+        });
+
+        if (response.ok) {
+            const res_data = await response.json();
+            return res_data.data?.total_credits?.toFixed(2) || '0';
+        }
+        if (response.status === 401) return 'Invalid API Key';
+        return 'Offline';
+    } catch (error) {
+        console.error('Failed to fetch OpenRouter credit:', error);
         return 'Offline';
     }
 }
@@ -91,6 +119,249 @@ export async function getStyleSummary() {
 // --- KIE.AI MULTI-PROTOCOL CALLER ---
 // Jalur ini mengunci protokol agar tidak ada asumsi parsing data.
 
+export async function callOpenRouter(prompt: string, model: string, maxRetries = 2) {
+    const user = await getUserSettings();
+    const apiKey = user?.openrouterApiKey || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API;
+
+    if (!apiKey) {
+        throw new Error("OpenRouter API Key tidak ditemukan. Masukkan di Settings atau tambahkan di .env.");
+    }
+
+    const url = "https://openrouter.ai/api/v1/chat/completions";
+    const body = { 
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        stream: false
+    };
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    "Authorization": `Bearer ${apiKey}`, 
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+                    "X-Title": "Automated Prospecting Engine"
+                },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(600000) // 10 minutes timeout for large HTML generation
+            });
+
+            if (!response.ok) {
+                let errorData: any = {};
+                try { errorData = await response.json(); } catch (e) { errorData = { message: response.statusText }; }
+                
+                console.error(`[OpenRouter Error] Attempt ${attempt}/${maxRetries} (${response.status}):`, errorData);
+                
+                if (response.status === 401 || response.status === 403 || response.status === 400 || response.status === 404) {
+                    throw new Error(`OpenRouter Error (${response.status}): ${errorData.error?.message || 'Fatal error'}`);
+                }
+
+                if (attempt < maxRetries) {
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 2000;
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+                throw new Error(`OpenRouter Error ${response.status}: ${errorData.error?.message || 'Server rejected request'}`);
+            }
+
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content;
+            
+            if (!content) throw new Error("AI returned no content.");
+            return content;
+        } catch (error: any) {
+            if (attempt < maxRetries) {
+                console.error(`[OpenRouter Retry] Attempt ${attempt} failed: ${error.message}`);
+                const delay = Math.pow(2, attempt) * 1000 + Math.random() * 2000;
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw new Error("Maximum retries reached.");
+}
+
+export async function callAI(prompt: string, tier: 'fast' | 'pro' = 'fast') {
+    const user = await getUserSettings();
+    const provider = user?.aiProvider || 'kie';
+
+    if (provider === 'kie') {
+        return callKieAI(prompt);
+    } else {
+        // Use reliable models: claude-3.5-sonnet for pro, deepseek-v4-pro for fast
+        const model = tier === 'pro' ? 'anthropic/claude-3.5-sonnet' : 'deepseek/deepseek-v4-pro';
+        console.log(`[callAI] Provider: openrouter, Tier: ${tier}, Model: ${model}`);
+        return callOpenRouter(prompt, model);
+    }
+}
+
+// ============================================================
+// HTML MODEL CONFIG MAP
+// ============================================================
+// Key          = nilai yang disimpan di DB field `htmlModel`
+// kieUrl       = URL endpoint Kie.ai (null = tidak tersedia di Kie.ai)
+// kieFormat    = 'openai' (default) | 'anthropic' (Claude models)
+// kieModelId   = model ID yang dikirim di body (hanya untuk format anthropic)
+// openrouterId = model ID untuk OpenRouter
+const HTML_MODEL_CONFIG: Record<string, {
+    kieUrl: string | null;
+    kieFormat: 'openai' | 'anthropic';
+    kieModelId?: string; // wajib jika kieFormat = 'anthropic'
+    openrouterId: string;
+    label: string;
+    orOnly: boolean; // true = hanya tersedia di OpenRouter
+}> = {
+    'gemini-3-1-pro': {
+        kieUrl:       'https://api.kie.ai/gemini-3.1-pro/v1/chat/completions',
+        kieFormat:    'openai',
+        openrouterId: 'google/gemini-3.1-pro-preview',
+        label:        'Gemini 3.1 Pro',
+        orOnly:       false,
+    },
+    'claude-sonnet-4-6': {
+        // Claude di Kie.ai pakai Anthropic format, bukan OpenAI
+        kieUrl:       'https://api.kie.ai/claude/v1/messages',
+        kieFormat:    'anthropic',
+        kieModelId:   'claude-sonnet-4-6',
+        openrouterId: 'anthropic/claude-sonnet-4.6',
+        label:        'Claude Sonnet 4.6',
+        orOnly:       false,
+    },
+    'gpt-5-2': {
+        // GPT 5.2 di Kie.ai pakai OpenAI-compatible format
+        kieUrl:       'https://api.kie.ai/gpt-5-2/v1/chat/completions',
+        kieFormat:    'openai',
+        openrouterId: 'openai/gpt-5.2',
+        label:        'GPT 5.2',
+        orOnly:       false,
+    },
+    'deepseek-v4-pro': {
+        kieUrl:       null,
+        kieFormat:    'openai',
+        openrouterId: 'deepseek/deepseek-v4-pro',
+        label:        'DeepSeek V4 Pro',
+        orOnly:       true,
+    },
+    'qwen3.6-plus': {
+        kieUrl:       null,
+        kieFormat:    'openai',
+        openrouterId: 'qwen/qwen3.6-plus',
+        label:        'Qwen 3.6 Plus',
+        orOnly:       true,
+    },
+};
+
+// Fallback model jika model OR-only dipilih saat engine = Kie.ai
+const KIE_FALLBACK_CONFIG = HTML_MODEL_CONFIG['gemini-3-1-pro'];
+
+/**
+ * callAIForHTML - Panggil AI khusus untuk generate HTML.
+ * 
+ * Membaca `htmlModel` dan `aiProvider` dari DB user, lalu:
+ * - Jika provider = openrouter → pakai OpenRouter dengan openrouterId
+ * - Jika provider = kie dan model tersedia → pakai Kie.ai URL
+ * - Jika provider = kie tapi model OR-only → fallback ke Gemini 3.1 Pro di Kie.ai
+ */
+export async function callAIForHTML(prompt: string, overrideModelKey?: string): Promise<string> {
+    const user = await getUserSettings();
+    const provider = user?.aiProvider || 'kie';
+    const modelKey = overrideModelKey || user?.htmlModel || 'gemini-3-1-pro';
+    
+    const config = HTML_MODEL_CONFIG[modelKey] ?? HTML_MODEL_CONFIG['gemini-3-1-pro'];
+    
+    // --- OpenRouter path ---
+    if (provider === 'openrouter') {
+        console.log(`[callAIForHTML] Engine: OpenRouter, Model: ${config.label} (${config.openrouterId})`);
+        return callOpenRouter(prompt, config.openrouterId);
+    }
+    
+    // --- Kie.ai path ---
+    // Cek apakah model ini tersedia di Kie.ai
+    const kieConfig = config.kieUrl ? config : KIE_FALLBACK_CONFIG;
+    if (!config.kieUrl) {
+        console.warn(`[callAIForHTML] Model '${config.label}' tidak tersedia di Kie.ai. Fallback ke ${KIE_FALLBACK_CONFIG.label}.`);
+    }
+    
+    const isAnthropicFormat = kieConfig.kieFormat === 'anthropic';
+    console.log(`[callAIForHTML] Engine: Kie.ai, URL: ${kieConfig.kieUrl}, Format: ${kieConfig.kieFormat}`);
+    
+    const apiKey = user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
+    if (!apiKey) throw new Error("Kie.ai API Key tidak ditemukan.");
+    
+    // Build request body sesuai format (OpenAI vs Anthropic)
+    const body = isAnthropicFormat
+        ? {
+            model: kieConfig.kieModelId,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 4096,
+            stream: false
+        }
+        : {
+            messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+            stream: false
+        };
+    
+    const maxRetries = 2;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(kieConfig.kieUrl!, {
+                method: 'POST',
+                headers: { 
+                    "Authorization": `Bearer ${apiKey}`, 
+                    "Content-Type": "application/json" 
+                },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(120000) // 2 menit
+            });
+            
+            if (!response.ok) {
+                let errorData: any = {};
+                try { errorData = await response.json(); } catch (e) {}
+                console.error(`[callAIForHTML Kie Error] Attempt ${attempt} (${response.status}):`, errorData);
+                
+                if (response.status === 400 || response.status === 401 || response.status === 403 || response.status === 404) {
+                    throw new Error(`Kie.ai Error (${response.status}): ${errorData.msg || 'Fatal error'}`);
+                }
+                if (attempt < maxRetries) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    continue;
+                }
+                throw new Error(`Kie.ai Error ${response.status}: ${errorData.msg || 'Server rejected'}`);
+            }
+            
+            const data = await response.json();
+            
+            // Parse response sesuai format
+            let content: string | undefined;
+            if (isAnthropicFormat) {
+                // Anthropic format: { content: [{ type: 'text', text: '...' }] }
+                content = data.content?.[0]?.text;
+            } else {
+                // OpenAI format: { choices: [{ message: { content: '...' } }] }
+                content = data.choices?.[0]?.message?.content;
+            }
+            
+            if (!content) {
+                console.error('[callAIForHTML] Empty response body:', JSON.stringify(data).slice(0, 500));
+                throw new Error("AI returned no content.");
+            }
+            return content;
+            
+        } catch (error: any) {
+            if (attempt < maxRetries) {
+                console.error(`[callAIForHTML Retry] Attempt ${attempt}: ${error.message}`);
+                await new Promise(r => setTimeout(r, 3000));
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw new Error("Maximum retries reached for HTML generation.");
+}
+
 export async function callKieAI(prompt: string, maxRetries = 5) {
     const user = await getCurrentUser();
     const apiKey = user?.kieAiApiKey || process.env.KIE_AI_API_KEY;
@@ -111,7 +382,7 @@ export async function callKieAI(prompt: string, maxRetries = 5) {
                 method: 'POST',
                 headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
                 body: JSON.stringify(body),
-                signal: AbortSignal.timeout(180000) 
+                signal: AbortSignal.timeout(600000) 
             });
 
             if (!response.ok) {
@@ -287,7 +558,7 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
             const promptBase = ENRICHMENT_PROMPT;
             const forgeData = buildForgeData(lead);
 
-            const researchRaw = await callKieAI(
+            const researchRaw = await callAI(
                 promptBase
                     .replace('[name]', lead.name)
                     .replace('[category]', lead.category)
@@ -300,7 +571,8 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
                     .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
                     .replace('[unsplashQueries]', forgeData.unsplashQueries)
                     .replace('[rating]', lead.rating.toString())
-                    .replace('[reviewsCount]', (lead.reviewCount || 0).toString())
+                    .replace('[reviewsCount]', (lead.reviewCount || 0).toString()),
+                'fast'
             );
             
             if (!researchRaw) {
@@ -327,7 +599,7 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
                     .replace('[unsplashQueries]', forgeData.unsplashQueries)
                     .replace('[selectedArchetype]', forgeData.selectedArchetype);
 
-                const masterPrompt = await callKieAI(stratPrompt);
+                const masterPrompt = await callAI(stratPrompt, 'fast');
 
                 // DATABASE UPDATE
                 await prisma.lead.update({
@@ -373,6 +645,14 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
         
         processedCount++;
         
+        if (jobId) {
+            console.log(`[Batch Enrich ${jobId}] Progress: ${processedCount}/${total}`);
+            JobRegistry.updateJob(jobId, {
+                progress: Math.round((processedCount / total) * 100),
+                message: `Enriched ${processedCount}/${total} leads...`
+            });
+        }
+        
         // Add a small delay between items to avoid Kie.ai rate limits
         if (processedCount < total) {
             await new Promise(r => setTimeout(r, 2000));
@@ -380,6 +660,7 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
     }
 
     if (jobId) {
+        console.log(`[Batch Enrich ${jobId}] COMPLETED. Success: ${successCount}/${total}`);
         JobRegistry.updateJob(jobId, {
             status: 'COMPLETED',
             progress: 100,
@@ -396,7 +677,7 @@ export async function batchEnrichLeads(ids: string[], jobId?: string) {
 
 // --- Website Generation (Forge) ---
 
-export async function generateForgeCode(leadId: string, jobId?: string) {
+export async function generateForgeCode(leadId: string, jobId?: string, modelId?: string) {
     const session = await getSession();
     if (!session) {
         if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Not authenticated' });
@@ -417,13 +698,13 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
             .replace('[brandName]', lead.name)
             .replace('[name]', lead.name)
             .replace('[category]', lead.category)
-            .replace('[fullAddress]', fullAddress)   // FIX: sesuai template MASTER_FORGE_PROMPT
+            .replace('[fullAddress]', fullAddress)
             .replace('[address]', lead.address || 'Bali')
             .replace('[waLink]', `https://wa.me/${sanitizeWaNumber(lead.wa)}`)
             .replace('[phone]', lead.wa)
             .replace('[styleDNA]', lead.styleDNA || 'Modern, Professional and Premium')
-            .replace('[painPoints]', lead.painPoints || 'Kurangnya digital presence yang profesional')  // FIX
-            .replace('[resolvingIdea]', lead.resolvingIdea || 'Website premium yang konversi tinggi')    // FIX
+            .replace('[painPoints]', lead.painPoints || 'Kurangnya digital presence yang profesional')
+            .replace('[resolvingIdea]', lead.resolvingIdea || 'Website premium yang konversi tinggi')
             .replace('[industryPattern]', forgeData.industryPattern)
             .replace('[industryStylePriority]', forgeData.industryStylePriority)
             .replace('[industryColorMood]', forgeData.industryColorMood)
@@ -444,7 +725,7 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
             data: { lastLog: `RUNNING: Forge process started at ${new Date().toISOString()}` }
         });
 
-        const htmlContent = await callKieAI(systemPrompt + "\n\n" + finalPrompt);
+        const htmlContent = await callAIForHTML(systemPrompt + "\n\n" + finalPrompt, modelId);
         
         if (!htmlContent || htmlContent.length < 500) throw new Error("Output AI korup atau terlalu pendek.");
 
@@ -470,7 +751,6 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
         let finalSlug = lead.slug;
         if (!finalSlug) {
             const baseSlug = lead.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            // Check for collision or just add a random suffix for safety in this forge context
             finalSlug = `${baseSlug}-${Math.floor(Math.random() * 10000)}`;
         }
 
@@ -481,7 +761,7 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
                 slug: finalSlug,
                 status: 'LIVE',
                 isPro: false,
-                lastLog: `Success via GEMINI 3.1 PRO at ${new Date().toISOString()}`
+                lastLog: `Success via AI at ${new Date().toISOString()}`
             }
         });
 
@@ -510,6 +790,132 @@ export async function generateForgeCode(leadId: string, jobId?: string) {
             console.error("Failed to log error to DB:", dbErr);
         }
         if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: error.message });
+        return { success: false, message: error.message };
+    }
+}
+
+// --- Blueprint Generation ---
+
+export async function generateBlueprintCode(leadId: string, answers: any, jobId?: string, modelId?: string) {
+    const session = await getSession();
+    if (!session) {
+        if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Not authenticated' });
+        return { success: false, message: 'Not authenticated' };
+    }
+
+    try {
+        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        if (!lead) throw new Error("Lead tidak ditemukan");
+
+        const systemPrompt = "You are a Senior Web Architect. Forge this master prompt into a high-converting landing page with professional UI/UX. Use Tailwind CSS and ensure the code is production-ready.";
+
+        const promptTemplate = await getEffectivePrompt('MASTER_FORGE_PROMPT');
+        const forgeData = buildForgeData(lead);
+        const fullAddress = `${lead.address || 'Bali'}, ${lead.city || ''}, ${lead.province || ''}`.trim().replace(/,\s*,/g, ',');
+        
+        // Convert answers into readable format for AI
+        const blueprintAnswers = `
+Brand Name: ${answers.brand_name || lead.name}
+Tagline: ${answers.tagline || ''}
+Target Audience: ${answers.target || ''}
+USP: ${answers.usp || ''}
+Vibe: ${answers.vibe ? answers.vibe.join(', ') : ''}
+Tone: ${JSON.stringify(answers.tone || {})}
+Colors: ${answers.colors || ''}
+Pages: ${answers.pg ? answers.pg.join(', ') : ''}
+Web Ref: ${answers.webref || ''}
+Notes: ${answers.notes || ''}
+        `;
+
+        const customPainPoints = `Blueprint Requirements:\n${blueprintAnswers}`;
+
+        const finalPrompt = promptTemplate
+            .replace('[selectedArchetype]', forgeData.selectedArchetype)
+            .replace('[brandName]', answers.brand_name || lead.name)
+            .replace('[name]', answers.brand_name || lead.name)
+            .replace('[category]', lead.category)
+            .replace('[fullAddress]', fullAddress)
+            .replace('[address]', lead.address || 'Bali')
+            .replace('[waLink]', `https://wa.me/${sanitizeWaNumber(lead.wa)}`)
+            .replace('[phone]', lead.wa)
+            .replace('[styleDNA]', answers.colors || lead.styleDNA || 'Modern, Professional and Premium')
+            .replace('[painPoints]', customPainPoints)
+            .replace('[resolvingIdea]', answers.tagline || lead.resolvingIdea || 'Website premium yang konversi tinggi')
+            .replace('[industryPattern]', forgeData.industryPattern)
+            .replace('[industryStylePriority]', forgeData.industryStylePriority)
+            .replace('[industryColorMood]', forgeData.industryColorMood)
+            .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
+            .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
+            .replace('[unsplashQueries]', forgeData.unsplashQueries);
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                progress: 50,
+                message: `Generating Blueprint HTML for ${lead.name}...`
+            });
+        }
+
+        // Persist job start to DB for crash recovery visibility
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: { lastLog: `RUNNING: Blueprint process started at ${new Date().toISOString()}` }
+        });
+
+        const htmlContent = await callAIForHTML(systemPrompt + "\n\n" + finalPrompt, modelId);
+        
+        if (!htmlContent || htmlContent.length < 500) throw new Error("Output AI korup atau terlalu pendek.");
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                progress: 90,
+                message: `Finalizing and saving Database for ${lead.name}...`
+            });
+        }
+
+        // Clean & Update
+        const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
+        
+        const hasHtmlStructure = cleanHtml.includes('<html') || cleanHtml.includes('<!DOCTYPE');
+        const isLongEnough = cleanHtml.length >= 1500;
+        
+        if (!hasHtmlStructure || !isLongEnough) {
+            throw new Error("Output AI tidak valid atau terlalu pendek (min 1500 chars). Pastikan AI menghasilkan full HTML.");
+        }
+
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: {
+                prototypeHtml: cleanHtml,
+                lastLog: `Blueprint Generated via AI at ${new Date().toISOString()}`
+            }
+        });
+
+        await logActivity(leadId, 'BLUEPRINT_GENERATED', 'Brand Blueprint AI generation success');
+
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                status: 'COMPLETED',
+                progress: 100,
+                message: `Blueprint generated successfully.`,
+                data: { success: true }
+            });
+        }
+
+        revalidatePath('/dashboard/live');
+        revalidatePath(`/${lead.slug || lead.id}`);
+
+        return { success: true, message: 'Code generated successfully' };
+    } catch (error: any) {
+        console.error("[Generate Blueprint Error]:", error);
+        
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: { lastLog: `Blueprint Error: ${error.message}` }
+        });
+        
+        if (jobId) {
+            JobRegistry.updateJob(jobId, { status: 'FAILED', message: error.message || 'Unknown error' });
+        }
         return { success: false, message: error.message };
     }
 }
@@ -544,7 +950,7 @@ export async function tweakLeadStyle(leadId: string, styleId: string, instructio
             }))
             .replace("[instructions]", instructions || "Refine the overall design to be more professional and polished.");
 
-        const aiResponse = await callKieAI("Return JSON. " + prompt);
+        const aiResponse = await callAI("Return JSON. " + prompt, 'fast');
         
         if (!aiResponse) throw new Error("AI Re-generation failed");
         
@@ -579,7 +985,7 @@ export async function tweakLeadStyle(leadId: string, styleId: string, instructio
     }
 }
 
-export async function tweakLeadStyleStrict(leadId: string, styleId: string, instructions?: string, previewOnly: boolean = false, jobId?: string) {
+export async function tweakLeadStyleStrict(leadId: string, styleId: string, instructions?: string, previewOnly: boolean = false, jobId?: string, modelId?: string) {
     const session = await getSession();
     if (!session) {
         if (jobId) JobRegistry.updateJob(jobId, { status: 'FAILED', message: 'Not authenticated' });
@@ -622,7 +1028,7 @@ export async function tweakLeadStyleStrict(leadId: string, styleId: string, inst
             });
         }
 
-        const aiResponse = await callKieAI(prompt);
+        const aiResponse = await callAIForHTML(prompt, modelId);
         
         if (!aiResponse) throw new Error("AI Re-generation failed");
 
@@ -681,7 +1087,7 @@ export async function tweakLeadStyleStrict(leadId: string, styleId: string, inst
 
 // --- Recommendations & Archetypes ---
 
-export async function refineLeadStyle(leadId: string, styleId: string) {
+export async function refineLeadStyle(leadId: string, styleId: string, modelId?: string) {
     const user = await getCurrentUser();
     if (!user) return { success: false, message: 'Unauthorized' };
 
@@ -705,8 +1111,8 @@ export async function refineLeadStyle(leadId: string, styleId: string) {
             .replace('[masterWebsitePrompt]', lead.masterWebsitePrompt || '')
             .replace('[styleConfig]', JSON.stringify(selectedModel));
 
-        // 3. Panggil Kie.ai
-        const refinedBlueprint = await callKieAI(finalPrompt);
+        // 3. Panggil AI for HTML (Blueprint Prompt generation)
+        const refinedBlueprint = await callAIForHTML(finalPrompt, modelId);
 
         if (!refinedBlueprint) throw new Error("AI failed to refine blueprint");
 
@@ -716,7 +1122,7 @@ export async function refineLeadStyle(leadId: string, styleId: string) {
             data: {
                 masterWebsitePrompt: refinedBlueprint,
                 selectedStyle: styleId, // Simpan ID style yang dipilih
-                lastLog: `Style Refined: ${selectedModel.name}`
+                lastLog: `Style Refined via ${modelId || 'default model'}: ${selectedModel.name}`
             }
         });
 
@@ -737,7 +1143,7 @@ export async function getRegionalAdvice(province: string, city: string, category
             .replace("[city]", city)
             .replace("[province]", province);
 
-        const aiResponse = await callKieAI("Return JSON. " + prompt);
+        const aiResponse = await callAI("Return JSON. " + prompt, 'fast');
         
         if (aiResponse) return JSON.parse(aiResponse.replace(/```json/g, '').replace(/```/g, '').trim());
         return null;
@@ -803,7 +1209,7 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
             .replace('{{my_ig}}', user.businessIg || '[IG Kamu]')
             .replace('{{my_wa}}', user.businessWa || '[WA Kamu]');
 
-        const draft = await callKieAI(finalPrompt);
+        const draft = await callAI(finalPrompt, 'fast');
 
         if (!draft) throw new Error("AI failed to generate draft");
 
@@ -872,7 +1278,7 @@ export async function generateProposalDraft(
 
         const finalPrompt = buildHtmlProposalPrompt(data, inputs.selectedStyleId);
 
-        const draft = await callKieAI(finalPrompt);
+        const draft = await callAI(finalPrompt, 'fast');
 
         if (!draft) throw new Error("AI failed to generate proposal");
 
@@ -941,7 +1347,7 @@ export async function generateFollowUpDraft(leadId: string, followupNumber: numb
             JobRegistry.updateJob(jobId, { progress: 40, message: `Crafting Follow-up #${followupNumber} Persona: ${persona}...` });
         }
 
-        const draft = await callKieAI(finalPrompt);
+        const draft = await callAI(finalPrompt, 'fast');
 
         if (!draft) throw new Error("AI failed to generate follow-up draft");
 

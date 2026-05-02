@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hammer, Wand2, Eye, Save, Loader2, X, Globe, Layout, Code2 } from 'lucide-react';
 import { generateForgeCode } from '@/lib/actions/ai';
 import { saveForgeCode } from '@/lib/actions/lead';
+import { getUserSettings } from '@/lib/actions/user-settings';
 
 interface TheForgeModalProps {
     isOpen: boolean;
@@ -25,7 +26,18 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
     const [activeTab, setActiveTab] = useState<'manual' | 'ai'>('manual');
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [modelId, setModelId] = useState('gemini-3-1-pro');
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const settings = await getUserSettings();
+            if (settings?.htmlModel) {
+                setModelId(settings.htmlModel);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     const showMessage = (type: 'success' | 'error', text: string) => {
         setStatusMessage({ type, text });
@@ -63,7 +75,7 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
             const res = await fetch('/api/forge/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ leadId: lead.id })
+                body: JSON.stringify({ leadId: lead.id, modelId })
             });
             const data = await res.json();
             
@@ -186,10 +198,24 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
                                     <p className="text-sm text-white/40 leading-relaxed font-medium">
                                         We will synthesize the code using the <span className="text-white">Master Website Prompt</span>. This includes styling, structure, and conversion logic.
                                     </p>
+                                </div>                                <div className="w-full max-w-xs space-y-2">
+                                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest text-center">AI Engine Selection</p>
+                                    <select 
+                                        value={modelId}
+                                        onChange={(e) => setModelId(e.target.value)}
+                                        className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-4 py-4 text-xs font-black text-white outline-none focus:border-purple-500/50 transition-all cursor-pointer appearance-none text-center"
+                                    >
+                                        <optgroup label="── Cross-Engine ──">
+                                            <option value="gemini-3-1-pro">🟢 Gemini 3.1 Pro</option>
+                                            <option value="claude-sonnet-4-6">🔵 Claude Sonnet 4.6</option>
+                                            <option value="gpt-5-2">🟡 GPT 5.2</option>
+                                        </optgroup>
+                                        <optgroup label="── OpenRouter Only ──">
+                                            <option value="deepseek-v4-pro">🟣 DeepSeek V4 Pro</option>
+                                            <option value="qwen3.6-plus">🟠 Qwen 3.6 Plus</option>
+                                        </optgroup>
+                                    </select>
                                 </div>
-
-
-
                                 <button 
                                     onClick={handleGenerate}
                                     disabled={isGenerating}
@@ -203,7 +229,7 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
                                     ) : (
                                         <>
                                             <Wand2 className="w-5 h-5" />
-                                            Generate with Kie.ai
+                                            Generate with Forge
                                         </>
                                     )}
                                 </button>

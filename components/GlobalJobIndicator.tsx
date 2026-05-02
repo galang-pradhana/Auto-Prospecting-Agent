@@ -89,6 +89,7 @@ export default function GlobalJobIndicator({ className }: { className?: string }
                                                 {job.type === 'SCRAPER' && <Navigation size={12} className={job.status === 'RUNNING' ? 'text-accent-gold' : 'text-zinc-500'} />}
                                                 {job.type === 'ENRICH' && <Sparkles size={12} className={job.status === 'RUNNING' ? 'text-purple-400' : 'text-zinc-500'} />}
                                                 {job.type === 'FORGE' && <ServerCog size={12} className={job.status === 'RUNNING' ? 'text-blue-400' : 'text-zinc-500'} />}
+                                                {job.type === 'BLUEPRINT' && <ServerCog size={12} className={job.status === 'RUNNING' ? 'text-accent-gold' : 'text-zinc-500'} />}
                                                 {job.type === 'EDIT' && <Sparkles size={12} className={job.status === 'RUNNING' ? 'text-emerald-400' : 'text-zinc-500'} />}
                                                 {job.type === 'BLAST' && <Send size={12} className={job.status === 'RUNNING' ? 'text-green-400' : 'text-zinc-500'} />}
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-zinc-200">{job.type}</span>

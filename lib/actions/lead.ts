@@ -460,15 +460,17 @@ export async function updateLeadEnrichmentData(leadId: string, data: {
     }
 }
 
-export async function updateLeadHtml(leadId: string, htmlCode: string) {
+export async function updateLeadHtml(leadId: string, htmlCode: string, version: 'dummy' | 'real' = 'dummy') {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
 
     try {
         const cleanHtml = cleanHtmlString(htmlCode);
+        const dataToUpdate = version === 'real' ? { prototypeHtml: cleanHtml } : { htmlCode: cleanHtml };
+        
         await prisma.lead.update({
             where: { id: leadId },
-            data: { htmlCode: cleanHtml }
+            data: dataToUpdate
         });
 
         revalidatePath('/dashboard/live');

@@ -1,25 +1,27 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { sanitizeWaNumber, isValidWhatsApp } from '@/lib/utils';
-import { logActivity } from './lead';
 
-export async function getSandboxLeads() {
+export async function getLatestSandbox(sessionStartTime?: number) {
     const session = await getSession();
-    if (!session) return { success: false, data: [] };
+    if (!session) return [];
 
-    try {
-        const leads = await prisma.leadSandbox.findMany({
-            where: { userId: session.userId },
-            orderBy: { createdAt: 'desc' }
-        });
-        return { success: true, data: leads };
-    } catch (e) {
-        console.error("[Sandbox Fetch Error]:", e);
-        return { success: false, data: [] };
+    const where: any = {
+        userId: session.userId,
+    };
+
+    if (sessionStartTime) {
+        where.createdAt = {
+            gte: new Date(sessionStartTime - 10000) // 10s buffer
+        };
     }
+
+    return prisma.leadSandbox.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: 50
+    });
 }
 
 export async function deleteSandboxLead(id: string) {
@@ -28,87 +30,51 @@ export async function deleteSandboxLead(id: string) {
 
     try {
         await prisma.leadSandbox.delete({
-            where: { 
-                id,
-                userId: session.userId // Security: Ensure it belongs to user
-            }
+            where: { id }
         });
-        revalidatePath('/dashboard/sandbox');
         return { success: true };
-    } catch (e) {
-        console.error("[Sandbox Delete Error]:", e);
-        return { success: false, message: 'Failed to delete sandbox lead' };
+    } catch (error) {
+        console.error('Delete Sandbox Lead error:', error);
+        return { success: false, message: 'Failed to delete lead' };
     }
 }
 
-export async function promoteToLead(id: string, correctedWa: string) {
+export async function promoteToLead(id: string, wa: string) {
     const session = await getSession();
     if (!session) return { success: false, message: 'Not authenticated' };
 
-    const sanitizedWa = sanitizeWaNumber(correctedWa);
-
-    if (!isValidWhatsApp(sanitizedWa)) {
-        return { success: false, message: 'Invalid WhatsApp format after sanitization.' };
-    }
-
     try {
-        // Run in transaction to ensure atomic move
-        return await prisma.$transaction(async (tx) => {
-            const sandboxItem = await tx.leadSandbox.findUnique({
-                where: { id, userId: session.userId }
-            });
-
-            if (!sandboxItem) {
-                return { success: false, message: 'Item not found in Sandbox' };
-            }
-
-            // Check if the corrected WA already exists in the main Lead table
-            const existingLead = await tx.lead.findUnique({
-                where: { wa: sanitizedWa }
-            });
-
-            if (existingLead) {
-                return { success: false, message: 'This WhatsApp number already exists in Lead system.' };
-            }
-
-            // Create new Lead
-            const newLead = await tx.lead.create({
-                data: {
-                    name: sandboxItem.name || 'N/A',
-                    wa: sanitizedWa,
-                    category: sandboxItem.category || 'N/A',
-                    province: '', // Can extract from rawSource if needed, but not required yet
-                    city: sandboxItem.city || '',
-                    address: sandboxItem.address || 'N/A',
-                    mapsUrl: sandboxItem.mapsUrl,
-                    status: 'FRESH',
-                    userId: session.userId,
-                    
-                    // We can retain the rawSource in brandData/metadata if desired
-                    // but keeping it simple for now based on objective
-                }
-            });
-
-            // Log activity
-            await tx.activityLog.create({
-                data: {
-                    prospectId: newLead.id,
-                    action: 'PROMOTE',
-                    description: 'Promoted from Sandbox via Manual Research',
-                    metadata: { originalId: id, previousWa: sandboxItem.wa }
-                }
-            });
-
-            // Delete from sandbox
-            await tx.leadSandbox.delete({
-                where: { id }
-            });
-
-            return { success: true, message: 'Lead successfully promoted to FRESH.' };
+        const sandboxLead = await prisma.leadSandbox.findUnique({
+            where: { id }
         });
 
-    } catch (e) {
-        console.error("[Sandbox Promote Error]:", e);
+        if (!sandboxLead) return { success: false, message: 'Lead not found in sandbox' };
+
+        // Create new lead in the main table
+        await prisma.lead.create({
+            data: {
+                name: sandboxLead.name || 'Unnamed',
+                wa: wa,
+                category: sandboxLead.category || 'General',
+                address: sandboxLead.address || '',
+                city: sandboxLead.city || '',
+                province: '', // Default empty
+                rating: 0,
+                website: sandboxLead.mapsUrl || '',
+                status: 'FRESH',
+                userId: session.userId,
+                brandData: {}, // Initial empty brand data
+            }
+        });
+
+        // Delete from sandbox
+        await prisma.leadSandbox.delete({
+            where: { id }
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Promote Sandbox Lead error:', error);
         return { success: false, message: 'Failed to promote lead' };
     }
 }

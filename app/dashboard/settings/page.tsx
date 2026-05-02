@@ -5,15 +5,19 @@ import {
     Cpu, Flame, Save, 
     X, Loader2, Info, CheckCircle2, 
     AlertTriangle, Settings2, 
-    Key, Database, Zap, Instagram, 
+    Key, Database, Zap, Instagram, Globe, RefreshCw,
     MessageCircle, Building2, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    getUserSettings, updateUserSettings, getAiUsageHistory
+    getAiUsageHistory
 } from '@/lib/actions/settings';
+import {
+    getUserSettings, updateUserSettings
+} from '@/lib/actions/user-settings';
 import { checkScraperHealth, repairScraperPermissions } from '@/lib/actions/scraper';
-import { getKieCredit } from '@/lib/actions/ai';
+import { getKieCredit, getOpenRouterCredit } from '@/lib/actions/ai';
+import { checkAiStatus } from '@/lib/actions/settings';
 import { cleanupOldLeads } from '@/lib/actions/lead';
 
 export default function SettingsPage() {
@@ -23,7 +27,11 @@ export default function SettingsPage() {
     
     // --- AI Settings State ---
     const [apiKey, setApiKey] = useState('');
+    const [openrouterKey, setOpenrouterKey] = useState('');
+    const [htmlModel, setHtmlModel] = useState('gemini-3-1-pro');
     const [estimatedUsage, setEstimatedUsage] = useState("0");
+    const [openrouterUsage, setOpenrouterUsage] = useState("0");
+    const [testingProvider, setTestingProvider] = useState<'kie' | 'openrouter' | null>(null);
 
     // --- Identity Settings State ---
     const [businessName, setBusinessName] = useState('');
@@ -60,14 +68,17 @@ export default function SettingsPage() {
 
     const loadAllData = async () => {
         setLoading(true);
-        const [settings, usage, healthData] = await Promise.all([
+        const [settings, usage, orUsage, healthData] = await Promise.all([
             getUserSettings(),
             getKieCredit(),
+            getOpenRouterCredit(),
             checkScraperHealth()
         ]);
 
         if (settings) {
             setApiKey(settings.kieAiApiKey || '');
+            setOpenrouterKey(settings.openrouterApiKey || '');
+            setHtmlModel(settings.htmlModel || 'gemini-3-1-pro');
             setBusinessName(settings.businessName || '');
             setBusinessIg(settings.businessIg || '');
             setBusinessWa(settings.businessWa || '');
@@ -82,6 +93,7 @@ export default function SettingsPage() {
             setFonnteTokens(loadedTokens);
         }
         setEstimatedUsage(usage.toString());
+        setOpenrouterUsage(orUsage.toString());
         setHealth(healthData);
         setLoading(false);
         loadHistory(1);
@@ -106,13 +118,41 @@ export default function SettingsPage() {
     // --- Save Actions ---
     const handleSaveAiSettings = async () => {
         setSaving(true);
-        const res = await updateUserSettings({ kieAiApiKey: apiKey });
+        const res = await updateUserSettings({ 
+            kieAiApiKey: apiKey,
+            openrouterApiKey: openrouterKey,
+            htmlModel: htmlModel
+        });
         if (res.success) {
             showToast("AI configurations updated");
+            // Refresh credits after save
+            const [k, o] = await Promise.all([getKieCredit(), getOpenRouterCredit()]);
+            setEstimatedUsage(k);
+            setOpenrouterUsage(o);
         } else {
             showToast(res.message || "Failed to update", "error");
         }
         setSaving(false);
+    };
+
+    const handleTestConnection = async (type: 'kie' | 'openrouter') => {
+        setTestingProvider(type);
+        const key = type === 'kie' ? apiKey : openrouterKey;
+        if (!key) {
+            showToast(`API Key ${type === 'kie' ? 'Kie.ai' : 'OpenRouter'} belum diisi.`, 'error');
+            setTestingProvider(null);
+            return;
+        }
+
+        const res = await checkAiStatus(key, type);
+        if (res.success) {
+            showToast(`${res.engine} Connected! Status: Ready`, 'success');
+            if (type === 'kie') setEstimatedUsage(res.credit || '0');
+            else setOpenrouterUsage(res.credit || '0');
+        } else {
+            showToast(`${type.toUpperCase()} Error: ${res.message}`, 'error');
+        }
+        setTestingProvider(null);
     };
 
     const handleSaveIdentity = async () => {
@@ -223,18 +263,59 @@ export default function SettingsPage() {
                                                 </h3>
                                                 <div className="space-y-4">
                                                     <div className="space-y-2">
-                                                        <label className="text-[10px] font-black text-white/30 uppercase tracking-widest px-1">Production API Key</label>
+                                                        <div className="flex justify-between items-center px-1">
+                                                            <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Production API Key</label>
+                                                            <button 
+                                                                onClick={() => handleTestConnection('kie')}
+                                                                disabled={testingProvider === 'kie'}
+                                                                className="text-[9px] font-black uppercase text-accent-gold hover:text-white transition-colors flex items-center gap-1"
+                                                            >
+                                                                {testingProvider === 'kie' ? <Loader2 className="animate-spin" size={10} /> : <RefreshCw size={10} />}
+                                                                Test Connection
+                                                            </button>
+                                                        </div>
                                                         <div className="relative">
                                                             <input 
                                                                 type="password"
                                                                 placeholder="sk-kie-..."
                                                                 value={apiKey}
                                                                 onChange={(e) => setApiKey(e.target.value)}
-                                                                className="w-full bg-zinc-900 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-accent-gold/40 transition-all text-sm font-mono"
+                                                                className="w-full bg-zinc-900 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-accent-gold/40 transition-all text-sm font-mono text-white"
                                                             />
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                <h3 className="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2 pt-6 border-t border-white/5">
+                                                    <Globe className="text-accent-gold" size={16} /> OpenRouter Integration
+                                                </h3>
+                                                <div className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <div className="flex justify-between items-center px-1">
+                                                            <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">OpenRouter API Key</label>
+                                                            <button 
+                                                                onClick={() => handleTestConnection('openrouter')}
+                                                                disabled={testingProvider === 'openrouter'}
+                                                                className="text-[9px] font-black uppercase text-accent-gold hover:text-white transition-colors flex items-center gap-1"
+                                                            >
+                                                                {testingProvider === 'openrouter' ? <Loader2 className="animate-spin" size={10} /> : <RefreshCw size={10} />}
+                                                                Test Connection
+                                                            </button>
+                                                        </div>
+                                                        <div className="relative">
+                                                            <input 
+                                                                type="password"
+                                                                placeholder="sk-or-v1-..."
+                                                                value={openrouterKey}
+                                                                onChange={(e) => setOpenrouterKey(e.target.value)}
+                                                                className="w-full bg-zinc-900 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-accent-gold/40 transition-all text-sm font-mono text-white"
+                                                            />
+                                                        </div>
+                                                        <p className="text-[9px] text-white/20 italic px-1">Dapatkan key di openrouter.ai/settings/keys</p>
+                                                    </div>
+                                                </div>
+
+
 
                                                 <button 
                                                     onClick={handleSaveAiSettings}
@@ -248,14 +329,22 @@ export default function SettingsPage() {
                                         </div>
 
                                         <div className="space-y-6">
-                                            <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-[32px] flex flex-col items-center justify-center text-center space-y-4">
+                                            <div className="p-8 bg-zinc-900/50 border border-white/5 rounded-[32px] flex flex-col items-center justify-center text-center space-y-6">
                                                 <div className="w-16 h-16 rounded-3xl bg-accent-gold/10 flex items-center justify-center text-accent-gold mb-2">
                                                     <Database size={32} />
                                                 </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Consumption Score</p>
-                                                    <p className="text-5xl font-black text-white tracking-tighter font-mono">{estimatedUsage}</p>
-                                                    <p className="text-[10px] font-bold text-accent-gold uppercase tracking-widest mt-2">Kie Credits Used</p>
+                                                <div className="grid grid-cols-1 gap-6 w-full">
+                                                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                                                        <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Kie Consumption</p>
+                                                        <p className="text-3xl font-black text-white tracking-tighter font-mono">{estimatedUsage}</p>
+                                                        <p className="text-[9px] font-bold text-accent-gold uppercase tracking-widest mt-1">Kie Credits</p>
+                                                    </div>
+                                                    
+                                                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                                                        <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">OpenRouter Credits</p>
+                                                        <p className="text-3xl font-black text-white tracking-tighter font-mono">${openrouterUsage}</p>
+                                                        <p className="text-[9px] font-bold text-accent-gold uppercase tracking-widest mt-1">USD Remaining</p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

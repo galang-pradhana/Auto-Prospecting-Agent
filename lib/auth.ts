@@ -38,7 +38,8 @@ export async function getCurrentUser() {
         where: { id: session.userId },
         select: { 
             id: true, email: true, name: true, 
-            kieAiApiKey: true, byocMode: true, aiEngine: true,
+            kieAiApiKey: true, openrouterApiKey: true,
+            aiProvider: true, byocMode: true, aiEngine: true,
             businessName: true, businessIg: true, businessWa: true
         }
     });

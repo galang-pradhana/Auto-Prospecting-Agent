@@ -8,9 +8,10 @@ import { Sidebar } from './Sidebar';
 interface MobileDrawerProps {
     isOpen: boolean;
     onClose: () => void;
+    initialProvider?: string;
 }
 
-export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
+export function MobileDrawer({ isOpen, onClose, initialProvider }: MobileDrawerProps) {
     return (
         <AnimatePresence>
             {isOpen && (
@@ -30,20 +31,9 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed inset-y-0 left-0 w-72 bg-premium-900 border-r border-white/5 z-[101] md:hidden shadow-2xl overflow-hidden"
+                        className="fixed inset-y-0 left-0 w-80 bg-zinc-950 border-r border-white/5 z-[101] md:hidden shadow-[20px_0_50px_rgba(0,0,0,0.5)] overflow-hidden"
                     >
-                        <div className="absolute top-4 right-4 z-[102]">
-                            <button 
-                                onClick={onClose}
-                                className="p-2 hover:bg-white/5 rounded-xl text-white/40 hover:text-white transition-all"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        
-                        <div className="h-full pt-4">
-                            <Sidebar isMobile onClose={onClose} />
-                        </div>
+                        <Sidebar isMobile onClose={onClose} initialProvider={initialProvider} />
                     </motion.div>
                 </>
             )}

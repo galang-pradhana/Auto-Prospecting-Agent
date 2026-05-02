@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { category, province, city, district, lat, lng } = body;
+        const { category, province, city, district, lat, lng, filters } = body;
 
         const jobId = randomUUID();
         const initialMessage = `Initializing Scrape: ${category} in ${district || city}`;
@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
             district || "",
             lat,
             lng,
-            jobId
+            jobId,
+            filters
         ).catch(err => {
             console.error(`[Job ${jobId}] Failed:`, err);
             JobRegistry.updateJob(jobId, { status: 'FAILED', message: err.message });

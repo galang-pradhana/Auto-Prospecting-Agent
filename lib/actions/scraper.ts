@@ -16,7 +16,7 @@ import {
     logActivity,
     getDistricts
 } from './lead';
-import { callKieAI } from './ai';
+import { callAI } from './ai';
 import { LEAD_EVALUATION_PROMPT } from '@/lib/prompts';
 
 // --- Helpers ---
@@ -249,6 +249,14 @@ import { JobRegistry } from '@/lib/jobRegistry';
 
 // --- Main Scraper Action ---
 
+export interface ScraperFilters {
+    minRating: number;
+    maxRating: number;
+    minReviews: number;
+    requireNoWebsite: boolean;
+    requirePhone: boolean;
+}
+
 export async function runScraper(
     category: string,
     province: string,
@@ -256,7 +264,8 @@ export async function runScraper(
     district?: string,
     lat?: string,
     lng?: string,
-    jobId?: string
+    jobId?: string,
+    filters?: ScraperFilters
 ) {
     const session = await getSession();
     if (!session) {
@@ -264,6 +273,14 @@ export async function runScraper(
         return { success: false, message: 'Not authenticated' };
     }
     const userId = session.userId;
+
+    const activeFilters: ScraperFilters = {
+        minRating: filters?.minRating ?? 3.5,
+        maxRating: filters?.maxRating ?? 5.0,
+        minReviews: filters?.minReviews ?? 5,
+        requireNoWebsite: filters?.requireNoWebsite ?? true,
+        requirePhone: filters?.requirePhone ?? false,
+    };
 
     const binaryPath = path.join(process.cwd(), 'google-maps-scraper');
     
@@ -302,7 +319,7 @@ export async function runScraper(
             Berikan estimasi moderat agar tidak terlalu luas tapi tidak terpotong. 
             Hanya berikan angka saja dalam format JSON: { "radius_meter": number }`;
             
-            const aiRes = await callKieAI(radiusPrompt);
+            const aiRes = await callAI(radiusPrompt, 'fast');
             const data = JSON.parse(aiRes.replace(/```json|```/g, "").trim());
             if (data.radius_meter) {
                 finalRadius = Math.min(25000, Math.max(1000, data.radius_meter)); // Clamp between 1km - 25km
@@ -314,8 +331,7 @@ export async function runScraper(
 
         let totalProcessed = 0;   // Total dari Google Maps (Extracted)
         let totalInserted = 0;    // Berhasil masuk DB (New Leads)
-        let aiRejectedCount = 0;  // Ditolak AI atau Fail-Safe
-        let aiProcessedCount = 0; // Data yang dikirim ke AI
+        let totalScanned = 0;     // Counter untuk UI
 
         const flushBuffer = async () => { };
 
@@ -345,13 +361,10 @@ export async function runScraper(
             
             if (jobId) {
                 JobRegistry.updateJob(jobId, { 
-                    message: `Processing leads: ${totalProcessed} scanned.`,
+                    message: `Scraping: ${totalProcessed} found, ${totalInserted} leads saved...`,
                     data: { 
                         processed: totalProcessed, 
-                        aiProcessed: aiProcessedCount,
                         new: totalInserted, 
-                        aiRejected: aiRejectedCount,
-                        preFilterDropped: totalProcessed - aiProcessedCount - totalInserted - aiRejectedCount 
                     }
                 });
             }
@@ -385,22 +398,20 @@ export async function runScraper(
                 }
             }
 
-            // 2. FILTER LAYER 1: STRICT PURE LOGIC (Surgical Settings)
-            // Criteria: Rating 3.5 - 5.0, Review Count >= 5
+            // 2. FILTER LAYER 1: RULE-BASED (User Controlled)
             const reviewCount = item.review_count || item.reviews_count || item.user_ratings_total || item.reviewsCount || item.TotalReviews || 0;
             
-            if (finalRating < 3.5 || finalRating > 5.0) {
-                console.log(`[Scraper] Skipping ${leadName}: Rating outside target range (${finalRating})`);
+            if (finalRating < activeFilters.minRating || finalRating > activeFilters.maxRating) {
+                console.log(`[Scraper] Skipping ${leadName}: Rating ${finalRating} outside range [${activeFilters.minRating} - ${activeFilters.maxRating}]`);
                 return;
             }
-            if (reviewCount < 5) {
-                console.log(`[Scraper] Skipping ${leadName}: Social proof too low (${reviewCount} reviews < 5)`);
+            if (reviewCount < activeFilters.minReviews) {
+                console.log(`[Scraper] Skipping ${leadName}: Reviews ${reviewCount} < min ${activeFilters.minReviews}`);
                 return;
             }
 
-            // 2.1 [NEW] WEBSITE FILTER: Drop if they already have a professional website
-            // EXCEPT if it's Linktree, IG, WA, or other bio-links.
-            if (website && website !== 'N/A') {
+            // 2.1 WEBSITE FILTER
+            if (activeFilters.requireNoWebsite && website && website !== 'N/A') {
                 const websiteLower = website.toLowerCase();
                 const isBioLink = websiteLower.includes('linktr.ee') || 
                                   websiteLower.includes('instagram.com') || 
@@ -414,35 +425,15 @@ export async function runScraper(
                                   websiteLower.includes('msng.link');
                 
                 if (!isBioLink && (websiteLower.startsWith('http') || websiteLower.includes('.com') || websiteLower.includes('.id') || websiteLower.includes('.net') || websiteLower.includes('.co.id'))) {
-                    console.log(`[Scraper] Skipping ${leadName}: Already has a professional website (${website})`);
+                    console.log(`[Scraper] Skipping ${leadName}: Has professional website (${website})`);
                     return;
                 }
             }
 
-            // 2.2 [NEW] REVIEW RECENCY FILTER: Drop if no reviews in last 24 months
-            const userReviews = item.user_reviews || [];
-            if (userReviews.length > 0) {
-                let hasRecentReview = false;
-                const twentyFourMonthsAgo = new Date();
-                twentyFourMonthsAgo.setMonth(twentyFourMonthsAgo.getMonth() - 24);
-
-                for (const rev of userReviews) {
-                    if (rev.When) {
-                        // Go-Scraper format: "YYYY-M-D" or "2025-5-21"
-                        const revDate = new Date(rev.When);
-                        if (!isNaN(revDate.getTime()) && revDate > twentyFourMonthsAgo) {
-                            hasRecentReview = true;
-                            break;
-                        }
-                    } else {
-                        // If date is missing, we assume it's old or untrusted unless there are other reviews
-                    }
-                }
-                
-                if (!hasRecentReview) {
-                    console.log(`[Scraper] Skipping ${leadName}: No recent reviews in last 24 months.`);
-                    return;
-                }
+            // 2.2 PHONE FILTER
+            if (activeFilters.requirePhone && !sanitizedWa) {
+                console.log(`[Scraper] Skipping ${leadName}: No mobile phone number.`);
+                return;
             }
 
             // 3. FILTER LAYER 2: LOCATION (RADIUS GUARD)
@@ -485,114 +476,43 @@ export async function runScraper(
                 return;
             }
 
-            // 5. FILTER LAYER 4: AI ENRICHMENT (FINAL STEP)
+            // 5. DIRECT SAVE AS RAW (AI Enrichment moved to step 2)
             try {
-                aiProcessedCount++;
-                console.log(`[Scraper] Final Step: Analyzing ${leadName} via AI...`);
-                const finalPrompt = LEAD_EVALUATION_PROMPT
-                    .replace('[name]', leadName)
-                    .replace('[category]', category)
-                    .replace('[address]', fullAddress)
-                    .replace('[city]', city)
-                    .replace('[province]', province)
-                    .replace('[wa]', rawPhone || 'tidak ada')
-                    .replace('[website]', website || 'N/A')
-                    .replace('[about]', aboutText)
-                    .replace('[rating]', finalRating.toString())
-                    .replace('[reviewsCount]', reviewCount.toString());
-
-                const aiResponse = await callKieAI(finalPrompt);
-                const rawJson = cleanAIResponse(aiResponse);
-                let result: any;
-                
-                try {
-                    const parsed = JSON.parse(rawJson);
-                    result = Array.isArray(parsed) ? parsed[0] : parsed;
-                } catch (e) {
-                    console.error("[Scraper] ❌ JSON PARSE ERROR for", leadName);
-                    aiRejectedCount++;
-                    return;
-                }
-
-                const decision = String(result.decision || '').toUpperCase();
-                const reason = result.reason || 'No reason provided';
-
-                if (decision === 'PROCEED') {
-                    console.log(`[Scraper] ✅ AI PROCEED: ${leadName} | Reason: ${reason}`);
-                    
-                    const rawAiWa = result.wa || null;
-                    const rawAiIg = result.ig || null;
-                    
-                    const aiWa = rawAiWa ? sanitizeWaNumber(String(rawAiWa)) : null;
-                    const aiIg = rawAiIg && String(rawAiIg).trim().toLowerCase() !== 'null' && String(rawAiIg).trim() !== '' ? rawAiIg : null;
-
-                    const fallbackWa = rawAiWa ? String(rawAiWa).replace(/\D/g, '') : null;
-                    const finalWa = aiWa || (fallbackWa && fallbackWa.length >= 10 ? fallbackWa : null) || sanitizedWa;
-
-                    // ⚠️ FAIL-SAFE: Only skip if ABSOLUTELY no contact info
-                    if (!finalWa && !aiIg) {
-                        console.log(`[Scraper] FAIL-SAFE: Skipping ${leadName} - No valid Mobile WA or IG found.`);
-                        aiRejectedCount++;
-                        return;
+                const newLead = await prisma.lead.create({
+                    data: {
+                        name: leadName,
+                        wa: sanitizedWa,
+                        ig: null,
+                        category,
+                        province,
+                        city,
+                        district: district || "",
+                        address: fullAddress,
+                        rating: finalRating,
+                        website,
+                        mapsUrl,
+                        userId,
+                        score: null,
+                        priorityTier: null,
+                        aiAnalysis: null,
+                        reviews: item.user_reviews || [],
+                        reviewCount: parseInt(reviewCount.toString()) || 0,
+                        status: 'RAW'
                     }
+                });
 
-                    // Re-check unique WA
-                    if (finalWa && finalWa !== sanitizedWa) {
-                        const duplicateCheck = await prisma.lead.findUnique({ where: { wa: finalWa } });
-                        if (duplicateCheck) {
-                            console.log(`[Scraper] Skipping ${leadName}: AI discovered WA already exists.`);
-                            return;
-                        }
+                await prisma.activityLog.create({
+                    data: {
+                        prospectId: newLead.id,
+                        action: 'SCRAPE',
+                        description: `Lead ingested as RAW. Pre-filters: R:${activeFilters.minRating}, C:${activeFilters.minReviews}`,
+                        metadata: { source: 'raw_scraper', filters: activeFilters }
                     }
+                });
 
-                    // Use cleaned name from AI if provided
-                    const finalName = result.name || leadName;
-                    const leadScore = result.score ? parseInt(String(result.score)) : null;
-                    const leadPriority = result.priority_tier || null;
-
-                    const newLead = await prisma.lead.create({
-                        data: {
-                            name: finalName,
-                            wa: finalWa,
-                            ig: aiIg,
-                            category,
-                            province,
-                            city,
-                            district: district || "",
-                            address: fullAddress,
-                            rating: finalRating,
-                            website,
-                            mapsUrl,
-                            userId,
-                            score: leadScore,
-                            priorityTier: leadPriority,
-                            aiAnalysis: {
-                                reason: reason,
-                                score_breakdown: result.score_breakdown || null
-                            },
-                            reviews: item.user_reviews || [],
-                            reviewCount: parseInt(reviewCount.toString()) || 0,
-                            status: 'FRESH'
-                        }
-                    });
-
-                    await prisma.activityLog.create({
-                        data: {
-                            prospectId: newLead.id,
-                            action: 'SCRAPE',
-                            description: `Lead ingested (AI Decision: ${decision})`,
-                            metadata: { aiReason: reason }
-                        }
-                    });
-
-                    totalInserted++;
-                } else {
-                    console.log(`[Scraper] ⛔ AI SKIP: ${leadName} (${reason})`);
-                    aiRejectedCount++;
-                }
+                totalInserted++;
             } catch (err) {
-                console.error(`[Scraper] AI Error for ${leadName}:`, err);
-                aiRejectedCount++;
+                console.error(`[Scraper] DB Insert Error for ${leadName}:`, err);
             }
         };
 
@@ -601,31 +521,40 @@ export async function runScraper(
         // but kept for consistency or if any other buffering logic were to be added.
         await flushBuffer();
 
+        // 6. AUTO-TRIGGER AI SCREEN (Transparency Phase)
+        if (totalInserted > 0 && jobId) {
+            console.log(`[Scraper] Auto-triggering AI Filter for ${totalInserted} leads...`);
+            JobRegistry.updateJob(jobId, { message: `Scraping done. AI filtering ${totalInserted} leads...` });
+            
+            // Get the IDs of leads we just inserted as RAW
+            const insertedLeads = await prisma.lead.findMany({
+                where: { userId, status: 'RAW', createdAt: { gte: new Date(Date.now() - 600000) } }, // Last 10 mins
+                select: { id: true },
+                orderBy: { createdAt: 'desc' },
+                take: totalInserted
+            });
+            
+            const { runAIScreenInline } = await import('./ai-screen');
+            await runAIScreenInline(insertedLeads.map(l => l.id), jobId, userId);
+        }
+
         if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
+        
+        if (jobId) {
+            JobRegistry.updateJob(jobId, { 
+                status: 'COMPLETED', 
+                message: `Scraper finished. ${totalInserted} leads processed.`,
+                progress: 100 
+            });
+        }
 
         revalidatePath('/dashboard/leads');
         revalidatePath('/dashboard/scraper');
         
-        if (jobId) {
-            const skipReason = `Processed: ${totalProcessed}, AI Analysed: ${aiProcessedCount}, New: ${totalInserted}. (AI Rejected: ${aiRejectedCount})`;
-            JobRegistry.updateJob(jobId, {
-                status: 'COMPLETED',
-                progress: 100,
-                message: skipReason,
-                data: { 
-                    processed: totalProcessed, 
-                    aiProcessed: aiProcessedCount,
-                    new: totalInserted, 
-                    aiRejected: aiRejectedCount,
-                    preFilterDropped: totalProcessed - aiProcessedCount
-                }
-            });
-        }
-
         return { 
             success: true, 
-            message: `Scraper finished. Processed: ${totalProcessed}, New: ${totalInserted}.`,
-            stats: { new: totalInserted, aiRejected: aiRejectedCount, processed: totalProcessed, aiProcessed: aiProcessedCount, preFilterDropped: totalProcessed - aiProcessedCount }
+            message: `Scraper finished. ${totalInserted} leads processed through AI filter.`,
+            stats: { new: totalInserted, processed: totalProcessed }
         };
 
     } catch (err: any) {
@@ -656,30 +585,43 @@ export async function scrapeSingleUrl(url: string) {
 
         // --- URL Expansion for Short Links (maps.app.goo.gl / goo.gl/maps) ---
         if (url.includes('maps.app.goo.gl') || url.includes('goo.gl/maps')) {
-            console.log(`[Manual Scraper] Expanding short URL: ${url}`);
+            console.log(`[Manual Scraper] Expanding short URL via curl: ${url}`);
             try {
-                const response = await fetch(url, { 
-                    method: 'HEAD', // HEAD is enough to get the redirect URL
-                    redirect: 'follow' 
-                });
-                finalUrl = response.url;
-                console.log(`[Manual Scraper] Expanded to: ${finalUrl}`);
+                // Use curl to follow redirects and get the final URL
+                const expanded = execSync(`curl -Ls -o /dev/null -w %{url_effective} "${url}"`, { encoding: 'utf8' }).trim();
+                if (expanded && expanded.includes('google.com/maps')) {
+                    finalUrl = expanded;
+                    console.log(`[Manual Scraper] Expanded to: ${finalUrl}`);
+                } else {
+                    console.warn(`[Manual Scraper] curl expansion returned suspicious URL: ${expanded}`);
+                }
             } catch (expandErr) {
-                console.error("[Manual Scraper] Expansion failed, using original URL:", expandErr);
+                console.error("[Manual Scraper] curl expansion failed:", expandErr);
             }
         }
 
-        fs.writeFileSync(queryFilePath, finalUrl, 'utf8');
+        // --- STRATEGY: Avoid direct Place URLs to prevent Go-Engine Panic ---
+        // The Go binary panics (nil map assignment) when processing some direct /place/ URLs.
+        // We extract the business name and use it as a search query instead.
+        let searchQuery = finalUrl;
+        if (finalUrl.includes('/place/')) {
+            const placePart = finalUrl.split('/place/')[1]?.split('/')[0];
+            if (placePart) {
+                searchQuery = decodeURIComponent(placePart.replace(/\+/g, ' '));
+                console.log(`[Manual Scraper] Detected Place URL. Converting to Search Query: ${searchQuery}`);
+            }
+        }
+
+        fs.writeFileSync(queryFilePath, searchQuery, 'utf8');
 
         let parsedItem: any = null;
 
         const onLeadHandled = async (item: any) => {
              parsedItem = item;
-             console.log("[Manual Scraper] Received Data for URL");
+             console.log("[Manual Scraper] Received Data for Query");
         };
 
         // Extract coordinates from URL if present for better accuracy (Geo-Lock)
-        // This prevents the scraper from "straying" (nyasar) to the server's IP location
         const geoMatch = finalUrl.match(/@([-.\d]+),([-.\d]+)/) || finalUrl.match(/!3d([-.\d]+)!4d([-.\d]+)/);
         const lat = geoMatch ? geoMatch[1] : undefined;
         const lng = geoMatch ? geoMatch[2] : undefined;
@@ -689,7 +631,7 @@ export async function scrapeSingleUrl(url: string) {
         if (fs.existsSync(queryFilePath)) fs.unlinkSync(queryFilePath);
 
         if (!parsedItem) {
-             return { success: false, message: "Gagal mengekstrak data dari URL tersebut. Pastikan URL valid." };
+             return { success: false, message: "Gagal mengekstrak data dari URL tersebut. Pastikan titik koordinat atau nama bisnis di Maps sudah benar." };
         }
 
         const leadName = parsedItem.name || parsedItem.title || parsedItem.Name || parsedItem.Title || 'Manual Entry';

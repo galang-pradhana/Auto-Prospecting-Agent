@@ -18,6 +18,9 @@ export async function GET() {
                 notIn: ['monitoring_1', 'monitoring_2', 'monitoring_3', 'closed_won', 'closed_lost']
             }
         },
+        include: {
+            brandDna: true,
+        },
         orderBy: { updatedAt: 'desc' }
     });
 

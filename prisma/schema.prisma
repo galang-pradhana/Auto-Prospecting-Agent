@@ -9,22 +9,25 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  password      String
-  name          String
-  rejectedLeads Int           @default(0)
-  kieAiApiKey   String?
-  byocMode      Boolean       @default(false)
-  aiEngine      String        @default("gemini-3-flash")
-  createdAt     DateTime      @default(now())
-  businessIg    String?
-  businessName  String?
-  businessWa    String?
-  fonnteTokens  Json?
-  isApproved    Boolean       @default(false)
-  leads         Lead[]
-  sandboxLeads  LeadSandbox[]
+  id               String        @id @default(cuid())
+  email            String        @unique
+  password         String
+  name             String
+  rejectedLeads    Int           @default(0)
+  kieAiApiKey      String?
+  openrouterApiKey String?
+  aiProvider       String        @default("kie")
+  byocMode         Boolean       @default(false)
+  aiEngine         String        @default("gemini-3-flash")
+  htmlModel        String        @default("gemini-3-1-pro")
+  createdAt        DateTime      @default(now())
+  businessIg       String?
+  businessName     String?
+  businessWa       String?
+  fonnteTokens     Json?
+  isApproved       Boolean       @default(false)
+  leads            Lead[]
+  sandboxLeads     LeadSandbox[]
 }
 
 model Lead {
@@ -54,7 +57,8 @@ model Lead {
   resolvingIdea       String?
   selectedLayout      String?
   selectedStyle       String?
-  htmlCode            String?
+  htmlCode            String?         @db.Text
+  prototypeHtml       String?         @db.Text
   lastLog             String?
   slug                String?         @unique
   outreachDraft       String?
@@ -87,6 +91,7 @@ model Lead {
   followupQueue       FollowupQueue[]
   events              ProspectEvent[]
   tokens              TrackingToken?
+  brandDna            BrandDnaSubmission?
 
   @@index([status, category])
   @@index([userId])
@@ -128,18 +133,27 @@ model ActivityLog {
 }
 
 model LeadSandbox {
-  id        String   @id @default(cuid())
-  name      String?
-  wa        String?
-  category  String?
-  address   String?
-  city      String?
-  mapsUrl   String?
-  rawSource Json?
-  reason    String?
-  userId    String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  id           String   @id @default(cuid())
+  name         String?
+  wa           String?
+  category     String?
+  province     String?  @default("")
+  city         String?  @default("")
+  district     String?  @default("")
+  address      String?  @default("")
+  rating       Float?   @default(0)
+  reviewCount  Int?     @default(0)
+  website      String?  @default("N/A")
+  mapsUrl      String?
+  ig           String?
+  aiAnalysis   Json?    // Stores detailed AI response
+  reason       String?  // Short reason (e.g. GENERIC_NAME)
+  lastLog      String?  // Detailed log
+  rawSource    Json?    // Full scraper output
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime? @default(now()) @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -222,6 +236,7 @@ model Proposal {
 }
 
 enum LeadStatus {
+  RAW
   FRESH
   ENRICHED
   READY
@@ -237,3 +252,35 @@ enum BlastStatus {
   BAIT_SENT
   REPLIED
 }
+
+model BrandDnaSubmission {
+  id           String         @id @default(cuid())
+  leadId       String         @unique
+  token        String         @unique @default(uuid())
+  status       BrandDnaStatus @default(PENDING)
+
+  // Jawaban form (semua 8 section)
+  answers      Json?
+
+  // File uploads
+  logoPath     String?        // path original upload: /uploads/brand-dna/[token]/logo.png
+  logoSvgPath  String?        // path hasil konversi: /uploads/brand-dna/[token]/logo.svg
+  mediaFiles   Json?          // array of paths: ["/uploads/...", ...]
+
+  submittedAt  DateTime?
+  viewedAt     DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  lead         Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([leadId])
+}
+
+enum BrandDnaStatus {
+  PENDING
+  SUBMITTED
+  VIEWED
+}
+

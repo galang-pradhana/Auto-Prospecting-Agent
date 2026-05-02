@@ -75,6 +75,7 @@ export async function GET(request: Request, context: { params: { slug: string } 
         select: {
             id: true,
             htmlCode: true,
+            prototypeHtml: true,
         }
     });
 
@@ -88,11 +89,17 @@ export async function GET(request: Request, context: { params: { slug: string } 
             select: {
                 id: true,
                 htmlCode: true,
+                prototypeHtml: true,
             }
         });
     }
 
-    if (!lead?.htmlCode) {
+    const { searchParams } = new URL(request.url);
+    const useReal = searchParams.get('v') === 'real';
+
+    const selectedHtml = (useReal && lead?.prototypeHtml) ? lead.prototypeHtml : lead?.htmlCode;
+
+    if (!selectedHtml) {
         return new Response('Not Found', { status: 404 });
     }
 
@@ -116,7 +123,7 @@ export async function GET(request: Request, context: { params: { slug: string } 
     // ── Inject beacon script before </body> ──────────────────────────────────
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const beaconScript = buildBeaconScript(trackingToken.token, baseUrl);
-    const finalHtml = lead.htmlCode.replace('</body>', `${beaconScript}\n</body>`);
+    const finalHtml = selectedHtml.replace('</body>', `${beaconScript}\n</body>`);
 
     return new Response(finalHtml, {
         status: 200,

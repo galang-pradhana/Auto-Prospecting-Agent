@@ -7,6 +7,7 @@ import {
     Sparkles, Palette, Search, Check
 } from 'lucide-react';
 import { getStyleModels, refineLeadStyle, getRecommendedStyles } from '@/lib/actions/ai';
+import { getUserSettings } from '@/lib/actions/user-settings';
 
 interface DesignTweakerModalProps {
     isOpen: boolean;
@@ -23,6 +24,17 @@ export default function DesignTweakerModal({ isOpen, onClose, lead, onSuccess }:
     const [isLoadingStyles, setIsLoadingStyles] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [modelId, setModelId] = useState('gemini-3-1-pro');
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const settings = await getUserSettings();
+            if (settings?.htmlModel) {
+                setModelId(settings.htmlModel);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     useEffect(() => {
         if (isOpen && lead) {
@@ -69,7 +81,7 @@ export default function DesignTweakerModal({ isOpen, onClose, lead, onSuccess }:
         
         setIsRegenerating(true);
         try {
-            const res = await refineLeadStyle(lead.id, selectedStyleId);
+            const res = await refineLeadStyle(lead.id, selectedStyleId, modelId);
             if (res.success) {
                 if (onSuccess) onSuccess(res.masterWebsitePrompt || "");
                 onClose();
@@ -227,7 +239,28 @@ export default function DesignTweakerModal({ isOpen, onClose, lead, onSuccess }:
                         </div>
 
                         {/* Footer Action */}
-                        <div className="p-8 border-t border-white/5 bg-zinc-900/30">
+                        <div className="p-8 border-t border-white/5 bg-zinc-900/30 space-y-4">
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-1.5 text-[10px] font-black text-amber-400 uppercase tracking-widest">
+                                    AI Engine Selection
+                                </label>
+                                <select 
+                                    value={modelId}
+                                    onChange={(e) => setModelId(e.target.value)}
+                                    className="w-full bg-zinc-950 border border-white/10 rounded-2xl px-4 py-4 text-xs font-black text-white outline-none focus:border-amber-400/50 transition-all cursor-pointer appearance-none"
+                                >
+                                    <optgroup label="── Cross-Engine ──">
+                                        <option value="gemini-3-1-pro">🟢 Gemini 3.1 Pro</option>
+                                        <option value="claude-sonnet-4-6">🔵 Claude Sonnet 4.6</option>
+                                        <option value="gpt-5-2">🟡 GPT 5.2</option>
+                                    </optgroup>
+                                    <optgroup label="── OpenRouter Only ──">
+                                        <option value="deepseek-v4-pro">🟣 DeepSeek V4 Pro</option>
+                                        <option value="qwen3.6-plus">🟠 Qwen 3.6 Plus</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+
                             <button 
                                 onClick={handleRefine}
                                 disabled={isRegenerating || !selectedStyleId}

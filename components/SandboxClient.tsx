@@ -17,6 +17,7 @@ interface SandboxLead {
     city: string | null;
     mapsUrl: string | null;
     reason: string | null;
+    aiAnalysis: any;
     createdAt: Date | string;
 }
 
@@ -120,10 +121,21 @@ export default function SandboxClient({ initialLeads }: SandboxClientProps) {
                                         <MapPin size={12} className="shrink-0 mt-0.5 text-white/20" />
                                         <span className="line-clamp-2">{lead.address || 'No Address'}</span>
                                     </div>
-                                    <div className="mt-3 p-2 bg-red-500/5 border border-red-500/10 rounded-lg">
-                                        <div className="text-[10px] font-black uppercase text-red-400 mb-0.5">Flag Reason</div>
-                                        <div className="text-xs text-white/70">{lead.reason || 'Invalid/Missing WhatsApp'}</div>
-                                        <div className="text-xs text-white/40 font-mono mt-1 break-all">Detected: {lead.wa || 'null'}</div>
+                                    <div className="mt-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <div className="text-[10px] font-black uppercase text-red-400">Rejection Analysis</div>
+                                            <span className="text-[8px] bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded uppercase font-bold tracking-tighter">
+                                                {lead.reason || 'AI_FILTER'}
+                                            </span>
+                                        </div>
+                                        <div className="text-[11px] text-white/80 leading-relaxed italic">
+                                            "{lead.aiAnalysis?.reason || 'Nama generik atau tidak ada kontak valid yang ditemukan oleh AI.'}"
+                                        </div>
+                                        {lead.wa && (
+                                            <div className="text-[10px] text-white/40 font-mono mt-2 border-t border-white/5 pt-1">
+                                                Raw WA: {lead.wa}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

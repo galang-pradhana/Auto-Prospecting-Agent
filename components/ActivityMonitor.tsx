@@ -15,9 +15,11 @@ import {
     Loader2,
     CheckCircle2,
     AlertCircle,
-    X
+    X,
+    Square
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { stopScraper } from '@/lib/actions/scraper';
 
 interface Job {
     id: string;
@@ -52,6 +54,7 @@ export default function ActivityMonitor() {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [isExpanded, setIsExpanded] = useState(false);
     const [completedJobIds, setCompletedJobIds] = useState<Set<string>>(new Set());
+    const [isStopping, setIsStopping] = useState(false);
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -61,7 +64,6 @@ export default function ActivityMonitor() {
                 if (data.success) {
                     const newJobs: Job[] = data.jobs;
                     
-                    // Check for newly completed or failed jobs for notifications
                     newJobs.forEach(job => {
                         if (job.status !== 'RUNNING' && !completedJobIds.has(job.id)) {
                             if (job.status === 'COMPLETED') {
@@ -84,6 +86,19 @@ export default function ActivityMonitor() {
         return () => clearInterval(interval);
     }, [completedJobIds]);
 
+    const handleStopScraper = async () => {
+        if (!confirm('Hentikan paksa scraper?')) return;
+        setIsStopping(true);
+        try {
+            await stopScraper();
+            toast.success('Scraper stopped manually');
+        } catch (e) {
+            toast.error('Failed to stop scraper');
+        } finally {
+            setIsStopping(false);
+        }
+    };
+
     const activeJobs = jobs.filter(j => j.status === 'RUNNING');
     const runningCount = activeJobs.length;
 
@@ -97,12 +112,12 @@ export default function ActivityMonitor() {
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="w-80 glass bg-zinc-950/90 border border-white/10 rounded-[32px] shadow-2xl overflow-hidden pointer-events-auto"
+                        className="w-[300px] md:w-80 glass bg-zinc-950/95 border border-white/10 rounded-[32px] shadow-2xl overflow-hidden pointer-events-auto"
                     >
                         <div className="p-5 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
                             <div className="flex items-center gap-2">
                                 <Activity size={16} className="text-accent-gold" />
-                                <h3 className="text-xs font-black uppercase tracking-widest text-white">Live Operations</h3>
+                                <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Operations Hub</h3>
                             </div>
                             <button 
                                 onClick={() => setIsExpanded(false)}
@@ -112,7 +127,7 @@ export default function ActivityMonitor() {
                             </button>
                         </div>
 
-                        <div className="max-h-[400px] overflow-y-auto p-4 space-y-3">
+                        <div className="max-h-[300px] md:max-h-[400px] overflow-y-auto p-4 space-y-3">
                             {jobs.map(job => {
                                 const Icon = JOB_ICONS[job.type] || Zap;
                                 const colorClass = JOB_COLORS[job.type] || 'text-white';
@@ -124,18 +139,30 @@ export default function ActivityMonitor() {
                                                 <div className={`p-2 bg-white/5 rounded-xl ${colorClass}`}>
                                                     <Icon size={14} />
                                                 </div>
-                                                <div>
-                                                    <div className="text-[10px] font-black uppercase tracking-tighter text-white/40">{job.type}</div>
-                                                    <div className="text-[11px] font-bold text-white line-clamp-1">{job.message}</div>
+                                                <div className="max-w-[150px] md:max-w-none">
+                                                    <div className="text-[9px] font-black uppercase tracking-tighter text-white/40">{job.type}</div>
+                                                    <div className="text-[10px] md:text-[11px] font-bold text-white line-clamp-2">{job.message}</div>
                                                 </div>
                                             </div>
-                                            {job.status === 'RUNNING' ? (
-                                                <Loader2 size={12} className="animate-spin text-accent-gold" />
-                                            ) : job.status === 'COMPLETED' ? (
-                                                <CheckCircle2 size={12} className="text-emerald-400" />
-                                            ) : (
-                                                <AlertCircle size={12} className="text-red-400" />
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                {job.type === 'SCRAPER' && job.status === 'RUNNING' && (
+                                                    <button
+                                                        onClick={handleStopScraper}
+                                                        disabled={isStopping}
+                                                        className="p-1.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-all"
+                                                        title="Stop Scraper"
+                                                    >
+                                                        <Square size={10} fill="currentColor" />
+                                                    </button>
+                                                )}
+                                                {job.status === 'RUNNING' ? (
+                                                    <Loader2 size={12} className="animate-spin text-accent-gold" />
+                                                ) : job.status === 'COMPLETED' ? (
+                                                    <CheckCircle2 size={12} className="text-emerald-400" />
+                                                ) : (
+                                                    <AlertCircle size={12} className="text-red-400" />
+                                                )}
+                                            </div>
                                         </div>
 
                                         {job.status === 'RUNNING' && (
@@ -158,7 +185,12 @@ export default function ActivityMonitor() {
             <motion.button
                 layout
                 onClick={() => setIsExpanded(!isExpanded)}
-                className={`pointer-events-auto h-14 px-6 rounded-full glass border border-white/10 shadow-2xl flex items-center gap-3 transition-all active:scale-95 ${runningCount > 0 ? 'bg-zinc-900 border-accent-gold/20' : 'bg-zinc-950/50'}`}
+                className={`pointer-events-auto flex items-center justify-center transition-all active:scale-95 shadow-2xl glass border border-white/10
+                    ${runningCount > 0 ? 'bg-zinc-900 border-accent-gold/40' : 'bg-zinc-950/50'}
+                    ${isExpanded 
+                        ? 'h-12 px-6 rounded-full' 
+                        : 'w-14 h-14 md:h-14 md:px-6 md:w-auto rounded-full'
+                    }`}
             >
                 <div className="relative">
                     <Activity size={18} className={runningCount > 0 ? 'text-accent-gold animate-pulse' : 'text-white/20'} />
@@ -167,14 +199,18 @@ export default function ActivityMonitor() {
                     )}
                 </div>
                 
-                <div className="flex flex-col items-start">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white">System Monitor</span>
-                    <span className="text-[9px] font-bold text-white/40 uppercase tracking-tighter">
-                        {runningCount > 0 ? `${runningCount} Active Task${runningCount > 1 ? 's' : ''}` : 'No Active Tasks'}
+                <div className={`flex flex-col items-start overflow-hidden transition-all duration-300 ${isExpanded ? 'w-auto ml-3' : 'w-0 md:w-auto md:ml-3'}`}>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white whitespace-nowrap">Monitor</span>
+                    <span className="text-[9px] font-bold text-white/40 uppercase tracking-tighter whitespace-nowrap">
+                        {runningCount > 0 ? `${runningCount} Active` : 'Idle'}
                     </span>
                 </div>
 
-                {isExpanded ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
+                {!isExpanded && (
+                    <div className="hidden md:block ml-2 text-white/20">
+                        <ChevronUp size={14} />
+                    </div>
+                )}
             </motion.button>
         </div>
     );

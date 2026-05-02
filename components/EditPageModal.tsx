@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { updateLeadHtml } from '@/lib/actions/lead';
 import { getStyleModels } from '@/lib/actions/ai';
+import { getUserSettings } from '@/lib/actions/user-settings';
 
 interface EditPageModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const [styles, setStyles] = useState<any[]>([]);
     const [selectedStyle, setSelectedStyle] = useState<string>('');
+    const [modelId, setModelId] = useState('gemini-3-1-pro');
     const [magicPrompt, setMagicPrompt] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
@@ -30,7 +32,16 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
     const [jobProgress, setJobProgress] = useState(0);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'info' } | null>(null);
     const [isDirectEditEnabled, setIsDirectEditEnabled] = useState(false);
-    const [previewHtml, setPreviewHtml] = useState<string>(lead?.htmlCode || '');
+    
+    const getInitialHtml = () => {
+        if (!lead) return '';
+        if (lead.viewVersion === 'real') {
+            return lead.prototypeHtml || lead.htmlCode || '';
+        }
+        return lead.htmlCode || '';
+    };
+
+    const [previewHtml, setPreviewHtml] = useState<string>(getInitialHtml());
     const [revisionKey, setRevisionKey] = useState(0);
     const [isCodeEditorOpen, setIsCodeEditorOpen] = useState(false);
     
@@ -62,14 +73,23 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
         }
         if (isOpen) {
             load();
+            const fetchSettings = async () => {
+                const settings = await getUserSettings();
+                if (settings?.htmlModel) {
+                    setModelId(settings.htmlModel);
+                }
+            };
+            fetchSettings();
             setIsDirectEditEnabled(false);
             setMagicPrompt('');
-            setPreviewHtml(lead?.htmlCode || '');
+            const initialHtml = getInitialHtml();
+            setPreviewHtml(initialHtml);
             setRevisionKey(r => r + 1);
             setActivePanel('tools');
+            setIsSidebarOpen(window.innerWidth >= 1024);
             // Detect images after a short delay to ensure previewHtml is set
             setTimeout(() => {
-                scanImages(lead?.htmlCode || '');
+                scanImages(initialHtml);
             }, 100);
         }
     }, [isOpen]);
@@ -405,14 +425,15 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
         }
     };
 
-    const isModified = previewHtml !== (lead?.htmlCode || '');
+    const isModified = previewHtml !== getInitialHtml();
 
     const handleRevert = () => {
         if (window.confirm("Discards all preview changes. Are you sure?")) {
-            setPreviewHtml(lead?.htmlCode || '');
+            const initialHtml = getInitialHtml();
+            setPreviewHtml(initialHtml);
             setRevisionKey(r => r + 1);
             showToast("Reverted to original", 'info');
-            setTimeout(() => scanImages(lead?.htmlCode || ''), 100);
+            setTimeout(() => scanImages(initialHtml), 100);
         }
     };
 
@@ -466,7 +487,7 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
             const doctypeStr = doc.doctype ? `<!DOCTYPE ${doc.doctype.name}${doc.doctype.publicId ? ` PUBLIC "${doc.doctype.publicId}"` : ''}${!doc.doctype.publicId && doc.doctype.systemId ? ' SYSTEM' : ''}${doc.doctype.systemId ? ` "${doc.doctype.systemId}"` : ''}>` : '<!DOCTYPE html>';
             const newHtml = doctypeStr + '\n' + doc.documentElement.outerHTML;
 
-            const res = await updateLeadHtml(lead.id, newHtml);
+            const res = await updateLeadHtml(lead.id, newHtml, lead.viewVersion || 'dummy');
             if (res.success) {
                 showToast("Changes saved successfully!");
                 setPreviewHtml(newHtml);
@@ -493,7 +514,8 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                     leadId: lead.id, 
                     styleId: selectedStyle, 
                     instructions: magicPrompt, 
-                    previewOnly: true 
+                    previewOnly: true,
+                    modelId
                 })
             });
             const data = await res.json();
@@ -550,101 +572,106 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                     <div className="flex-1 flex flex-col border-r border-white/5 min-w-0">
 
                         {/* Top bar */}
-                        <div className="h-14 shrink-0 bg-zinc-900/60 border-b border-white/5 flex items-center gap-3 px-5">
-                            {/* Lead name badge */}
-                            <div className="flex items-center gap-2.5 mr-2 overflow-hidden">
-                                <div className="w-7 h-7 shrink-0 rounded-xl bg-accent-gold/15 flex items-center justify-center border border-accent-gold/25">
-                                    <Layers size={13} className="text-accent-gold" />
+                        <div className="h-14 shrink-0 bg-zinc-900/60 border-b border-white/5 flex items-center px-2 md:px-5 w-full overflow-hidden">
+                            {/* Scrollable Left Side */}
+                            <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-hide flex-1 pr-4 min-w-0">
+                                {/* Lead name badge */}
+                                <div className="flex items-center gap-2.5 shrink-0">
+                                    <div className="w-7 h-7 shrink-0 rounded-xl bg-accent-gold/15 flex items-center justify-center border border-accent-gold/25">
+                                        <Layers size={13} className="text-accent-gold" />
+                                    </div>
+                                    <span className="text-[11px] font-black text-white uppercase tracking-widest truncate max-w-[80px] md:max-w-[180px]">
+                                        {lead.name}
+                                    </span>
+                                    <span className="hidden sm:inline-block text-[9px] text-white/20 font-black uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full">
+                                        Live
+                                    </span>
                                 </div>
-                                <span className="text-[11px] font-black text-white uppercase tracking-widest truncate max-w-[80px] md:max-w-[180px]">
-                                    {lead.name}
-                                </span>
-                                <span className="hidden sm:inline-block text-[9px] text-white/20 font-black uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full">
-                                    Live
-                                </span>
+
+                                <div className="h-5 w-px bg-white/8 mx-1 shrink-0" />
+
+                                {/* View Code toggle */}
+                                <button
+                                    onClick={() => setIsCodeEditorOpen(!isCodeEditorOpen)}
+                                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border ${
+                                        isCodeEditorOpen
+                                        ? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
+                                        : 'bg-white/4 text-white/40 hover:text-white border-white/8 hover:bg-white/8'
+                                    }`}
+                                >
+                                    <Code2 size={12} />
+                                    <span className="hidden md:inline">{isCodeEditorOpen ? 'Close Code' : 'View Code'}</span>
+                                </button>
+
+                                {/* Direct edit toggle */}
+                                <button
+                                    onClick={handleEnableDirectEdit}
+                                    disabled={isCodeEditorOpen}
+                                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border disabled:opacity-25 disabled:cursor-not-allowed ${
+                                        isDirectEditEnabled
+                                        ? 'bg-sky-400/15 text-sky-400 border-sky-400/30'
+                                        : 'bg-white/4 text-white/40 hover:text-white border-white/8 hover:bg-white/8'
+                                    }`}
+                                >
+                                    <Type size={12} />
+                                    <span className="hidden md:inline">{isDirectEditEnabled ? 'Editing On' : 'Text Editor'}</span>
+                                </button>
+
+                                {/* Revert button (conditional) */}
+                                <AnimatePresence>
+                                    {isModified && (
+                                        <motion.button
+                                            initial={{ opacity: 0, scale: 0.85 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.85 }}
+                                            onClick={handleRevert}
+                                            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
+                                        >
+                                            <RotateCcw size={12} /> Revert
+                                        </motion.button>
+                                    )}
+                                </AnimatePresence>
+                                
+                                {/* Spacer */}
+                                <div className="hidden md:block flex-1" />
+
+                                {/* Save button */}
+                                <button
+                                    onClick={handleSaveDirectHTML}
+                                    disabled={isSaving}
+                                    className="shrink-0 flex items-center gap-2 px-4 md:px-5 py-1.5 md:py-2 bg-accent-gold hover:bg-yellow-300 active:scale-95 text-black rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-accent-gold/15 disabled:opacity-50 md:ml-auto"
+                                >
+                                    {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                    <span className="whitespace-nowrap">Save HTML</span>
+                                </button>
                             </div>
 
-                            {/* Divider */}
-                            <div className="h-5 w-px bg-white/8 mx-1" />
+                            {/* Fixed Right Actions */}
+                            <div className="flex items-center gap-1.5 shrink-0 pl-2 md:pl-3 border-l border-white/10">
+                                {/* Preview in new tab */}
+                                <button
+                                    onClick={handlePreviewLive}
+                                    className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg bg-white/4 text-white/40 hover:text-white border border-white/8 hover:bg-white/8 transition-all"
+                                    title="Preview in new tab"
+                                >
+                                    <ExternalLink size={14} />
+                                </button>
 
-                            {/* View Code toggle */}
-                            <button
-                                onClick={() => setIsCodeEditorOpen(!isCodeEditorOpen)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border ${
-                                    isCodeEditorOpen
-                                    ? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
-                                    : 'bg-white/4 text-white/40 hover:text-white border-white/8 hover:bg-white/8'
-                                }`}
-                            >
-                                <Code2 size={12} />
-                                <span className="hidden md:inline">{isCodeEditorOpen ? 'Close Code' : 'View Code'}</span>
-                            </button>
+                                {/* Mobile Toggle Tools */}
+                                <button
+                                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                    className="lg:hidden w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white"
+                                >
+                                    <Edit3 size={14} />
+                                </button>
 
-                            {/* Direct edit toggle */}
-                            <button
-                                onClick={handleEnableDirectEdit}
-                                disabled={isCodeEditorOpen}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border disabled:opacity-25 disabled:cursor-not-allowed ${
-                                    isDirectEditEnabled
-                                    ? 'bg-sky-400/15 text-sky-400 border-sky-400/30'
-                                    : 'bg-white/4 text-white/40 hover:text-white border-white/8 hover:bg-white/8'
-                                }`}
-                            >
-                                <Type size={12} />
-                                <span className="hidden md:inline">{isDirectEditEnabled ? 'Editing On' : 'Text Editor'}</span>
-                            </button>
-
-                            {/* Revert button (conditional) */}
-                            <AnimatePresence>
-                                {isModified && (
-                                    <motion.button
-                                        initial={{ opacity: 0, scale: 0.85 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.85 }}
-                                        onClick={handleRevert}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
-                                    >
-                                        <RotateCcw size={12} /> Revert
-                                    </motion.button>
-                                )}
-                            </AnimatePresence>
-
-                            {/* Spacer */}
-                            <div className="flex-1" />
-
-                            {/* Preview in new tab */}
-                            <button
-                                onClick={handlePreviewLive}
-                                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/4 text-white/40 hover:text-white border border-white/8 hover:bg-white/8 transition-all"
-                                title="Open in new tab"
-                            >
-                                <ExternalLink size={12} /> <span className="hidden md:inline">Preview</span>
-                            </button>
-
-                            {/* Save button */}
-                            <button
-                                onClick={handleSaveDirectHTML}
-                                disabled={isSaving}
-                                className="flex items-center gap-2 px-4 md:px-5 py-2 bg-accent-gold hover:bg-yellow-300 active:scale-95 text-black rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-accent-gold/15 disabled:opacity-50"
-                            >
-                                {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                <span className="whitespace-nowrap">Save HTML</span>
-                            </button>
-
-                            {/* Mobile Toggle Tools */}
-                            <button
-                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                className="lg:hidden p-2.5 bg-white/5 border border-white/10 rounded-lg text-white/40"
-                            >
-                                <Edit3 size={16} />
-                            </button>
-
-                            <button 
-                                onClick={onClose}
-                                className="lg:hidden p-2.5 hover:bg-white/10 rounded-lg text-white/40 transition-all"
-                            >
-                                <X size={20} />
-                            </button>
+                                <button 
+                                    onClick={onClose}
+                                    className="lg:hidden w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-all"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
                         </div>
 
                         {/* iFrame + code editor area */}
@@ -713,7 +740,7 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                 initial={{ x: 340 }}
                                 animate={{ x: 0 }}
                                 exit={{ x: 340 }}
-                                className="fixed lg:relative inset-y-0 right-0 z-[210] lg:z-auto w-[320px] md:w-[340px] shrink-0 bg-zinc-950 flex flex-col border-l border-white/5 shadow-2xl lg:shadow-none"
+                                className="fixed lg:relative inset-y-0 right-0 z-[210] lg:z-auto w-full md:w-[360px] lg:w-[340px] shrink-0 bg-zinc-950 flex flex-col border-l border-white/5 shadow-2xl lg:shadow-none"
                             >
 
                         {/* Panel Header */}
@@ -724,12 +751,24 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                 </div>
                                 <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Editing Center</span>
                             </div>
-                            <button
-                                onClick={onClose}
-                                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all"
-                            >
-                                <X size={14} />
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                                {/* Desktop: Close Modal */}
+                                <button
+                                    onClick={onClose}
+                                    className="hidden lg:flex w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 items-center justify-center text-white/30 hover:text-white transition-all"
+                                    title="Close Editor"
+                                >
+                                    <X size={14} />
+                                </button>
+                                {/* Mobile: Hide Sidebar */}
+                                <button
+                                    onClick={() => setIsSidebarOpen(false)}
+                                    className="lg:hidden w-7 h-7 flex rounded-lg bg-white/5 hover:bg-white/10 items-center justify-center text-white/30 hover:text-white transition-all"
+                                    title="Hide Tools"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Scrollable body */}
@@ -780,6 +819,26 @@ export default function EditPageModal({ isOpen, onClose, lead }: EditPageModalPr
                                             <div className="ml-auto w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
                                         </div>
                                         <div className="p-5 space-y-5">
+                                            <div className="space-y-2">
+                                                <label className="flex items-center gap-1.5 text-[10px] font-black text-purple-400/60 uppercase tracking-widest">
+                                                    AI Engine
+                                                </label>
+                                                <select
+                                                    value={modelId}
+                                                    onChange={(e) => setModelId(e.target.value)}
+                                                    className="w-full bg-black/40 border border-white/8 hover:border-purple-500/30 focus:border-purple-500/50 rounded-xl px-4 py-3 text-[11px] font-bold text-white outline-none appearance-none cursor-pointer transition-all"
+                                                >
+                                                    <optgroup label="Cross-Engine" className="bg-zinc-900">
+                                                        <option value="gemini-3-1-pro">🟢 Gemini 3.1 Pro</option>
+                                                        <option value="claude-sonnet-4-6">🔵 Claude Sonnet 4.6</option>
+                                                        <option value="gpt-5-2">🟡 GPT 5.2</option>
+                                                    </optgroup>
+                                                    <optgroup label="OpenRouter Only" className="bg-zinc-900">
+                                                        <option value="deepseek-v4-pro">🟣 DeepSeek V4 Pro</option>
+                                                        <option value="qwen3.6-plus">🟠 Qwen 3.6 Plus</option>
+                                                    </optgroup>
+                                                </select>
+                                            </div>
                                             <div className="space-y-2">
                                                 <label className="flex items-center gap-1.5 text-[10px] font-black text-white/30 uppercase tracking-widest">
                                                     <Palette size={11} className="text-purple-400/60" /> Target Style

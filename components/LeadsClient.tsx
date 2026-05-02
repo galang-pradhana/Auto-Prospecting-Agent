@@ -22,6 +22,7 @@ import {
 import { generateWaLink } from '@/lib/actions/settings';
 import { isValidWhatsApp } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getUserSettings } from '@/lib/actions/user-settings';
 import TheForgeModal from './TheForgeModal';
 import { Hammer, ExternalLink, Clock } from 'lucide-react';
 import { ActivityTimeline } from './ActivityTimeline';
@@ -73,6 +74,7 @@ interface Lead {
 interface LeadsClientProps {
     initialLeads: Lead[];
     forceStatus?: string;
+    hideHeader?: boolean;
 }
 
 const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
@@ -100,7 +102,7 @@ const PRIORITY_BADGES: Record<string, { bg: string; text: string; label: string;
 
 const STATUS_FILTERS = ['ALL STATUS', 'FRESH', 'ENRICHED', 'READY', 'FINISH', 'LIVE'];
 
-export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientProps) {
+export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: LeadsClientProps) {
     const router = useRouter();
     const [leads, setLeads] = useState<Lead[]>(initialLeads);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -171,6 +173,17 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isTweakerOpen, setIsTweakerOpen] = useState(false);
     const [selectedLeadForTweak, setSelectedLeadForTweak] = useState<Lead | null>(null);
+    const [modelId, setModelId] = useState('gemini-3-1-pro');
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const settings = await getUserSettings();
+            if (settings?.htmlModel) {
+                setModelId(settings.htmlModel);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     // FIXED: Proper filtering dengan useMemo untuk stability
     const filteredLeads = useMemo(() => {
@@ -329,7 +342,7 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                 await fetch('/api/forge/run', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ leadId: id })
+                    body: JSON.stringify({ leadId: id, modelId })
                 });
 
                 // Wait between jobs to avoid Kie.ai rate limits
@@ -425,27 +438,29 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
 
     return (
         <div className="space-y-8 pb-32">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-4xl font-black mb-2 tracking-tighter text-white">Lead Intelligence</h1>
-                    <p className="text-white/40 italic text-xs md:text-sm font-medium">Database-powered repository. Filtered by status & category.</p>
-                </div>
-                
-                <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-4 md:px-6 py-3 rounded-2xl w-full md:w-auto justify-between md:justify-start">
-                    <div className="flex flex-col items-end">
-                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Total</span>
-                        <span className="text-lg md:text-xl font-mono font-bold text-accent-gold">{totalLeads}</span>
+            {!hideHeader && (
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-4 md:px-0">
+                    <div>
+                        <h1 className="text-2xl md:text-4xl font-black mb-2 tracking-tighter text-white">Lead Intelligence</h1>
+                        <p className="text-white/40 italic text-xs md:text-sm font-medium">Database-powered repository. Filtered by status & category.</p>
                     </div>
-                    <div className="w-px h-8 bg-white/10" />
-                    <div className="flex flex-col items-end">
-                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Fresh</span>
-                        <span className="text-lg md:text-xl font-mono font-bold text-green-400">{leads.filter(l => l.status === 'FRESH').length}</span>
+                    
+                    <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-4 md:px-6 py-3 rounded-2xl w-full md:w-auto justify-between md:justify-start">
+                        <div className="flex flex-col items-end">
+                            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Total</span>
+                            <span className="text-lg md:text-xl font-mono font-bold text-accent-gold">{totalLeads}</span>
+                        </div>
+                        <div className="w-px h-8 bg-white/10" />
+                        <div className="flex flex-col items-end">
+                            <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/20 leading-none">Fresh</span>
+                            <span className="text-lg md:text-xl font-mono font-bold text-green-400">{leads.filter(l => l.status === 'FRESH').length}</span>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Reactive Filter Bar */}
-            <div className="glass p-6 rounded-[32px] border-white/5 bg-zinc-950/40 sticky top-4 z-30 backdrop-blur-2xl shadow-2xl">
+            <div className="glass p-4 md:p-6 rounded-2xl md:rounded-[32px] border-white/5 bg-zinc-950/40 sticky top-4 z-30 backdrop-blur-2xl shadow-2xl mx-4 md:mx-0">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
                     <div className="relative flex-1 group w-full">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-accent-gold transition-colors" size={18} />
@@ -497,9 +512,9 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
             </div>
 
             {/* Leads View */}
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8 px-4 md:px-0">
                 {/* Content View Toggle */}
-                <div className="flex items-center justify-between mb-8 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex items-center justify-between mb-4 md:mb-8 overflow-x-auto pb-2 scrollbar-hide">
                     <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
                         <button 
                             onClick={() => setView('grid')}
@@ -793,8 +808,8 @@ export default function LeadsClient({ initialLeads, forceStatus }: LeadsClientPr
                                                     {lead.priorityTier === 'HOT' ? '🔥' : lead.priorityTier === 'WARM' ? '⚡' : '🧊'} {lead.priorityTier}
                                                 </div>
                                             )}
-                                            <div className={`px-2.5 py-1 ${(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).bg} ${(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).text} text-[9px] font-black uppercase rounded-lg border border-current/10`}>
-                                                {(STATUS_BADGES[lead.followupStage] || STATUS_BADGES.sent).label}
+                                            <div className={`px-2.5 py-1 ${(STATUS_BADGES[lead.status] || STATUS_BADGES.FRESH).bg} ${(STATUS_BADGES[lead.status] || STATUS_BADGES.FRESH).text} text-[9px] font-black uppercase rounded-lg border border-current/10`}>
+                                                {(STATUS_BADGES[lead.status] || STATUS_BADGES.FRESH).label}
                                             </div>
                                         </div>
 

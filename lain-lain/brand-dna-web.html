@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand DNA → Website Brief</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0F1115;
+  --surface: #1A1D23;
+  --border: rgba(255,255,255,0.08);
+  --border-h: rgba(255,255,255,0.18);
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.4);
+  --accent: #D4AF37;
+  --accent-d: #B5952F;
+  --r: 12px;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  overflow: hidden;
+}
+
+/* ── TOPBAR ── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--border); z-index: 200;
+}
+#topbar-fill {
+  height: 100%; background: var(--accent);
+  transition: width 0.5s cubic-bezier(.4,0,.2,1);
+  width: 0%;
+}
+
+/* ── SCREENS ── */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 20px 60px;
+  opacity: 0; pointer-events: none;
+  transform: translateY(28px);
+  transition: opacity 0.38s ease, transform 0.38s cubic-bezier(.4,0,.2,1);
+}
+.screen.active {
+  opacity: 1; pointer-events: all; transform: translateY(0);
+}
+.screen.exit {
+  opacity: 0; transform: translateY(-24px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.inner {
+  width: 100%; max-width: 580px;
+  display: flex; flex-direction: column; gap: 28px;
+}
+
+/* ── RESULT screen scrolls ── */
+#screen-result {
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding-top: 60px;
+}
+#screen-result .inner { max-width: 660px; }
+
+/* ── STEP LABEL ── */
+.step {
+  font-family: 'Inter', monospace;
+  font-size: 11px; color: var(--muted);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 10px;
+}
+.step::before { content:''; width:18px;height:1px;background:var(--muted); }
+
+/* ── QUESTION TEXT ── */
+.qtext {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(24px, 5vw, 36px);
+  line-height: 1.22; font-weight: 400;
+}
+.qtext em { font-style: italic; color: var(--accent); }
+
+.qhint {
+  font-size: 13px; color: var(--muted); line-height: 1.7;
+  margin-top: -14px;
+}
+
+/* ── INPUTS ── */
+input[type="text"], textarea {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 15px 18px;
+  font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 400;
+  color: var(--text); outline: none; resize: none; line-height: 1.6;
+  transition: border-color 0.2s;
+}
+textarea { min-height: 110px; }
+::placeholder { color: var(--muted); }
+input[type="text"]:focus, textarea:focus {
+  border-color: rgba(212,175,55,0.5);
+}
+
+/* ── CHIPS ── */
+.chips { display: flex; flex-wrap: wrap; gap: 9px; }
+.chip {
+  padding: 9px 16px;
+  border: 1.5px solid var(--border); border-radius: 100px;
+  font-size: 13px; cursor: pointer; color: var(--muted);
+  transition: all 0.15s; user-select: none; white-space: nowrap;
+}
+.chip:hover { border-color: var(--border-h); color: var(--text); }
+.chip.on { border-color: var(--accent); color: var(--accent); background: rgba(212,175,55,0.1); }
+
+/* ── VIBE GRID ── */
+.vgrid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px;
+}
+.vcard {
+  aspect-ratio: 1.1;
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 7px; cursor: pointer; transition: all 0.18s;
+  padding: 10px; text-align: center;
+}
+.vcard:hover { border-color: var(--border-h); }
+.vcard.on { border-color: var(--accent); background: rgba(212,175,55,0.1); }
+.vcard .vi { font-size: 26px; line-height: 1; }
+.vcard .vl { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.vcard.on .vl { color: var(--accent); }
+
+/* ── SCALES ── */
+.scales { display: flex; flex-direction: column; gap: 22px; }
+.sitem {}
+.sends {
+  display: flex; justify-content: space-between;
+  font-size: 11.5px; color: var(--muted); margin-bottom: 8px;
+}
+input[type="range"] {
+  width: 100%; appearance: none; height: 2px;
+  background: var(--border); border-radius: 2px;
+  cursor: pointer; border: none; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none; width: 17px; height: 17px;
+  background: var(--accent); border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(232,255,90,0.12);
+}
+.sval {
+  text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 5px;
+}
+
+/* ── UPLOAD ZONES ── */
+.uzones { display: flex; flex-direction: column; gap: 12px; }
+.uzone {
+  border: 1.5px dashed var(--border); border-radius: var(--r);
+  padding: 22px 20px; cursor: pointer; transition: all 0.2s;
+  position: relative; display: flex; align-items: center; gap: 16px;
+}
+.uzone:hover { border-color: var(--border-h); }
+.uzone.has { border-color: rgba(232,255,90,0.35); border-style: solid; }
+.uzone input {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+.uzone-ico { font-size: 24px; flex-shrink: 0; }
+.uzone-text h4 { font-size: 14px; font-weight: 400; margin-bottom: 2px; }
+.uzone-text p { font-size: 12px; color: var(--muted); }
+.uzone-names { font-size: 11.5px; color: var(--accent); margin-top: 4px; font-family: 'Geist Mono', monospace; }
+
+/* ── BUTTONS ── */
+.brow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.bnext {
+  display: inline-flex; align-items: center; gap: 9px;
+  background: var(--accent); color: #0a0a0a;
+  font-family: 'Geist', sans-serif; font-weight: 600; font-size: 14px;
+  padding: 13px 26px; border: none; border-radius: 100px;
+  cursor: pointer; transition: all 0.18s;
+}
+.bnext:hover { background: var(--accent-d); transform: translateY(-1px); }
+.bnext svg { width:15px;height:15px; }
+.bskip {
+  font-size: 13px; color: var(--muted); background: none;
+  border: none; cursor: pointer; font-family: 'Geist', sans-serif;
+  transition: color 0.18s;
+}
+.bskip:hover { color: var(--text); }
+.bback {
+  font-size: 13px; color: var(--muted); background: none; border: none;
+  cursor: pointer; font-family: 'Geist', sans-serif;
+  display: flex; align-items: center; gap: 5px;
+  transition: color 0.18s; margin-left: auto;
+}
+.bback:hover { color: var(--text); }
+.bback svg { width:13px;height:13px; }
+.ehint {
+  font-size: 11px; color: var(--muted); font-family: 'Geist Mono', monospace;
+  display: flex; align-items: center; gap: 5px;
+}
+.ehint kbd {
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 5px; font-size: 11px;
+}
+
+/* ── HERO ── */
+#sh .hero-tag {
+  font-family: 'Geist Mono', monospace; font-size: 10.5px;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent);
+}
+#sh h1 {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(34px, 6vw, 58px); line-height: 1.1; font-weight: 400;
+}
+#sh h1 em { font-style: italic; }
+#sh p { font-size: 15px; color: var(--muted); line-height: 1.72; max-width: 420px; }
+.metas { display: flex; gap: 20px; flex-wrap: wrap; }
+.meta { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+.mdot { width:5px;height:5px;background:var(--accent);border-radius:50%; }
+
+/* ── RESULT ── */
+.res-head {
+  text-align: center; padding-bottom: 22px;
+  border-bottom: 1px solid var(--border); margin-bottom: 22px;
+}
+.rbadge {
+  display: inline-block; padding: 4px 14px;
+  background: rgba(232,255,90,0.1); border: 1px solid rgba(232,255,90,0.25);
+  border-radius: 100px; font-size: 10px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
+  font-family: 'Geist Mono', monospace;
+}
+.res-head h2 {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(28px,4vw,42px); font-weight: 400;
+}
+.res-head h2 em { font-style: italic; }
+.dsec { margin-bottom: 26px; }
+.dsec-title {
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 10px;
+  font-family: 'Geist Mono', monospace;
+  display: flex; align-items: center; gap: 10px;
+}
+.dsec-title::after { content:''; flex:1; height:1px; background:var(--border); }
+.drow {
+  display: flex; gap: 14px; padding: 10px 0;
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.dkey { color: var(--muted); min-width: 140px; flex-shrink: 0; }
+.dval { color: var(--text); line-height: 1.6; word-break: break-word; flex: 1; }
+.dval:empty::after { content:'—'; color: var(--border-h); }
+.erow {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border);
+}
+.bexp {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 20px; border-radius: 100px; font-size: 13px;
+  font-weight: 500; cursor: pointer; font-family: 'Geist', sans-serif;
+  transition: all 0.18s;
+}
+.bexp svg { width:13px;height:13px; }
+.bexp.p { background: var(--accent); color: #0a0a0a; border: none; }
+.bexp.p:hover { background: var(--accent-d); }
+.bexp.o { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+.bexp.o:hover { border-color: var(--border-h); }
+
+@media(max-width:460px){
+  .vgrid { grid-template-columns: repeat(3,1fr); }
+  .drow { flex-direction: column; gap: 3px; }
+  .dkey { min-width: auto; color: var(--accent); font-size: 11px; }
+}
+
+@media print {
+  #topbar, .erow { display:none!important; }
+  #screen-result { position:static!important; overflow:visible!important; padding:16px!important; }
+  body { background:#fff!important; color:#000!important; overflow:auto!important; }
+  .rbadge,.dsec-title { color:#333!important; }
+  .dkey { color:#666!important; }
+  .dsec-title::after, .drow { border-color:#e0e0e0!important; }
+  .dval { color:#000!important; }
+  .res-head h2 em { color:inherit!important; }
+}
+</style>
+</head>
+<body>
+
+<div id="topbar"><div id="topbar-fill"></div></div>
+
+<!-- HERO -->
+<div class="screen active" id="sh">
+  <div class="inner">
+    <div class="hero-tag">Website Brief · Brand DNA</div>
+    <h1>Ceritain<br><em>bisnismu.</em></h1>
+    <p>Jawab beberapa pertanyaan santai — hasilnya langsung jadi Brand DNA & website brief yang bisa langsung dipakai.</p>
+    <div class="metas">
+      <div class="meta"><div class="mdot"></div>15 pertanyaan</div>
+      <div class="meta"><div class="mdot"></div>~8 menit</div>
+      <div class="meta"><div class="mdot"></div>Bisa di-print & copy</div>
+    </div>
+    <div><button class="bnext" onclick="go('sh','q1',1)">Mulai sekarang <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button></div>
+  </div>
+</div>
+
+<!-- Q1 -->
+<div class="screen" id="q1">
+  <div class="inner">
+    <div class="step">01 · 15 — Identitas</div>
+    <div class="qtext">Nama brand atau<br><em>bisnis</em> kamu?</div>
+    <input type="text" id="v-brand_name" placeholder="Tulis nama brandmu..." autocomplete="off">
+    <div class="brow">
+      <button class="bnext" onclick="go('q1','q2',2)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <span class="ehint"><kbd>Enter</kbd></span>
+      <button class="bback" onclick="goBack('q1','sh',0)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q2 -->
+<div class="screen" id="q2">
+  <div class="inner">
+    <div class="step">02 · 15 — Bisnis</div>
+    <div class="qtext">Bisnis kamu<br><em>tentang apa?</em></div>
+    <div class="qhint">1–2 kalimat santai. Misal: "Kami jual kopi specialty untuk remote worker" atau "Studio foto portrait keluarga."</div>
+    <textarea id="v-tagline" placeholder="Cerita singkat bisnismu..."></textarea>
+    <div class="brow">
+      <button class="bnext" onclick="go('q2','q3',3)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bback" onclick="goBack('q2','q1',1)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q3 -->
+<div class="screen" id="q3">
+  <div class="inner">
+    <div class="step">03 · 15 — Audiens</div>
+    <div class="qtext">Produk kamu paling<br><em>cocok untuk siapa?</em></div>
+    <div class="qhint">Gambarin orangnya, bukan demografinya. Misal: "Ibu muda yang sibuk tapi mau stylish" atau "Founder yang baru dapat funding."</div>
+    <textarea id="v-target" placeholder="Orang yang paling cocok jadi pelanggan kamu..."></textarea>
+    <div class="brow">
+      <button class="bnext" onclick="go('q3','q4',4)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bback" onclick="goBack('q3','q2',2)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q4 -->
+<div class="screen" id="q4">
+  <div class="inner">
+    <div class="step">04 · 15 — Keunggulan</div>
+    <div class="qtext">Kenapa orang pilih<br>kamu, <em>bukan yang lain?</em></div>
+    <div class="qhint">Jujur aja — bisa soal produk, pelayanan, pengalaman, atau nilai yang kamu pegang.</div>
+    <textarea id="v-usp" placeholder="Yang beda dari kami adalah..."></textarea>
+    <div class="brow">
+      <button class="bnext" onclick="go('q4','q5',5)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bback" onclick="goBack('q4','q3',3)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q5 VIBE -->
+<div class="screen" id="q5">
+  <div class="inner">
+    <div class="step">05 · 15 — Visual</div>
+    <div class="qtext">Kalau brand kamu punya<br><em>vibe</em>, yang mana?</div>
+    <div class="vgrid" id="vg">
+      <div class="vcard" data-val="Clean & Minimal" onclick="tv(this)"><div class="vi">◻️</div><div class="vl">Clean<br>Minimal</div></div>
+      <div class="vcard" data-val="Bold & Edgy" onclick="tv(this)"><div class="vi">⚡</div><div class="vl">Bold<br>Edgy</div></div>
+      <div class="vcard" data-val="Warm & Earthy" onclick="tv(this)"><div class="vi">🌿</div><div class="vl">Warm<br>Earthy</div></div>
+      <div class="vcard" data-val="Dark & Premium" onclick="tv(this)"><div class="vi">🌑</div><div class="vl">Dark<br>Premium</div></div>
+      <div class="vcard" data-val="Playful & Colorful" onclick="tv(this)"><div class="vi">🎨</div><div class="vl">Playful<br>Colorful</div></div>
+      <div class="vcard" data-val="Luxury & Refined" onclick="tv(this)"><div class="vi">✦</div><div class="vl">Luxury<br>Refined</div></div>
+      <div class="vcard" data-val="Tech & Futuristic" onclick="tv(this)"><div class="vi">⬡</div><div class="vl">Tech<br>Futuristic</div></div>
+      <div class="vcard" data-val="Editorial" onclick="tv(this)"><div class="vi">Aa</div><div class="vl">Editorial<br>Typographic</div></div>
+      <div class="vcard" data-val="Vintage & Nostalgic" onclick="tv(this)"><div class="vi">📷</div><div class="vl">Vintage<br>Nostalgic</div></div>
+    </div>
+    <div class="brow">
+      <button class="bnext" onclick="go('q5','q6',6)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bskip" onclick="go('q5','q6',6)">Skip</button>
+      <button class="bback" onclick="goBack('q5','q4',4)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q6 TONE -->
+<div class="screen" id="q6">
+  <div class="inner">
+    <div class="step">06 · 15 — Tone</div>
+    <div class="qtext">Kalau brand kamu<br>bicara, <em>nadanya</em> gimana?</div>
+    <div class="scales">
+      <div class="sitem">
+        <div class="sends"><span>Formal</span><span>Santai & Friendly</span></div>
+        <input type="range" min="1" max="10" value="5" id="s1" oninput="sl(this,'sv1')">
+        <div class="sval" id="sv1">Seimbang</div>
+      </div>
+      <div class="sitem">
+        <div class="sends"><span>Serius & Berbobot</span><span>Playful & Fun</span></div>
+        <input type="range" min="1" max="10" value="5" id="s2" oninput="sl(this,'sv2')">
+        <div class="sval" id="sv2">Seimbang</div>
+      </div>
+      <div class="sitem">
+        <div class="sends"><span>Classic & Timeless</span><span>Modern & Edgy</span></div>
+        <input type="range" min="1" max="10" value="5" id="s3" oninput="sl(this,'sv3')">
+        <div class="sval" id="sv3">Seimbang</div>
+      </div>
+    </div>
+    <div class="brow">
+      <button class="bnext" onclick="go('q6','q7',7)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bback" onclick="goBack('q6','q5',5)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q7 KEYWORDS -->
+<div class="screen" id="q7">
+  <div class="inner">
+    <div class="step">07 · 15 — Brand Words</div>
+    <div class="qtext">3 kata yang paling<br><em>mewakilkan</em> brand kamu.</div>
+    <div class="chips" id="kchips">
+      <div class="chip" onclick="tc(this,'kw')">Terpercaya</div>
+      <div class="chip" onclick="tc(this,'kw')">Inovatif</div>
+      <div class="chip" onclick="tc(this,'kw')">Personal</div>
+      <div class="chip" onclick="tc(this,'kw')">Berani</div>
+      <div class="chip" onclick="tc(this,'kw')">Ramah</div>
+      <div class="chip" onclick="tc(this,'kw')">Eksklusif</div>
+      <div class="chip" onclick="tc(this,'kw')">Simpel</div>
+      <div class="chip" onclick="tc(this,'kw')">Kreatif</div>
+      <div class="chip" onclick="tc(this,'kw')">Lokal</div>
+      <div class="chip" onclick="tc(this,'kw')">Global</div>
+      <div class="chip" onclick="tc(this,'kw')">Sustainable</div>
+      <div class="chip" onclick="tc(this,'kw')">Efisien</div>
+    </div>
+    <input type="text" id="v-kw-extra" placeholder="Atau tambah kata kamu sendiri...">
+    <div class="brow">
+      <button class="bnext" onclick="go('q7','q8',8)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bskip" onclick="go('q7','q8',8)">Skip</button>
+      <button class="bback" onclick="goBack('q7','q6',6)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q8 WEB GOAL -->
+<div class="screen" id="q8">
+  <div class="inner">
+    <div class="step">08 · 15 — Website</div>
+    <div class="qtext">Website ini mau<br><em>ngapain</em> untuk kamu?</div>
+    <div class="chips" id="gchips">
+      <div class="chip" onclick="tc(this,'wg')">💼 Tampil profesional</div>
+      <div class="chip" onclick="tc(this,'wg')">🛒 Jual produk / layanan</div>
+      <div class="chip" onclick="tc(this,'wg')">📋 Dapat leads / inquiry</div>
+      <div class="chip" onclick="tc(this,'wg')">📅 Booking & reservasi</div>
+      <div class="chip" onclick="tc(this,'wg')">🖼 Portfolio showcase</div>
+      <div class="chip" onclick="tc(this,'wg')">📖 Edukasi & konten</div>
+      <div class="chip" onclick="tc(this,'wg')">💬 Arahkan ke WhatsApp</div>
+      <div class="chip" onclick="tc(this,'wg')">🤝 Bangun komunitas</div>
+    </div>
+    <div class="brow">
+      <button class="bnext" onclick="go('q8','q9',9)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bback" onclick="goBack('q8','q7',7)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q9 PAGES -->
+<div class="screen" id="q9">
+  <div class="inner">
+    <div class="step">09 · 15 — Halaman</div>
+    <div class="qtext">Halaman apa saja<br>yang <em>perlu ada?</em></div>
+    <div class="chips" id="pchips">
+      <div class="chip" onclick="tc(this,'pg')">🏠 Home</div>
+      <div class="chip" onclick="tc(this,'pg')">👤 About / Tentang Kami</div>
+      <div class="chip" onclick="tc(this,'pg')">📦 Produk / Layanan</div>
+      <div class="chip" onclick="tc(this,'pg')">🖼 Portfolio</div>
+      <div class="chip" onclick="tc(this,'pg')">⭐ Testimoni</div>
+      <div class="chip" onclick="tc(this,'pg')">📝 Blog / Artikel</div>
+      <div class="chip" onclick="tc(this,'pg')">💲 Pricing</div>
+      <div class="chip" onclick="tc(this,'pg')">❓ FAQ</div>
+      <div class="chip" onclick="tc(this,'pg')">📞 Kontak</div>
+      <div class="chip" onclick="tc(this,'pg')">👥 Tim</div>
+    </div>
+    <div class="brow">
+      <button class="bnext" onclick="go('q9','q10',10)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bback" onclick="goBack('q9','q8',8)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q10 WEB REF -->
+<div class="screen" id="q10">
+  <div class="inner">
+    <div class="step">10 · 15 — Referensi</div>
+    <div class="qtext">Ada website yang<br>kamu <em>suka tampilannya?</em></div>
+    <div class="qhint">Paste URL + tulis singkat apa yang kamu suka. Boleh skip.</div>
+    <textarea id="v-webref" placeholder="www.contoh.com — suka karena: ...&#10;www.lain.com — menarik di bagian: ..."></textarea>
+    <div class="brow">
+      <button class="bnext" onclick="go('q10','q11',11)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bskip" onclick="go('q10','q11',11)">Skip</button>
+      <button class="bback" onclick="goBack('q10','q9',9)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q11 WARNA -->
+<div class="screen" id="q11">
+  <div class="inner">
+    <div class="step">11 · 15 — Warna</div>
+    <div class="qtext">Brand kamu<br>punya <em>warna?</em></div>
+    <div class="qhint">Tulis kode hex, nama warna, atau deskripsiin nuansanya kalau belum ada warna resmi.</div>
+    <input type="text" id="v-colors" placeholder="Misal: #1A1A2E · biru navy · earth tone · belum ada tapi suka nuansa gelap...">
+    <div class="brow">
+      <button class="bnext" onclick="go('q11','q12',12)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bskip" onclick="go('q11','q12',12)">Skip</button>
+      <button class="bback" onclick="goBack('q11','q10',10)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q12 ONE LINER -->
+<div class="screen" id="q12">
+  <div class="inner">
+    <div class="step">12 · 15 — Brand Sentence</div>
+    <div class="qtext">Kalau harus jelasin<br>brandmu dalam<br><em>satu kalimat?</em></div>
+    <div class="qhint">Bayangkan kamu punya 10 detik di lift dengan orang penting.</div>
+    <input type="text" id="v-oneliner" placeholder="Kami membantu [siapa] untuk [apa] dengan [cara / keunggulan]...">
+    <div class="brow">
+      <button class="bnext" onclick="go('q12','q13',13)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bskip" onclick="go('q12','q13',13)">Skip</button>
+      <button class="bback" onclick="goBack('q12','q11',11)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q13 TIMELINE -->
+<div class="screen" id="q13">
+  <div class="inner">
+    <div class="step">13 · 15 — Timeline</div>
+    <div class="qtext">Target kapan<br>website <em>harus live?</em></div>
+    <div class="chips" id="tchips" style="margin-bottom:8px">
+      <div class="chip" onclick="tc(this,'tl')">🚀 Secepatnya</div>
+      <div class="chip" onclick="tc(this,'tl')">📅 1 bulan</div>
+      <div class="chip" onclick="tc(this,'tl')">🗓 2–3 bulan</div>
+      <div class="chip" onclick="tc(this,'tl')">⏳ Fleksibel</div>
+    </div>
+    <input type="text" id="v-timeline" placeholder="Target spesifik + budget range (opsional)...">
+    <div class="brow">
+      <button class="bnext" onclick="go('q13','q14',14)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bskip" onclick="go('q13','q14',14)">Skip</button>
+      <button class="bback" onclick="goBack('q13','q12',12)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q14 NOTES -->
+<div class="screen" id="q14">
+  <div class="inner">
+    <div class="step">14 · 15 — Free Notes</div>
+    <div class="qtext">Ada yang mau<br><em>ditambahin?</em></div>
+    <div class="qhint">Hal yang belum kecakup — pantangan desain, preferensi khusus, konteks penting, dll.</div>
+    <textarea id="v-notes" placeholder="Tulis bebas — apapun yang perlu kami tahu..."></textarea>
+    <div class="brow">
+      <button class="bnext" onclick="go('q14','q15',15)">Lanjut <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      <button class="bskip" onclick="go('q14','q15',15)">Skip</button>
+      <button class="bback" onclick="goBack('q14','q13',13)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Q15 UPLOAD -->
+<div class="screen" id="q15">
+  <div class="inner">
+    <div class="step">15 · 15 — Assets</div>
+    <div class="qtext">Upload materi<br><em>brand kamu.</em></div>
+    <div class="uzones">
+      <div class="uzone" id="uz1">
+        <input type="file" multiple accept="image/*,.pdf,.svg,.ai,.eps" onchange="uf(this,'un1','uz1','logo')">
+        <div class="uzone-ico">🎨</div>
+        <div class="uzone-text">
+          <h4>Logo & Brand Identity</h4>
+          <p>SVG, AI, EPS, PNG, PDF</p>
+          <div class="uzone-names" id="un1"></div>
+        </div>
+      </div>
+      <div class="uzone" id="uz2">
+        <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt" onchange="uf(this,'un2','uz2','content')">
+        <div class="uzone-ico">📁</div>
+        <div class="uzone-text">
+          <h4>Konten & Materi Website</h4>
+          <p>Foto produk, teks, dokumen</p>
+          <div class="uzone-names" id="un2"></div>
+        </div>
+      </div>
+      <div class="uzone" id="uz3">
+        <input type="file" multiple accept="image/*,.pdf" onchange="uf(this,'un3','uz3','ref')">
+        <div class="uzone-ico">💡</div>
+        <div class="uzone-text">
+          <h4>Referensi Visual / Moodboard</h4>
+          <p>Screenshot, inspirasi tampilan</p>
+          <div class="uzone-names" id="un3"></div>
+        </div>
+      </div>
+    </div>
+    <div class="brow">
+      <button class="bnext" onclick="showResult()" style="font-size:14.5px;padding:14px 30px">
+        Lihat Brand DNA Brief ✦
+      </button>
+      <button class="bskip" onclick="showResult()">Skip upload</button>
+      <button class="bback" onclick="goBack('q15','q14',14)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"/></svg> Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="screen-result">
+  <div class="inner">
+    <div class="res-head">
+      <div class="rbadge">Brand DNA — Website Brief</div>
+      <h2>Brief siap<br><em>digunakan.</em></h2>
+    </div>
+    <div id="dna-out"></div>
+    <div class="erow">
+      <button class="bexp p" id="submitBtn" onclick="submitBrandDna()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+        Kirim & Simpan PDF
+      </button>
+      <button class="bexp o" id="copybtn" onclick="copyBrief()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        Copy Brief
+      </button>
+      <button class="bexp o" onclick="location.reload()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15"/></svg>
+        Isi Ulang
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+const D = {
+  brand_name:'', tagline:'', target:'', usp:'',
+  vibe:[], tone:{s1:5,s2:5,s3:5},
+  kw:[], kw_extra:'',
+  wg:[], pg:[],
+  webref:'', colors:'', oneliner:'',
+  tl:[], timeline_extra:'', notes:'',
+  files:{logo:[],content:[],ref:[]}
+};
+
+const TOTAL = 15;
+
+// ── NAV ──
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.remove('active','exit');
+  });
+  const el = document.getElementById(id);
+  if(el) el.classList.add('active');
+}
+
+function go(fromId, toId, step){
+  collect(fromId);
+  const from = document.getElementById(fromId);
+  if(from){ from.classList.add('exit'); }
+  setTimeout(()=>{ show(toId); }, 270);
+  const pct = Math.min(100, Math.round(step/TOTAL*100));
+  document.getElementById('topbar-fill').style.width = pct+'%';
+}
+
+function goBack(fromId, toId, step){
+  collect(fromId);
+  show(toId);
+  const pct = Math.round(step/TOTAL*100);
+  document.getElementById('topbar-fill').style.width = (step===0?0:pct)+'%';
+}
+
+// ── COLLECT ──
+const txMap = {q1:'brand_name',q2:'tagline',q3:'target',q4:'usp',q10:'webref',q11:'colors',q12:'oneliner',q14:'notes'};
+function collect(id){
+  if(txMap[id]){
+    const el = document.getElementById('v-'+txMap[id]);
+    if(el) D[txMap[id]] = el.value.trim();
+  }
+  if(id==='q6'){
+    D.tone.s1=document.getElementById('s1').value;
+    D.tone.s2=document.getElementById('s2').value;
+    D.tone.s3=document.getElementById('s3').value;
+  }
+  if(id==='q7'){
+    const ex=document.getElementById('v-kw-extra');
+    if(ex) D.kw_extra=ex.value.trim();
+  }
+  if(id==='q13'){
+    const ex=document.getElementById('v-timeline');
+    if(ex) D.timeline_extra=ex.value.trim();
+  }
+}
+
+// ── CHIPS ──
+function tc(el,key){
+  el.classList.toggle('on');
+  const val = el.textContent.trim();
+  if(el.classList.contains('on')){
+    if(!D[key].includes(val)) D[key].push(val);
+  } else {
+    D[key]=D[key].filter(v=>v!==val);
+  }
+}
+
+// ── VIBE ──
+function tv(el){
+  el.classList.toggle('on');
+  const val=el.dataset.val;
+  if(el.classList.contains('on')){
+    if(!D.vibe.includes(val)) D.vibe.push(val);
+  } else {
+    D.vibe=D.vibe.filter(v=>v!==val);
+  }
+}
+
+// ── SLIDER ──
+const sLabels = {
+  s1:['Sangat Formal','Formal','Agak Formal','Seimbang','Agak Santai','Santai','Sangat Santai'],
+  s2:['Sangat Serius','Serius','Agak Serius','Seimbang','Agak Playful','Playful','Sangat Playful'],
+  s3:['Sangat Classic','Classic','Agak Classic','Seimbang','Agak Modern','Modern','Sangat Modern'],
+};
+function sl(input,valId){
+  const v=parseInt(input.value);
+  const key=input.id;
+  const arr=sLabels[key]||[];
+  const idx=Math.round((v-1)/9*(arr.length-1));
+  document.getElementById(valId).textContent=arr[idx]||'Seimbang';
+}
+
+// ── FILES ──
+function uf(input,namesId,zoneId,key){
+  const names=Array.from(input.files).map(f=>f.name);
+  document.getElementById(namesId).textContent=names.length?'✓ '+names.join(', '):'';
+  document.getElementById(zoneId).classList.toggle('has',names.length>0);
+  D.files[key]=names;
+}
+
+// ── RESULT ──
+function showResult(){
+  collect('q14'); collect('q15');
+
+  const toneStr = [
+    `Formal↔Santai: ${D.tone.s1}/10`,
+    `Serius↔Playful: ${D.tone.s2}/10`,
+    `Classic↔Modern: ${D.tone.s3}/10`
+  ].join(' · ');
+
+  const kwAll=[...D.kw,...(D.kw_extra?[D.kw_extra]:[])].join(', ');
+  const tlAll=[...D.tl,...(D.timeline_extra?[D.timeline_extra]:[])].join(', ');
+  const filesStr=[
+    D.files.logo.length?`Logo (${D.files.logo.length} file)`:'',
+    D.files.content.length?`Konten (${D.files.content.length} file)`:'',
+    D.files.ref.length?`Referensi (${D.files.ref.length} file)`:'',
+  ].filter(Boolean).join(', ')||'—';
+
+  const secs=[
+    { title:'Brand DNA', rows:[
+      ['Nama Brand', D.brand_name],
+      ['Deskripsi Bisnis', D.tagline],
+      ['Target Audiens', D.target],
+      ['Keunggulan Utama (USP)', D.usp],
+      ['Brand in One Sentence', D.oneliner],
+      ['Kata Kunci Brand', kwAll],
+    ]},
+    { title:'Visual & Personality', rows:[
+      ['Vibe Visual', D.vibe.join(', ')],
+      ['Tone of Voice', toneStr],
+      ['Warna Brand', D.colors],
+    ]},
+    { title:'Website Brief', rows:[
+      ['Tujuan Website', D.wg.join(', ')],
+      ['Halaman Dibutuhkan', D.pg.join(', ')],
+      ['Referensi Website', D.webref],
+      ['Timeline & Budget', tlAll],
+    ]},
+    { title:'Assets & Catatan', rows:[
+      ['File Diupload', filesStr],
+      ['Catatan Tambahan', D.notes],
+    ]},
+  ];
+
+  document.getElementById('dna-out').innerHTML = secs.map(s=>`
+    <div class="dsec">
+      <div class="dsec-title">${s.title}</div>
+      ${s.rows.map(([k,v])=>`<div class="drow"><div class="dkey">${k}</div><div class="dval">${v||''}</div></div>`).join('')}
+    </div>
+  `).join('');
+
+  const from = document.getElementById('q15');
+  if(from) from.classList.add('exit');
+  setTimeout(()=>{ show('screen-result'); }, 270);
+  document.getElementById('topbar-fill').style.width='100%';
+}
+
+// ── COPY ──
+function copyBrief(){
+  let txt='BRAND DNA — WEBSITE BRIEF\n'+'═'.repeat(30)+'\n\n';
+  document.querySelectorAll('.dsec').forEach(sec=>{
+    txt+=`── ${sec.querySelector('.dsec-title').textContent.trim()} ──\n`;
+    sec.querySelectorAll('.drow').forEach(r=>{
+      const k=r.querySelector('.dkey').textContent.trim();
+      const v=r.querySelector('.dval').textContent.trim();
+      if(v&&v!=='—') txt+=`${k}: ${v}\n`;
+    });
+    txt+='\n';
+  });
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn=document.getElementById('copybtn');
+    btn.textContent='✓ Tersalin!';
+    setTimeout(()=>{ btn.innerHTML='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px"><path stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Copy Brief'; },2000);
+  }).catch(()=>alert('Gunakan Print untuk menyimpan.'));
+}
+
+// ── SUBMIT ──
+async function submitBrandDna() {
+  const btn = document.getElementById('submitBtn');
+  if(btn) {
+    btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4m14.14-5.66l-1.41 1.41M7.27 18.14l-1.41 1.41M18.14 18.14l-1.41-1.41M7.27 5.86L5.86 7.27"/></svg> Menyimpan...';
+    btn.disabled = true;
+  }
+  
+  try {
+    const res = await fetch('/api/brand-blueprint/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: window.BRAND_DNA_TOKEN || '',
+        answers: D
+      })
+    });
+    
+    const data = await res.json();
+    if(data.success) {
+      if(btn) btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 13l4 4L19 7"/></svg> Tersimpan';
+      
+      // Delay sedikit agar UI tombol update sebelum window.print memblokir thread
+      setTimeout(() => {
+          window.print();
+      }, 500);
+      
+    } else {
+      throw new Error(data.error || 'Gagal mengirim');
+    }
+  } catch (e) {
+    alert(e.message);
+    if(btn) {
+      btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg> Coba Lagi';
+      btn.disabled = false;
+    }
+  }
+}
+
+// ── ENTER KEY ──
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Enter') return;
+  const active=document.querySelector('.screen.active');
+  if(!active||active.id==='sh'||active.id==='screen-result') return;
+  const ta=active.querySelector('textarea');
+  if(ta&&document.activeElement===ta) return;
+  const btn=active.querySelector('.bnext');
+  if(btn) btn.click();
+});
+</script>
+</body>
+</html>

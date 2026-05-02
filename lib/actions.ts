@@ -30,7 +30,10 @@ export { enrichLead, batchEnrichLeads, generateForgeCode, getKieCredit } from '.
 
 export { 
     getUserSettings, 
-    updateUserSettings, 
+    updateUserSettings 
+} from './actions/user-settings';
+
+export {
     getWaTemplates, 
     saveWaTemplate, 
     deleteWaTemplate, 

@@ -95,6 +95,13 @@ export function serializeLead(lead: any) {
         nextFollowupAt: lead.nextFollowupAt instanceof Date ? lead.nextFollowupAt.toISOString() : (lead.nextFollowupAt || null),
         linkClickedAt: lead.linkClickedAt instanceof Date ? lead.linkClickedAt.toISOString() : (lead.linkClickedAt || null),
         qualifiedAt: lead.qualifiedAt instanceof Date ? lead.qualifiedAt.toISOString() : (lead.qualifiedAt || null),
+        brandDna: lead.brandDna ? {
+            ...lead.brandDna,
+            submittedAt: lead.brandDna.submittedAt instanceof Date ? lead.brandDna.submittedAt.toISOString() : (lead.brandDna.submittedAt || null),
+            viewedAt: lead.brandDna.viewedAt instanceof Date ? lead.brandDna.viewedAt.toISOString() : (lead.brandDna.viewedAt || null),
+            createdAt: lead.brandDna.createdAt instanceof Date ? lead.brandDna.createdAt.toISOString() : lead.brandDna.createdAt,
+            updatedAt: lead.brandDna.updatedAt instanceof Date ? lead.brandDna.updatedAt.toISOString() : lead.brandDna.updatedAt,
+        } : null,
     };
 }
 
@@ -103,6 +110,7 @@ export function serializeLeadSandbox(lead: any) {
     return {
         ...lead,
         createdAt: lead.createdAt instanceof Date ? lead.createdAt.toISOString() : lead.createdAt,
+        updatedAt: lead.updatedAt instanceof Date ? lead.updatedAt.toISOString() : (lead.updatedAt || null),
     };
 }
 

@@ -15,6 +15,7 @@ import EditPageModal from '@/components/EditPageModal';
 import LeadDetailModal from '@/components/LeadDetailModal';
 import BlastPanel from '@/components/BlastPanel';
 import ProposalModal from '@/components/ProposalModal';
+import { getUserSettings } from '@/lib/actions/user-settings';
 
 interface LiveLead {
     id: string;
@@ -26,6 +27,7 @@ interface LiveLead {
     updatedAt: Date | string;
     slug: string | null;
     htmlCode: string | null;
+    prototypeHtml?: string | null;
     status: string;
     nextFollowupAt?: string | null;
     baitDraft?: string | null;
@@ -33,6 +35,10 @@ interface LiveLead {
     blastStatus?: string | null;
     blastError?: string | null;
     lastContactAt?: string | null;
+    brandDna?: {
+        status: string;
+        submittedAt?: Date | string | null;
+    } | null;
 }
 
 interface LiveClientProps {
@@ -51,6 +57,18 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [sendingId, setSendingId] = useState<string | null>(null);
     const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
     const [proposalLead, setProposalLead] = useState<any>(null);
+    const [siteVersion, setSiteVersion] = useState<'dummy' | 'real'>('dummy');
+    const [modelId, setModelId] = useState('gemini-3-1-pro');
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const settings = await getUserSettings();
+            if (settings?.htmlModel) {
+                setModelId(settings.htmlModel);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     // Background Polling Logic for WA Blast & Replies
     useEffect(() => {
@@ -203,6 +221,12 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
 
     // Apply filters
     const filteredLeads = leads.filter(l => {
+        // Tab-specific Brand Blueprint Filter
+        if (siteVersion === 'real') {
+            const status = l.brandDna?.status;
+            if (status !== 'SUBMITTED' && status !== 'VIEWED') return false;
+        }
+
         if (filterCategory !== 'ALL CATEGORIES' && l.category !== filterCategory) return false;
         
         if (filterCity !== 'ALL CITIES') {
@@ -304,26 +328,43 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
             </div>
 
             {/* Content View Toggle & Refresh */}
-            <div className="flex items-center justify-between mb-8 overflow-x-auto pb-2 scrollbar-hide">
-                <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
-                    <button 
-                        onClick={() => setViewMode('grid')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'grid' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
-                    >
-                        <Sliders size={12} /> Grid
-                    </button>
-                    <button 
-                        onClick={() => setViewMode('table')}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'table' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
-                    >
-                        <Square size={12} /> Table
-                    </button>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
+                        <button 
+                            onClick={() => setViewMode('grid')}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'grid' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                        >
+                            <Sliders size={12} /> Grid
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('table')}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'table' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                        >
+                            <Square size={12} /> Table
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
+                        <button 
+                            onClick={() => setSiteVersion('dummy')}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${siteVersion === 'dummy' ? 'bg-zinc-700 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                        >
+                            Dummy Version
+                        </button>
+                        <button 
+                            onClick={() => setSiteVersion('real')}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${siteVersion === 'real' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                        >
+                            Real (Blueprint)
+                        </button>
+                    </div>
                 </div>
 
                 <button 
                     onClick={handleRefresh}
                     disabled={isRefreshing}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 shrink-0 ml-4 transition-all"
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 shrink-0 transition-all w-full md:w-auto mt-2 md:mt-0"
                 >
                     <RefreshCw size={12} className={`text-accent-gold ${isRefreshing ? 'animate-spin' : ''}`} />
                     <span className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white">Refresh Live</span>
@@ -341,19 +382,21 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                             {viewMode === 'grid' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {notSentLeads.map((lead) => (
-                                        <LeadCard key={lead.id} lead={lead}
+                                        <LeadCard key={lead.id} lead={lead} siteVersion={siteVersion}
                                             onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
-                                            onOpenEdit={() => { setEditingHtmlLead(lead); setIsEditModalOpen(true); }}
+                                            onOpenEdit={() => { setEditingHtmlLead({...lead, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
                                             onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
                                             onSendToMonitoring={() => handleSendToMonitoring(lead)}
                                             sendingId={sendingId}
+                                            modelId={modelId}
+                                            setModelId={setModelId}
                                         />
                                     ))}
                                 </div>
                             ) : (
-                                <LeadTable leads={notSentLeads}
+                                <LeadTable leads={notSentLeads} siteVersion={siteVersion}
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
-                                    onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
+                                    onOpenEdit={(l) => { setEditingHtmlLead({...l, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
                                     onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
                                     onSendToMonitoring={handleSendToMonitoring}
                                     sendingId={sendingId}
@@ -373,18 +416,20 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                             {viewMode === 'grid' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-60">
                                     {sentLeads.map((lead) => (
-                                        <LeadCard key={lead.id} lead={lead}
+                                        <LeadCard key={lead.id} lead={lead} siteVersion={siteVersion}
                                             onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
-                                            onOpenEdit={() => { setEditingHtmlLead(lead); setIsEditModalOpen(true); }}
+                                            onOpenEdit={() => { setEditingHtmlLead({...lead, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
                                             onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
                                             alreadySent
+                                            modelId={modelId}
+                                            setModelId={setModelId}
                                         />
                                     ))}
                                 </div>
                             ) : (
-                                <LeadTable leads={sentLeads}
+                                <LeadTable leads={sentLeads} siteVersion={siteVersion}
                                     onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
-                                    onOpenEdit={(l) => { setEditingHtmlLead(l); setIsEditModalOpen(true); }}
+                                    onOpenEdit={(l) => { setEditingHtmlLead({...l, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
                                     onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
                                     allSent
                                     selectedIds={selectedLeadIds}
@@ -505,15 +550,21 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
 }
 
 // ─── Lead Card Component ─────────────────────────────────────────────────────
-function LeadCard({ lead, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, alreadySent }: {
+function LeadCard({ lead, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, alreadySent, modelId, setModelId }: {
     lead: LiveLead;
+    siteVersion: 'dummy' | 'real';
     onOpenDetail: () => void;
     onOpenEdit: () => void;
     onOpenProposal: () => void;
     onSendToMonitoring?: () => void;
     sendingId?: string | null;
     alreadySent?: boolean;
+    modelId: string;
+    setModelId: (m: string) => void;
 }) {
+    const isRealAvailable = lead.prototypeHtml && lead.prototypeHtml.length > 0;
+    const currentUrl = `/${lead.slug || lead.id}${siteVersion === 'real' ? '?v=real' : ''}`;
+    const currentHtml = siteVersion === 'real' ? lead.prototypeHtml : lead.htmlCode;
     return (
         <div 
             onClick={onOpenDetail}
@@ -557,18 +608,59 @@ function LeadCard({ lead, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMoni
             </div>
 
             <div className="pt-6 border-t border-white/5 flex flex-wrap gap-2">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); window.open(`/${lead.slug}`, '_blank'); }}
-                    className="flex-1 min-w-[110px] h-12 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] uppercase tracking-widest active:scale-95 shadow-lg shadow-orange-900/20"
-                >
-                    <ExternalLink size={14} />
-                    Visit Site
-                </button>
+                <div className="flex-1 flex gap-2">
+                    <button 
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (siteVersion === 'real' && !isRealAvailable) {
+                                fetch('/api/brand-blueprint/generate', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ leadId: lead.id, modelId })
+                                }).then(res => res.json()).then(data => {
+                                    if (data.success) {
+                                        toast.success("Blueprint generation started!");
+                                    } else {
+                                        toast.error(data.message || "Gagal generate blueprint.");
+                                    }
+                                }).catch(err => toast.error("Error: " + err.message));
+                                return;
+                            }
+                            window.open(currentUrl, '_blank'); 
+                        }}
+                        className={`flex-1 h-12 ${siteVersion === 'real' && !isRealAvailable ? 'bg-accent-gold hover:bg-yellow-600 text-black shadow-lg shadow-yellow-900/20' : 'bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-900/20'} font-black rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] uppercase tracking-widest active:scale-95`}
+                    >
+                        <ExternalLink size={14} />
+                        {siteVersion === 'real' && !isRealAvailable ? 'Generate AI' : 'Visit Site'}
+                    </button>
+
+                    {siteVersion === 'real' && !isRealAvailable && (
+                        <div className="relative group/select h-12">
+                            <select 
+                                value={modelId}
+                                onChange={(e) => { e.stopPropagation(); setModelId(e.target.value); }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-full bg-white/5 border border-white/10 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest text-accent-gold outline-none focus:border-accent-gold/40 cursor-pointer appearance-none pr-8"
+                            >
+                                <optgroup label="Cross-Engine" className="bg-zinc-900">
+                                    <option value="gemini-3-1-pro">Gemini 3.1</option>
+                                    <option value="claude-sonnet-4-6">Claude 4.6</option>
+                                    <option value="gpt-5-2">GPT 5.2</option>
+                                </optgroup>
+                                <optgroup label="OpenRouter" className="bg-zinc-900">
+                                    <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+                                    <option value="qwen3.6-plus">Qwen 3.6</option>
+                                </optgroup>
+                            </select>
+                            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                        </div>
+                    )}
+                </div>
                 
-                {lead.htmlCode && (
+                {currentHtml && (
                     <DownloadButton 
-                        htmlCode={lead.htmlCode} 
-                        fileName={lead.name}
+                        htmlCode={currentHtml} 
+                        fileName={`${lead.name}-${siteVersion}`}
                         className="h-12 w-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-all"
                         iconSize={16}
                     />
@@ -621,8 +713,9 @@ function LeadCard({ lead, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMoni
 }
 
 // ─── Table View Component ─────────────────────────────────────────────────────
-function LeadTable({ leads, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, allSent, selectedIds = [], onToggleSelect }: {
+function LeadTable({ leads, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, allSent, selectedIds = [], onToggleSelect }: {
     leads: LiveLead[];
+    siteVersion: 'dummy' | 'real';
     onOpenDetail: (l: LiveLead) => void;
     onOpenEdit: (l: LiveLead) => void;
     onOpenProposal: (l: LiveLead) => void;
@@ -689,9 +782,26 @@ function LeadTable({ leads, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMo
                             </td>
                             <td className="py-3 px-4">
                                 <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                    <button onClick={() => window.open(`/${lead.slug}`, '_blank')}
-                                        className="h-8 px-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 transition-all">
-                                        <ExternalLink size={11} /> Visit
+                                    <button onClick={() => {
+                                        const isRealAvailable = lead.prototypeHtml && lead.prototypeHtml.length > 0;
+                                        if (siteVersion === 'real' && !isRealAvailable) {
+                                            fetch('/api/brand-blueprint/generate', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ leadId: lead.id, modelId })
+                                            }).then(res => res.json()).then(data => {
+                                                if (data.success) {
+                                                    toast.success("Blueprint generation started!");
+                                                } else {
+                                                    toast.error(data.message || "Gagal generate blueprint.");
+                                                }
+                                            }).catch(err => toast.error("Error: " + err.message));
+                                            return;
+                                        }
+                                        window.open(`/${lead.slug || lead.id}${siteVersion === 'real' ? '?v=real' : ''}`, '_blank');
+                                    }}
+                                        className={`h-8 px-2.5 ${siteVersion === 'real' && (!lead.prototypeHtml || lead.prototypeHtml.length === 0) ? 'bg-accent-gold hover:bg-yellow-600 text-black' : 'bg-orange-600 hover:bg-orange-700 text-white'} rounded-lg text-[10px] font-black flex items-center gap-1 transition-all`}>
+                                        <ExternalLink size={11} /> {siteVersion === 'real' && (!lead.prototypeHtml || lead.prototypeHtml.length === 0) ? 'Gen AI' : 'Visit'}
                                     </button>
                                     <button onClick={() => onOpenEdit(lead)}
                                         className="h-8 w-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center justify-center transition-all">

@@ -8,10 +8,10 @@ import { KieStatusBadge } from './KieStatusBadge';
 
 interface DashboardHeaderProps {
     userName: string;
-    credit: string;
+    initialProvider?: string;
 }
 
-export function DashboardHeader({ userName, credit }: DashboardHeaderProps) {
+export function DashboardHeader({ userName, initialProvider }: DashboardHeaderProps) {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     return (
@@ -30,9 +30,6 @@ export function DashboardHeader({ userName, credit }: DashboardHeaderProps) {
                 <div className="flex items-center gap-2 md:gap-4">
                     <GlobalJobIndicator />
 
-                    {/* Unified Kie.ai Status & Credit */}
-                    <KieStatusBadge initialCredit={credit} />
-
                     <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-premium-700 border border-white/10 flex items-center justify-center font-bold text-accent-gold text-sm md:text-base shrink-0">
                         {userName.charAt(0).toUpperCase()}
                     </div>
@@ -42,6 +39,7 @@ export function DashboardHeader({ userName, credit }: DashboardHeaderProps) {
             <MobileDrawer 
                 isOpen={isDrawerOpen} 
                 onClose={() => setIsDrawerOpen(false)} 
+                initialProvider={initialProvider}
             />
         </>
     );
