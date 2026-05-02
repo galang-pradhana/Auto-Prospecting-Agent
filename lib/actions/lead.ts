@@ -52,6 +52,7 @@ export async function getLeads(filters?: {
     page?: number;
     pageSize?: number;
     city?: string;
+    district?: string;
 }) {
     const session = await getSession();
     if (!session) return [];
@@ -60,6 +61,10 @@ export async function getLeads(filters?: {
 
     if (filters?.city && filters.city !== 'ALL CITIES') {
         where.city = filters.city;
+    }
+
+    if (filters?.district && filters.district !== 'ALL DISTRICTS') {
+        where.district = filters.district;
     }
 
     if (filters?.status && (filters.status as any) !== 'ALL STATUS') {
@@ -98,6 +103,7 @@ export async function getLeadsCount(filters?: {
     province?: string;
     search?: string;
     city?: string;
+    district?: string;
 }) {
     const session = await getSession();
     if (!session) return 0;
@@ -106,6 +112,10 @@ export async function getLeadsCount(filters?: {
 
     if (filters?.city && filters.city !== 'ALL CITIES') {
         where.city = filters.city;
+    }
+
+    if (filters?.district && filters.district !== 'ALL DISTRICTS') {
+        where.district = filters.district;
     }
 
     if (filters?.status && (filters.status as any) !== 'ALL STATUS') {
@@ -224,6 +234,29 @@ export async function getUniqueCities(status?: string) {
         return cities.map(c => c.city).filter(Boolean);
     } catch (error) {
         console.error('getUniqueCities error:', error);
+        return [];
+    }
+}
+
+export async function getUniqueDistricts(status?: string, city?: string) {
+    const session = await getSession();
+    if (!session) return [];
+    try {
+        const where: any = { userId: session.userId };
+        if (status && status !== 'ALL STATUS') {
+            where.status = status;
+        }
+        if (city && city !== 'ALL CITIES') {
+            where.city = city;
+        }
+
+        const districts = await prisma.lead.groupBy({
+            by: ['district'],
+            where,
+        });
+        return districts.map(d => d.district).filter(Boolean);
+    } catch (error) {
+        console.error('getUniqueDistricts error:', error);
         return [];
     }
 }

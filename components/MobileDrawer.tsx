@@ -12,6 +12,17 @@ interface MobileDrawerProps {
 }
 
 export function MobileDrawer({ isOpen, onClose, initialProvider }: MobileDrawerProps) {
+    React.useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen]);
+
     return (
         <AnimatePresence>
             {isOpen && (

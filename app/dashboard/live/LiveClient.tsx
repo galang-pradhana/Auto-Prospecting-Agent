@@ -15,6 +15,12 @@ import EditPageModal from '@/components/EditPageModal';
 import LeadDetailModal from '@/components/LeadDetailModal';
 import BlastPanel from '@/components/BlastPanel';
 import ProposalModal from '@/components/ProposalModal';
+import { 
+    getLeads, 
+    getUniqueCategories, 
+    getUniqueCities,
+    getUniqueDistricts
+} from '@/lib/actions/lead';
 import { getUserSettings } from '@/lib/actions/user-settings';
 
 interface LiveLead {
@@ -24,6 +30,7 @@ interface LiveLead {
     category: string;
     address: string;
     city?: string | null;
+    district?: string | null;
     updatedAt: Date | string;
     slug: string | null;
     htmlCode: string | null;
@@ -59,6 +66,23 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const [proposalLead, setProposalLead] = useState<any>(null);
     const [siteVersion, setSiteVersion] = useState<'dummy' | 'real'>('dummy');
     const [modelId, setModelId] = useState('gemini-3-1-pro');
+    
+    // Filter States
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterCategory, setFilterCategory] = useState('ALL CATEGORIES');
+    const [filterCity, setFilterCity] = useState('ALL CITIES');
+    const [filterDistrict, setFilterDistrict] = useState('ALL DISTRICTS');
+    const [dynamicCategories, setDynamicCategories] = useState<string[]>(['ALL CATEGORIES']);
+    const [dynamicCities, setDynamicCities] = useState<string[]>(['ALL CITIES']);
+    const [dynamicDistricts, setDynamicDistricts] = useState<string[]>(['ALL DISTRICTS']);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // Batch Action States
+    const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+    const [isGeneratingOutreach, setIsGeneratingOutreach] = useState(false);
+    const [outreachPersona, setOutreachPersona] = useState<string>('professional');
+    const [generateProgress, setGenerateProgress] = useState({ done: 0, total: 0 });
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -69,6 +93,32 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
         };
         fetchSettings();
     }, []);
+
+    useEffect(() => {
+        const loadInitialData = async () => {
+            const [categories, citiesList, districtsList] = await Promise.all([
+                getUniqueCategories('LIVE'),
+                getUniqueCities('LIVE'),
+                getUniqueDistricts('LIVE')
+            ]);
+            if (categories) setDynamicCategories(['ALL CATEGORIES', ...categories]);
+            if (citiesList) setDynamicCities(['ALL CITIES', ...citiesList]);
+            if (districtsList) setDynamicDistricts(['ALL DISTRICTS', ...districtsList]);
+        };
+        loadInitialData();
+    }, [refreshKey]);
+
+    useEffect(() => {
+        const updateRegions = async () => {
+            const [cities, districts] = await Promise.all([
+                getUniqueCities('LIVE'),
+                getUniqueDistricts('LIVE', filterCity === 'ALL CITIES' ? undefined : filterCity)
+            ]);
+            if (cities) setDynamicCities(['ALL CITIES', ...cities]);
+            if (districts) setDynamicDistricts(['ALL DISTRICTS', ...districts]);
+        };
+        updateRegions();
+    }, [filterCity]);
 
     // Background Polling Logic for WA Blast & Replies
     useEffect(() => {
@@ -81,60 +131,13 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
         if (!hasActiveLeads) return;
 
         const interval = setInterval(() => {
-            handleRefresh(); // Re-fetch all leads data from server
+            handleRefresh();
         }, 8000);
 
         return () => clearInterval(interval);
     }, [leads]);
 
     const router = useRouter();
-
-    // Filter & UI States
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterCategory, setFilterCategory] = useState('ALL CATEGORIES');
-    const [filterCity, setFilterCity] = useState('ALL CITIES');
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [refreshKey, setRefreshKey] = useState(0);
-
-    // Batch Action States
-    const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
-    const [isGeneratingOutreach, setIsGeneratingOutreach] = useState(false);
-    const [outreachPersona, setOutreachPersona] = useState<string>('professional');
-    const [generateProgress, setGenerateProgress] = useState({ done: 0, total: 0 });
-
-    // Handle Refresh Logic
-    useEffect(() => {
-        if (refreshKey === 0) return;
-        const fetchLeads = async () => {
-            setIsRefreshing(true);
-            try {
-                const res = await fetch('/api/leads/live');
-                if (res.ok) {
-                    const data = await res.json();
-                    setLeads(data.leads);
-                }
-            } catch (error) {
-                console.error("Refresh failed:", error);
-            } finally {
-                setIsRefreshing(false);
-            }
-        };
-        fetchLeads();
-    }, [refreshKey]);
-
-    // Compute dynamic lists
-    const dynamicCategories = useMemo(() => {
-        const cats = new Set(initialLeads.map(l => l.category).filter(Boolean));
-        return ['ALL CATEGORIES', ...Array.from(cats)].sort();
-    }, [initialLeads]);
-
-    const dynamicCities = useMemo(() => {
-        const cities = new Set(initialLeads.map(l => {
-            const match = l.address?.match(/Kota ([a-zA-Z0-9\s]+)/i);
-            return match ? match[1].trim() : 'Unknown';
-        }).filter(c => c !== 'Unknown'));
-        return ['ALL CITIES', ...Array.from(cities)].sort();
-    }, [initialLeads]);
 
     const handleRefresh = () => {
         setRefreshKey(prev => prev + 1);
@@ -161,7 +164,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
             
             if (!res.ok) throw new Error(data.error || 'Failed to start batch generation');
 
-            // Polling status (optional but good for UX)
             const checkStatus = setInterval(async () => {
                 const sRes = await fetch(`/api/jobs/status?id=${data.jobId}`);
                 if (sRes.ok) {
@@ -196,21 +198,17 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const handleSendToMonitoring = async (lead: LiveLead) => {
         try {
             setSendingId(lead.id);
-            
-            // Optimistic update: instantly move to "Sent" section locally
             setLeads(prev => prev.map(l => 
                 l.id === lead.id ? { ...l, nextFollowupAt: new Date().toISOString() } : l
             ));
 
             const res = await fetch(`/api/leads/${lead.id}/monitoring`, { method: 'POST' });
             if (!res.ok) {
-                // Rollback if server fails
                 setLeads(prev => prev.map(l => 
                     l.id === lead.id ? { ...l, nextFollowupAt: null } : l
                 ));
                 throw new Error('Failed to send to monitoring');
             }
-            // No full refresh needed, UI is already updated
         } catch (error) {
             console.error(error);
             alert('Failed to move to monitoring. Please try again.');
@@ -219,33 +217,28 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
         }
     };
 
-    // Apply filters
-    const filteredLeads = leads.filter(l => {
-        // Tab-specific Brand Blueprint Filter
-        if (siteVersion === 'real') {
-            const status = l.brandDna?.status;
-            if (status !== 'SUBMITTED' && status !== 'VIEWED') return false;
-        }
+    const filteredLeads = useMemo(() => {
+        return leads.filter(l => {
+            if (siteVersion === 'real') {
+                const status = l.brandDna?.status;
+                if (status !== 'SUBMITTED' && status !== 'VIEWED') return false;
+            }
 
-        if (filterCategory !== 'ALL CATEGORIES' && l.category !== filterCategory) return false;
-        
-        if (filterCity !== 'ALL CITIES') {
-            const match = l.address?.match(/Kota ([a-zA-Z0-9\s]+)/i);
-            const city = match ? match[1].trim() : 'Unknown';
-            if (city !== filterCity) return false;
-        }
+            if (filterCategory !== 'ALL CATEGORIES' && l.category !== filterCategory) return false;
+            if (filterCity !== 'ALL CITIES' && l.city !== filterCity) return false;
+            if (filterDistrict !== 'ALL DISTRICTS' && l.district !== filterDistrict) return false;
 
-        if (searchTerm) {
-            const search = searchTerm.toLowerCase();
-            return (
-                l.name?.toLowerCase().includes(search) || 
-                l.address?.toLowerCase().includes(search) ||
-                l.category?.toLowerCase().includes(search)
-            );
-        }
-
-        return true;
-    });
+            if (searchTerm) {
+                const search = searchTerm.toLowerCase();
+                return (
+                    l.name?.toLowerCase().includes(search) || 
+                    l.address?.toLowerCase().includes(search) ||
+                    l.category?.toLowerCase().includes(search)
+                );
+            }
+            return true;
+        });
+    }, [leads, siteVersion, filterCategory, filterCity, filterDistrict, searchTerm]);
 
     const notSentLeads = filteredLeads.filter(l => !l.nextFollowupAt);
     const sentLeads = filteredLeads.filter(l => !!l.nextFollowupAt);
@@ -257,7 +250,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                 <p className="text-white/40 font-medium italic text-sm">Your fleet of deployed websites, optimized and active.</p>
             </div>
 
-            {/* Top Navigation Tabs */}
             <div className="flex gap-4 border-b border-white/10 pb-4 overflow-x-auto scrollbar-hide">
                 <button 
                     onClick={() => setActiveTab('sites')}
@@ -281,189 +273,199 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                 </div>
             ) : (
                 <>
-                    {/* Reactive Filter Bar */}
                     <div className="glass p-6 rounded-[32px] border-white/5 bg-zinc-950/40 sticky top-4 z-30 backdrop-blur-2xl shadow-2xl">
-                <div className="flex flex-col md:flex-row gap-4 items-center">
-                    <div className="relative flex-1 group w-full">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-accent-gold transition-colors" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Quick Search Business or Address..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-accent-gold/40 focus:ring-4 focus:ring-accent-gold/5 transition-all text-sm font-medium"
-                        />
+                        <div className="flex flex-col md:flex-row gap-4 items-center">
+                            <div className="relative flex-1 group w-full">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-accent-gold transition-colors" size={18} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Quick Search Business or Address..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-12 pr-6 py-4 outline-none focus:border-accent-gold/40 focus:ring-4 focus:ring-accent-gold/5 transition-all text-sm font-medium"
+                                />
+                            </div>
+
+                            <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto">
+                                <div className="relative group/filter flex-1 min-w-[140px] md:min-w-[180px]">
+                                    <Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/filter:text-accent-gold transition-colors" />
+                                    <select 
+                                        className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                        value={filterCategory}
+                                        onChange={(e) => setFilterCategory(e.target.value)}
+                                    >
+                                        {dynamicCategories.map(cat => (
+                                            <option key={cat} value={cat} className="bg-zinc-950">{cat}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                                </div>
+
+                                <div className="relative group/city flex-1 min-w-[140px] md:min-w-[160px]">
+                                    <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/city:text-accent-gold transition-colors" />
+                                    <select 
+                                        className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                        value={filterCity}
+                                        onChange={(e) => {
+                                            setFilterCity(e.target.value);
+                                            setFilterDistrict('ALL DISTRICTS');
+                                        }}
+                                    >
+                                        {dynamicCities.map(city => (
+                                            <option key={city} value={city} className="bg-zinc-950">{city}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                                </div>
+
+                                <div className="relative group/district flex-1 min-w-[140px] md:min-w-[160px]">
+                                    <Navigation size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/district:text-accent-gold transition-colors" />
+                                    <select 
+                                        className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                        value={filterDistrict}
+                                        onChange={(e) => setFilterDistrict(e.target.value)}
+                                    >
+                                        {dynamicDistricts.map(dist => (
+                                            <option key={dist} value={dist} className="bg-zinc-950">{dist}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-                        <div className="relative group/filter min-w-[180px] shrink-0">
-                            <Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/filter:text-accent-gold transition-colors" />
-                            <select 
-                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
-                                value={filterCategory}
-                                onChange={(e) => setFilterCategory(e.target.value)}
-                            >
-                                {dynamicCategories.map(cat => (
-                                    <option key={cat} value={cat} className="bg-zinc-950">{cat}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
+                                <button 
+                                    onClick={() => setViewMode('grid')}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'grid' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                                >
+                                    <Sliders size={12} /> Grid
+                                </button>
+                                <button 
+                                    onClick={() => setViewMode('table')}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'table' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                                >
+                                    <Square size={12} /> Table
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
+                                <button 
+                                    onClick={() => setSiteVersion('dummy')}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${siteVersion === 'dummy' ? 'bg-zinc-700 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                                >
+                                    Dummy Version
+                                </button>
+                                <button 
+                                    onClick={() => setSiteVersion('real')}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${siteVersion === 'real' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                                >
+                                    Real (Blueprint)
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="relative group/city min-w-[160px] shrink-0">
-                            <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/city:text-accent-gold transition-colors" />
-                            <select 
-                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
-                                value={filterCity}
-                                onChange={(e) => setFilterCity(e.target.value)}
-                            >
-                                {dynamicCities.map(city => (
-                                    <option key={city} value={city} className="bg-zinc-950">{city}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content View Toggle & Refresh */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
                         <button 
-                            onClick={() => setViewMode('grid')}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'grid' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 shrink-0 transition-all w-full md:w-auto mt-2 md:mt-0"
                         >
-                            <Sliders size={12} /> Grid
-                        </button>
-                        <button 
-                            onClick={() => setViewMode('table')}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewMode === 'table' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
-                        >
-                            <Square size={12} /> Table
+                            <RefreshCw size={12} className={`text-accent-gold ${isRefreshing ? 'animate-spin' : ''}`} />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white">Refresh Live</span>
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 shrink-0">
-                        <button 
-                            onClick={() => setSiteVersion('dummy')}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${siteVersion === 'dummy' ? 'bg-zinc-700 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-                        >
-                            Dummy Version
-                        </button>
-                        <button 
-                            onClick={() => setSiteVersion('real')}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${siteVersion === 'real' ? 'bg-accent-gold text-black shadow-lg shadow-accent-gold/20' : 'text-white/40 hover:text-white'}`}
-                        >
-                            Real (Blueprint)
-                        </button>
-                    </div>
-                </div>
-
-                <button 
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 shrink-0 transition-all w-full md:w-auto mt-2 md:mt-0"
-                >
-                    <RefreshCw size={12} className={`text-accent-gold ${isRefreshing ? 'animate-spin' : ''}`} />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white">Refresh Live</span>
-                </button>
-            </div>
-
-            {leads.length > 0 ? (
-                <div className="space-y-8">
-                    {/* Section: Belum Dikirim WA */}
-                    {notSentLeads.length > 0 && (
-                        <div className="space-y-3">
-                            <p className="text-xs font-black uppercase tracking-widest text-white/30 flex items-center gap-2">
-                                <Globe size={12} /> Belum Dikirim WA ({notSentLeads.length})
-                            </p>
-                            {viewMode === 'grid' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {notSentLeads.map((lead) => (
-                                        <LeadCard key={lead.id} lead={lead} siteVersion={siteVersion}
-                                            onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
-                                            onOpenEdit={() => { setEditingHtmlLead({...lead, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
-                                            onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
-                                            onSendToMonitoring={() => handleSendToMonitoring(lead)}
+                    {filteredLeads.length > 0 ? (
+                        <div className="space-y-8">
+                            {notSentLeads.length > 0 && (
+                                <div className="space-y-3">
+                                    <p className="text-xs font-black uppercase tracking-widest text-white/30 flex items-center gap-2">
+                                        <Globe size={12} /> Belum Dikirim WA ({notSentLeads.length})
+                                    </p>
+                                    {viewMode === 'grid' ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {notSentLeads.map((lead) => (
+                                                <LeadCard key={lead.id} lead={lead} siteVersion={siteVersion}
+                                                    onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
+                                                    onOpenEdit={() => { setEditingHtmlLead({...lead, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
+                                                    onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
+                                                    onSendToMonitoring={() => handleSendToMonitoring(lead)}
+                                                    sendingId={sendingId}
+                                                    modelId={modelId}
+                                                    setModelId={setModelId}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <LeadTable leads={notSentLeads} siteVersion={siteVersion}
+                                            onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
+                                            onOpenEdit={(l) => { setEditingHtmlLead({...l, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
+                                            onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
+                                            onSendToMonitoring={handleSendToMonitoring}
                                             sendingId={sendingId}
-                                            modelId={modelId}
-                                            setModelId={setModelId}
+                                            selectedIds={selectedLeadIds}
+                                            onToggleSelect={toggleSelectLead}
                                         />
-                                    ))}
+                                    )}
                                 </div>
-                            ) : (
-                                <LeadTable leads={notSentLeads} siteVersion={siteVersion}
-                                    onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
-                                    onOpenEdit={(l) => { setEditingHtmlLead({...l, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
-                                    onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
-                                    onSendToMonitoring={handleSendToMonitoring}
-                                    sendingId={sendingId}
-                                    selectedIds={selectedLeadIds}
-                                    onToggleSelect={toggleSelectLead}
-                                />
+                            )}
+
+                            {sentLeads.length > 0 && (
+                                <div className="space-y-3">
+                                    <p className="text-xs font-black uppercase tracking-widest text-emerald-500/50 flex items-center gap-2">
+                                        <Activity size={12} /> Sudah di Monitoring ({sentLeads.length})
+                                    </p>
+                                    {viewMode === 'grid' ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-60">
+                                            {sentLeads.map((lead) => (
+                                                <LeadCard key={lead.id} lead={lead} siteVersion={siteVersion}
+                                                    onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
+                                                    onOpenEdit={() => { setEditingHtmlLead({...lead, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
+                                                    onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
+                                                    alreadySent
+                                                    modelId={modelId}
+                                                    setModelId={setModelId}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <LeadTable leads={sentLeads} siteVersion={siteVersion}
+                                            onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
+                                            onOpenEdit={(l) => { setEditingHtmlLead({...l, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
+                                            onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
+                                            allSent
+                                            selectedIds={selectedLeadIds}
+                                            onToggleSelect={toggleSelectLead}
+                                        />
+                                    )}
+                                </div>
                             )}
                         </div>
-                    )}
-
-                    {/* Section: Sudah di Monitoring */}
-                    {sentLeads.length > 0 && (
-                        <div className="space-y-3">
-                            <p className="text-xs font-black uppercase tracking-widest text-emerald-500/50 flex items-center gap-2">
-                                <Activity size={12} /> Sudah di Monitoring ({sentLeads.length})
-                            </p>
-                            {viewMode === 'grid' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-60">
-                                    {sentLeads.map((lead) => (
-                                        <LeadCard key={lead.id} lead={lead} siteVersion={siteVersion}
-                                            onOpenDetail={() => { setDetailLead(lead); setIsDetailModalOpen(true); }}
-                                            onOpenEdit={() => { setEditingHtmlLead({...lead, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
-                                            onOpenProposal={() => { setProposalLead(lead); setIsProposalModalOpen(true); }}
-                                            alreadySent
-                                            modelId={modelId}
-                                            setModelId={setModelId}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <LeadTable leads={sentLeads} siteVersion={siteVersion}
-                                    onOpenDetail={(l) => { setDetailLead(l); setIsDetailModalOpen(true); }}
-                                    onOpenEdit={(l) => { setEditingHtmlLead({...l, viewVersion: siteVersion}); setIsEditModalOpen(true); }}
-                                    onOpenProposal={(l) => { setProposalLead(l); setIsProposalModalOpen(true); }}
-                                    allSent
-                                    selectedIds={selectedLeadIds}
-                                    onToggleSelect={toggleSelectLead}
-                                />
-                            )}
+                    ) : (
+                        <div className="py-32 flex flex-col items-center justify-center gap-6 bg-white/[0.02] border border-dashed border-white/10 rounded-[40px] text-center px-6">
+                            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
+                                <Globe className="w-10 h-10 text-white/10" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-white/60 uppercase tracking-tighter">No live sites found</h3>
+                                <p className="text-sm text-white/30 max-w-sm mx-auto font-medium">
+                                    Once you forge a website from the Enriched Projects page, it will appear here as a live digital asset.
+                                </p>
+                            </div>
+                            <Link 
+                                href="/dashboard/enriched"
+                                className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white text-xs font-black rounded-2xl transition-all uppercase tracking-widest"
+                            >
+                                Go to Enriched Projects
+                            </Link>
                         </div>
                     )}
-                </div>
-            ) : (
-                <div className="py-32 flex flex-col items-center justify-center gap-6 bg-white/[0.02] border border-dashed border-white/10 rounded-[40px] text-center px-6">
-                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
-                        <Globe className="w-10 h-10 text-white/10" />
-                    </div>
-                    <div className="space-y-2">
-                        <h3 className="text-xl font-bold text-white/60 uppercase tracking-tighter">No live sites found</h3>
-                        <p className="text-sm text-white/30 max-w-sm mx-auto font-medium">
-                            Once you forge a website from the Enriched Projects page, it will appear here as a live digital asset.
-                        </p>
-                    </div>
-                    <Link 
-                        href="/dashboard/enriched"
-                        className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white text-xs font-black rounded-2xl transition-all uppercase tracking-widest"
-                    >
-                        Go to Enriched Projects
-                    </Link>
-                </div>
-            )}
-            </>
+                </>
             )}
 
-            {/* Send to Monitoring Modal (Removed) */}
-
-            {/* Lead Detail Modal */}
             {detailLead && (
                 <LeadDetailModal 
                     isOpen={isDetailModalOpen}
@@ -472,7 +474,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                 />
             )}
 
-            {/* Live Edit Modal */}
             {editingHtmlLead && (
                 <EditPageModal 
                     isOpen={isEditModalOpen}
@@ -480,7 +481,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                     lead={editingHtmlLead}
                 />
             )}
-            {/* Batch Action Bar */}
+
             {selectedLeadIds.length > 0 && viewMode === 'table' && (
                 <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 duration-500">
                     <div className="bg-zinc-900/90 backdrop-blur-xl border border-white/10 px-8 py-6 rounded-[32px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] flex items-center gap-8">
@@ -488,9 +489,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                             <span className="text-[10px] font-black uppercase tracking-widest text-accent-gold">{selectedLeadIds.length} Selected</span>
                             <span className="text-xs text-white/40 font-bold uppercase tracking-tight">Batch Outreach Mode</span>
                         </div>
-
                         <div className="h-10 w-px bg-white/10" />
-
                         <div className="flex items-center gap-4">
                             <div className="relative group">
                                 <Sparkles size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-gold" />
@@ -505,10 +504,8 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                         </option>
                                     ))}
                                 </select>
-
                                 <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20" />
                             </div>
-
                             <button 
                                 onClick={handleBatchGenerateOutreach}
                                 disabled={isGeneratingOutreach}
@@ -526,7 +523,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                                     </>
                                 )}
                             </button>
-
                             <button 
                                 onClick={() => setSelectedLeadIds([])}
                                 className="h-12 w-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center transition-all group"
@@ -549,7 +545,6 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     );
 }
 
-// ─── Lead Card Component ─────────────────────────────────────────────────────
 function LeadCard({ lead, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, alreadySent, modelId, setModelId }: {
     lead: LiveLead;
     siteVersion: 'dummy' | 'real';
@@ -712,7 +707,6 @@ function LeadCard({ lead, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal,
     );
 }
 
-// ─── Table View Component ─────────────────────────────────────────────────────
 function LeadTable({ leads, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal, onSendToMonitoring, sendingId, allSent, selectedIds = [], onToggleSelect }: {
     leads: LiveLead[];
     siteVersion: 'dummy' | 'real';

@@ -17,6 +17,7 @@ import {
     getLeadsCount, 
     getUniqueCategories,
     getUniqueCities,
+    getUniqueDistricts,
     archiveToGSheet
 } from '@/lib/actions/lead';
 import { generateWaLink } from '@/lib/actions/settings';
@@ -137,6 +138,7 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
     const [filterCategory, setFilterCategory] = useState('ALL CATEGORIES');
     const [filterStatus, setFilterStatus] = useState<'FRESH' | 'ENRICHED' | 'LIVE'>(forceStatus as any || 'FRESH');
     const [filterCity, setFilterCity] = useState('ALL CITIES');
+    const [filterDistrict, setFilterDistrict] = useState('ALL DISTRICTS');
     const activeTab = filterStatus; // Alias for consistency with requested logic
     const setActiveTab = setFilterStatus; // Alias for consistency
     const [searchTerm, setSearchTerm] = useState('');
@@ -147,6 +149,10 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
 
     const handleRefresh = () => {
         setIsRefreshing(true);
+        setFilterCategory('ALL CATEGORIES');
+        setFilterCity('ALL CITIES');
+        setFilterDistrict('ALL DISTRICTS');
+        setSearchTerm('');
         setRefreshKey(prev => prev + 1);
         setTimeout(() => setIsRefreshing(false), 1500);
     };
@@ -162,6 +168,7 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
     const [forgeLead, setForgeLead] = useState<Lead | null>(null);
     const [dynamicCategories, setDynamicCategories] = useState<string[]>(['ALL CATEGORIES']);
     const [dynamicCities, setDynamicCities] = useState<string[]>(['ALL CITIES']);
+    const [dynamicDistricts, setDynamicDistricts] = useState<string[]>(['ALL DISTRICTS']);
 
     const [view, setView] = useState<'grid' | 'table'>(forceStatus === 'ENRICHED' ? 'grid' : 'table');
 
@@ -257,6 +264,7 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
                     category, 
                     search: searchTerm, 
                     city: filterCity === 'ALL CITIES' ? undefined : filterCity,
+                    district: filterDistrict === 'ALL DISTRICTS' ? undefined : filterDistrict,
                     page, 
                     pageSize 
                 }),
@@ -265,6 +273,7 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
                     category, 
                     search: searchTerm,
                     city: filterCity === 'ALL CITIES' ? undefined : filterCity,
+                    district: filterDistrict === 'ALL DISTRICTS' ? undefined : filterDistrict,
                 })
             ]);
             
@@ -274,7 +283,7 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
         };
 
         fetchData();
-    }, [page, filterCategory, filterStatus, searchTerm, filterCity, forceStatus, refreshKey]); 
+    }, [page, filterCategory, filterStatus, searchTerm, filterCity, filterDistrict, forceStatus, refreshKey]); 
 
     useEffect(() => {
         // JANGAN GANTI TAB JIKA MODAL EDIT ATAU DETAIL SEDANG TERBUKA
@@ -287,23 +296,31 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
 
     useEffect(() => {
         const loadInitialData = async () => {
-            const [styles, categories, citiesList] = await Promise.all([
+            const [styles, categories, citiesList, districtsList] = await Promise.all([
                 getStyleModels(),
                 getUniqueCategories(filterStatus),
-                getUniqueCities(filterStatus)
+                getUniqueCities(filterStatus),
+                getUniqueDistricts(filterStatus)
             ]);
             if (styles) setAllStyles(styles);
-            if (categories) {
-                setDynamicCategories(['ALL CATEGORIES', ...categories]);
-            }
-            if (citiesList) {
-                setDynamicCities(['ALL CITIES', ...citiesList]);
-            }
+            if (categories) setDynamicCategories(['ALL CATEGORIES', ...categories]);
+            if (citiesList) setDynamicCities(['ALL CITIES', ...citiesList]);
+            if (districtsList) setDynamicDistricts(['ALL DISTRICTS', ...districtsList]);
         };
         loadInitialData();
-    }, [filterStatus]);
+    }, [filterStatus, refreshKey]);
 
-
+    useEffect(() => {
+        const updateRegions = async () => {
+            const [cities, districts] = await Promise.all([
+                getUniqueCities(filterStatus),
+                getUniqueDistricts(filterStatus, filterCity === 'ALL CITIES' ? undefined : filterCity)
+            ]);
+            if (cities) setDynamicCities(['ALL CITIES', ...cities]);
+            if (districts) setDynamicDistricts(['ALL DISTRICTS', ...districts]);
+        };
+        updateRegions();
+    }, [filterCity, filterStatus]);
 
     // Reactive Filtering (Not strictly needed with effect but kept for consistency)
     const totalPages = Math.ceil(totalLeads / pageSize);
@@ -473,8 +490,8 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
                         />
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                        <div className="relative group/filter w-full sm:min-w-[180px] shrink-0">
+                    <div className="flex flex-wrap md:flex-nowrap gap-3 w-full md:w-auto">
+                        <div className="relative group/filter flex-1 min-w-[140px] md:min-w-[160px]">
                             <Building2 size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/filter:text-accent-gold transition-colors" />
                             <select 
                                 className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[10px] md:text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
@@ -491,18 +508,36 @@ export default function LeadsClient({ initialLeads, forceStatus, hideHeader }: L
                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
                         </div>
 
-                        <div className="relative group/city w-full sm:min-w-[160px] shrink-0">
+                        <div className="relative group/city flex-1 min-w-[140px] md:min-w-[140px]">
                             <MapPin size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/city:text-accent-gold transition-colors" />
                             <select 
                                 className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[10px] md:text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
                                 value={filterCity}
                                 onChange={(e) => {
                                     setFilterCity(e.target.value);
+                                    setFilterDistrict('ALL DISTRICTS');
                                     setPage(1);
                                 }}
                             >
                                 {dynamicCities.map(city => (
                                     <option key={city} value={city} className="bg-zinc-950">{city}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
+                        </div>
+
+                        <div className="relative group/district flex-1 min-w-[140px] md:min-w-[140px]">
+                            <Navigation size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-hover/district:text-accent-gold transition-colors" />
+                            <select 
+                                className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl pl-10 pr-10 py-4 appearance-none text-[10px] md:text-[11px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all outline-none focus:border-accent-gold/40 cursor-pointer"
+                                value={filterDistrict}
+                                onChange={(e) => {
+                                    setFilterDistrict(e.target.value);
+                                    setPage(1);
+                                }}
+                            >
+                                {dynamicDistricts.map(dist => (
+                                    <option key={dist} value={dist} className="bg-zinc-950">{dist}</option>
                                 ))}
                             </select>
                             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" size={14} />
