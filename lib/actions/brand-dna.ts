@@ -16,6 +16,8 @@ export async function getBrandDnaLeads(filters: {
     return prisma.lead.findMany({
         where: {
             userId: session.userId,
+            status: 'LIVE', // Hanya tampilkan data yang sudah LIVE (minimal uji coba)
+            htmlCode: { not: null }, // Pastikan sudah ada dummy website-nya
             name: filters.query ? { contains: filters.query, mode: 'insensitive' } : undefined,
             category: filters.category || undefined,
             city: filters.city || undefined,
@@ -75,7 +77,11 @@ export async function getUniqueCategories() {
     if (!session) return [];
 
     const categories = await prisma.lead.findMany({
-        where: { userId: session.userId },
+        where: { 
+            userId: session.userId,
+            status: 'LIVE',
+            htmlCode: { not: null }
+        },
         select: { category: true },
         distinct: ['category']
     });

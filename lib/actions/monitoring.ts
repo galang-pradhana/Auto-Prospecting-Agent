@@ -41,29 +41,43 @@ export async function sendToMonitoring(leadId: string, persona: string = 'profes
     return { success: true };
 }
 
-// ─── Get all monitoring leads ─────────────────────────────────────────────────
-export async function getMonitoringLeads() {
+// ─── Get all live leads (not in CRM) ──────────────────────────────────────────
+export async function getLiveLeadsAction() {
     const session = await getSession();
     if (!session) return [];
 
-    return prisma.lead.findMany({
+    const leads = await prisma.lead.findMany({
         where: {
             userId: session.userId,
             status: 'LIVE',
-            // We include monitoring stages, deal, and fail
-            followupStage: { in: ['monitoring_1', 'monitoring_2', 'monitoring_3', 'closed_won', 'closed_lost', 'sent', 'clicked', 'qualified'] }
-        },
-        include: {
-            followupQueue: {
-                where: { status: { in: ['pending', 'scheduled'] } },
-                take: 1,
-                orderBy: { followupNumber: 'desc' }
+            // Sembunyikan data yang sudah masuk ke CRM
+            followupStage: {
+                notIn: ['monitoring_1', 'monitoring_2', 'monitoring_3', 'closed_won', 'closed_lost']
             }
         },
-
-        orderBy: { updatedAt: 'desc' },
+        include: {
+            brandDna: true,
+        },
+        orderBy: {
+            updatedAt: 'desc'
+        }
     });
+
+    // Minimal serialization for common use cases
+    return leads.map(l => ({
+        ...l,
+        updatedAt: l.updatedAt.toISOString(),
+        createdAt: l.createdAt.toISOString(),
+        lastContactAt: l.lastContactAt?.toISOString() || null,
+        blastSentAt: l.blastSentAt?.toISOString() || null,
+        blastScheduledAt: l.blastScheduledAt?.toISOString() || null,
+        linkClickedAt: l.linkClickedAt?.toISOString() || null,
+        nextFollowupAt: l.nextFollowupAt?.toISOString() || null,
+        qualifiedAt: l.qualifiedAt?.toISOString() || null,
+    }));
 }
+
+// ─── Get all monitoring leads ─────────────────────────────────────────────────
 
 // ─── Get monitoring stats ─────────────────────────────────────────────────────
 export async function getMonitoringStats() {

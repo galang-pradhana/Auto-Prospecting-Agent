@@ -22,6 +22,7 @@ import {
     getUniqueDistricts
 } from '@/lib/actions/lead';
 import { getUserSettings } from '@/lib/actions/user-settings';
+import { getLiveLeadsAction } from '@/lib/actions/monitoring';
 
 interface LiveLead {
     id: string;
@@ -139,8 +140,19 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
 
     const router = useRouter();
 
-    const handleRefresh = () => {
-        setRefreshKey(prev => prev + 1);
+
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            const updatedLeads = await getLiveLeadsAction();
+            setLeads(updatedLeads as any);
+            setRefreshKey(prev => prev + 1);
+        } catch (error) {
+            console.error("Failed to refresh leads:", error);
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     const toggleSelectLead = (id: string) => {
