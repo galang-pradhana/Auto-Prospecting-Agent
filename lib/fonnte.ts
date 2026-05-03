@@ -14,17 +14,27 @@ export interface FonnteDirectResponse {
 import { sanitizeWaNumber } from '@/lib/utils';
 
 export function parseFonnteWebhook(body: any) {
-  const sender = body.sender || body.from || '';
-  const device = body.device || '';
+  const sender = (body.sender || body.from || '').toString();
+  const device = (body.device || '').toString();
   const message = body.message || '';
   const status = body.status || '';
-  const inboxid = body.inboxid || '';
+  const inboxid = body.inboxid || body.inbox_id || '';
 
-  const cleanSender = sanitizeWaNumber(sender.toString()) || '';
-  const cleanDevice = sanitizeWaNumber(device.toString()) || '';
+  const cleanSender = sanitizeWaNumber(sender) || '';
+  const cleanDevice = sanitizeWaNumber(device) || '';
 
-  const isMe = body.is_me === true || body.is_me === 'true' || (cleanSender !== '' && cleanSender === cleanDevice);
-  const isStatusUpdate = status === 'connect' || status === 'disconnect' || (!message && device !== '');
+  // is_me: Fonnte does not send this field natively.
+  // Detect outgoing messages by explicit flag only - never by sender===device
+  // because that comparison is unreliable and causes false positives.
+  const isMe = body.is_me === true || body.is_me === 'true' || body.is_me === 1;
+
+  // isStatusUpdate: triggered by status change events (no message body)
+  const isStatusUpdate = (
+    status === 'connect' || 
+    status === 'disconnect' || 
+    status === 'reconnect' ||
+    (!message && !status)
+  );
 
   return {
     sender: cleanSender,
