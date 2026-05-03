@@ -899,6 +899,23 @@ DILARANG KERAS:
    BENAR  → <script> /* Hero Section */ const hero = ... </script>
    SALAH  → <script> <!-- Hero Section --> const hero = ... </script>
 
+[CLIENT BRAND ASSETS — PRIORITAS TERTINGGI]
+[customAssets]
+
+Jika [customAssets] kosong → gunakan strategi Unsplash normal di bawah.
+Jika [customAssets] terisi → WAJIB gunakan URL tersebut. Unsplash hanya untuk section dekoratif yang tidak punya custom asset.
+
+[QUALITY CHECKLIST — SEBELUM OUTPUT, VERIFIKASI SEMUA]:
+☐ Logo klien sudah di navbar dan footer (jika ada custom asset)
+☐ Warna brand klien sudah digunakan sebagai accent
+☐ Semua 7-8 section wajib sudah ada
+☐ Tidak ada gambar blank (3-layer fallback diterapkan)
+☐ Semua data-asset-id ada dan unik
+☐ WhatsApp floating button ada di bottom-right
+☐ 100% Bahasa Indonesia di UI
+☐ Tidak ada className (harus class), tidak ada JSX
+☐ Tidak ada HTML comment di dalam <script>
+
 Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
 Output ONLY the full HTML code. No talk.
 `;

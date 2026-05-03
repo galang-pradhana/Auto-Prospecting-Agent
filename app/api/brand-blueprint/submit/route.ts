@@ -24,12 +24,22 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, message: 'Invalid token' }, { status: 404 });
         }
 
-        // Update submission with answers
+        const logoUrl = answers?.files?.logo_url || null;
+        const logoSvgUrl = answers?.files?.logo_svg_url || null;
+        const mediaUrls = [
+            ...(answers?.files?.media_urls || []),
+            ...(answers?.files?.ref_urls || []),
+        ];
+
+        // Update submission with answers and persisted file URLs
         await prisma.brandDnaSubmission.update({
             where: { id: submission.id },
             data: {
                 status: 'SUBMITTED',
                 answers: answers,
+                logoPath: logoUrl,
+                logoSvgPath: logoSvgUrl,
+                mediaFiles: mediaUrls,
             }
         });
 

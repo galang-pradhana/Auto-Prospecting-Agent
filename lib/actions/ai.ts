@@ -813,21 +813,44 @@ export async function generateBlueprintCode(leadId: string, answers: any, jobId?
         const forgeData = buildForgeData(lead);
         const fullAddress = `${lead.address || 'Bali'}, ${lead.city || ''}, ${lead.province || ''}`.trim().replace(/,\s*,/g, ',');
         
-        // Convert answers into readable format for AI
-        const blueprintAnswers = `
-Brand Name: ${answers.brand_name || lead.name}
-Tagline: ${answers.tagline || ''}
-Target Audience: ${answers.target || ''}
-USP: ${answers.usp || ''}
-Vibe: ${answers.vibe ? answers.vibe.join(', ') : ''}
-Tone: ${JSON.stringify(answers.tone || {})}
-Colors: ${answers.colors || ''}
-Pages: ${answers.pg ? answers.pg.join(', ') : ''}
-Web Ref: ${answers.webref || ''}
-Notes: ${answers.notes || ''}
-        `;
+        const submission = await prisma.brandDnaSubmission.findUnique({ where: { leadId } });
+        const logoUrl = submission?.logoPath || null;
+        const mediaUrls = (submission?.mediaFiles as string[] | null) || [];
+        const hasCustomAssets = !!(logoUrl || mediaUrls.length > 0);
 
-        const customPainPoints = `Blueprint Requirements:\n${blueprintAnswers}`;
+        const customAssetsBlock = hasCustomAssets ? `
+[CLIENT CUSTOM ASSETS — MANDATORY, PRIORITAS TERTINGGI]
+Klien telah menyediakan aset visual nyata berikut ini. WAJIB gunakan aset ini. Jangan ganti dengan Unsplash, placeholder, atau gambar lain.
+
+${logoUrl ? `LOGO KLIEN (WebP URL): ${logoUrl}
+→ Gunakan sebagai <img src="${logoUrl}"> di: navbar logo, footer logo.
+→ Jangan render teks nama brand sebagai pengganti logo jika ada URL ini.` : ''}
+
+${mediaUrls.length > 0 ? `GAMBAR KONTEN KLIEN:
+${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
+→ Gunakan gambar-gambar ini di: Hero background, Gallery section, About/Story section, Product showcase.
+→ Untuk section yang sudah punya gambar klien di atas, JANGAN gunakan Unsplash.` : ''}
+
+⚠️ Aset di atas adalah GAMBAR NYATA dari klien. Embed semua ke dalam HTML output.
+` : '';
+
+        // Convert answers into readable format for AI
+        const blueprintContext = `
+[BRAND BLUEPRINT CLIENT ANSWERS — GUNAKAN SEBAGAI DESIGN BRIEF]
+- Brand Name: ${answers.brand_name || lead.name}
+- One-liner: ${answers.oneliner || ''}
+- Tagline/Description: ${answers.tagline || ''}
+- Target Audience: ${answers.target || ''}
+- USP: ${answers.usp || ''}
+- Vibe: ${answers.vibe ? answers.vibe.join(', ') : ''}
+- Tone: ${JSON.stringify(answers.tone || {})}
+- Keywords: ${answers.kw ? answers.kw.join(', ') : ''} ${answers.kw_extra || ''}
+- Goal: ${answers.wg ? answers.wg.join(', ') : ''}
+- Colors: ${answers.colors || ''}
+- Pages Needed: ${answers.pg ? answers.pg.join(', ') : ''}
+- Web Refs: ${answers.webref || ''}
+- Notes: ${answers.notes || ''}
+        `;
 
         const finalPrompt = promptTemplate
             .replace('[selectedArchetype]', forgeData.selectedArchetype)
@@ -839,14 +862,17 @@ Notes: ${answers.notes || ''}
             .replace('[waLink]', `https://wa.me/${sanitizeWaNumber(lead.wa)}`)
             .replace('[phone]', lead.wa)
             .replace('[styleDNA]', answers.colors || lead.styleDNA || 'Modern, Professional and Premium')
-            .replace('[painPoints]', customPainPoints)
+            .replace('[customAssets]', customAssetsBlock)
+            .replace('[painPoints]', blueprintContext)
             .replace('[resolvingIdea]', answers.tagline || lead.resolvingIdea || 'Website premium yang konversi tinggi')
             .replace('[industryPattern]', forgeData.industryPattern)
             .replace('[industryStylePriority]', forgeData.industryStylePriority)
             .replace('[industryColorMood]', forgeData.industryColorMood)
             .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
             .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
-            .replace('[unsplashQueries]', forgeData.unsplashQueries);
+            .replace('[unsplashQueries]', hasCustomAssets 
+                ? `${forgeData.unsplashQueries} — HANYA untuk section dekoratif yang tidak punya custom asset di atas` 
+                : forgeData.unsplashQueries);
 
         if (jobId) {
             JobRegistry.updateJob(jobId, {

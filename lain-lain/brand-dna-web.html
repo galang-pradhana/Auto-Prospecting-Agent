@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Brand DNA → Website Brief</title>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -82,9 +83,9 @@ html, body {
 
 /* ── QUESTION TEXT ── */
 .qtext {
-  font-family: 'Instrument Serif', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: clamp(24px, 5vw, 36px);
-  line-height: 1.22; font-weight: 400;
+  line-height: 1.22; font-weight: 700;
 }
 .qtext em { font-style: italic; color: var(--accent); }
 
@@ -136,7 +137,7 @@ input[type="text"]:focus, textarea:focus {
 .vcard:hover { border-color: var(--border-h); }
 .vcard.on { border-color: var(--accent); background: rgba(212,175,55,0.1); }
 .vcard .vi { font-size: 26px; line-height: 1; }
-.vcard .vl { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.vcard .vl { font-size: 11px; color: var(--muted); line-height: 1.3; font-family: 'Outfit', sans-serif; }
 .vcard.on .vl { color: var(--accent); }
 
 /* ── SCALES ── */
@@ -168,22 +169,22 @@ input[type="range"]::-webkit-slider-thumb {
   position: relative; display: flex; align-items: center; gap: 16px;
 }
 .uzone:hover { border-color: var(--border-h); }
-.uzone.has { border-color: rgba(232,255,90,0.35); border-style: solid; }
+.uzone.has { border-color: rgba(212,175,55,0.5); border-style: solid; }
 .uzone input {
   position: absolute; inset: 0; opacity: 0; cursor: pointer;
   width: 100%; height: 100%;
 }
 .uzone-ico { font-size: 24px; flex-shrink: 0; }
-.uzone-text h4 { font-size: 14px; font-weight: 400; margin-bottom: 2px; }
+.uzone-text h4 { font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
 .uzone-text p { font-size: 12px; color: var(--muted); }
-.uzone-names { font-size: 11.5px; color: var(--accent); margin-top: 4px; font-family: 'Geist Mono', monospace; }
+.uzone-names { font-size: 11.5px; color: var(--accent); margin-top: 4px; font-family: 'Inter', monospace; }
 
 /* ── BUTTONS ── */
 .brow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .bnext {
   display: inline-flex; align-items: center; gap: 9px;
   background: var(--accent); color: #0a0a0a;
-  font-family: 'Geist', sans-serif; font-weight: 600; font-size: 14px;
+  font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px;
   padding: 13px 26px; border: none; border-radius: 100px;
   cursor: pointer; transition: all 0.18s;
 }
@@ -191,20 +192,20 @@ input[type="range"]::-webkit-slider-thumb {
 .bnext svg { width:15px;height:15px; }
 .bskip {
   font-size: 13px; color: var(--muted); background: none;
-  border: none; cursor: pointer; font-family: 'Geist', sans-serif;
+  border: none; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 600;
   transition: color 0.18s;
 }
 .bskip:hover { color: var(--text); }
 .bback {
   font-size: 13px; color: var(--muted); background: none; border: none;
-  cursor: pointer; font-family: 'Geist', sans-serif;
+  cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 600;
   display: flex; align-items: center; gap: 5px;
   transition: color 0.18s; margin-left: auto;
 }
 .bback:hover { color: var(--text); }
 .bback svg { width:13px;height:13px; }
 .ehint {
-  font-size: 11px; color: var(--muted); font-family: 'Geist Mono', monospace;
+  font-size: 11px; color: var(--muted); font-family: 'Inter', monospace;
   display: flex; align-items: center; gap: 5px;
 }
 .ehint kbd {
@@ -214,12 +215,12 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* ── HERO ── */
 #sh .hero-tag {
-  font-family: 'Geist Mono', monospace; font-size: 10.5px;
+  font-family: 'Inter', monospace; font-size: 10.5px;
   letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent);
 }
 #sh h1 {
-  font-family: 'Instrument Serif', serif;
-  font-size: clamp(34px, 6vw, 58px); line-height: 1.1; font-weight: 400;
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(34px, 6vw, 58px); line-height: 1.1; font-weight: 800;
 }
 #sh h1 em { font-style: italic; }
 #sh p { font-size: 15px; color: var(--muted); line-height: 1.72; max-width: 420px; }
@@ -234,21 +235,21 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .rbadge {
   display: inline-block; padding: 4px 14px;
-  background: rgba(232,255,90,0.1); border: 1px solid rgba(232,255,90,0.25);
+  background: rgba(212,175,55,0.1); border: 1px solid rgba(212,175,55,0.25);
   border-radius: 100px; font-size: 10px; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Inter', monospace;
 }
 .res-head h2 {
-  font-family: 'Instrument Serif', serif;
-  font-size: clamp(28px,4vw,42px); font-weight: 400;
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(28px,4vw,42px); font-weight: 700;
 }
 .res-head h2 em { font-style: italic; }
 .dsec { margin-bottom: 26px; }
 .dsec-title {
   font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--accent); margin-bottom: 10px;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Inter', monospace;
   display: flex; align-items: center; gap: 10px;
 }
 .dsec-title::after { content:''; flex:1; height:1px; background:var(--border); }
@@ -266,7 +267,7 @@ input[type="range"]::-webkit-slider-thumb {
 .bexp {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 11px 20px; border-radius: 100px; font-size: 13px;
-  font-weight: 500; cursor: pointer; font-family: 'Geist', sans-serif;
+  font-weight: 600; cursor: pointer; font-family: 'Outfit', sans-serif;
   transition: all 0.18s;
 }
 .bexp svg { width:13px;height:13px; }
@@ -283,8 +284,10 @@ input[type="range"]::-webkit-slider-thumb {
 
 @media print {
   #topbar, .erow { display:none!important; }
-  #screen-result { position:static!important; overflow:visible!important; padding:16px!important; }
-  body { background:#fff!important; color:#000!important; overflow:auto!important; }
+  #screen-result { position:static!important; overflow:visible!important; padding:16px!important; height: auto!important; }
+  body { background:#fff!important; color:#000!important; overflow:auto!important; height: auto!important; }
+  html { height: auto!important; overflow: auto!important; }
+  .screen:not(#screen-result) { display: none!important; }
   .rbadge,.dsec-title { color:#333!important; }
   .dkey { color:#666!important; }
   .dsec-title::after, .drow { border-color:#e0e0e0!important; }
@@ -610,7 +613,7 @@ input[type="range"]::-webkit-slider-thumb {
       </div>
     </div>
     <div class="brow">
-      <button class="bnext" onclick="showResult()" style="font-size:14.5px;padding:14px 30px">
+      <button class="bnext" id="btn-result" onclick="showResult()" style="font-size:14.5px;padding:14px 30px">
         Lihat Brand DNA Brief ✦
       </button>
       <button class="bskip" onclick="showResult()">Skip upload</button>
@@ -653,10 +656,29 @@ const D = {
   wg:[], pg:[],
   webref:'', colors:'', oneliner:'',
   tl:[], timeline_extra:'', notes:'',
-  files:{logo:[],content:[],ref:[]}
+  files:{
+    logo:[], content:[], ref:[],
+    logo_url: null,
+    logo_svg_url: null,
+    media_urls: [],
+    ref_urls: []
+  }
 };
 
 const TOTAL = 15;
+let _uploadsPending = 0;
+
+const vibeColors = {
+  'Clean & Minimal':    { bg: '#f8f8f6', text: '#1a1a1a', accent: '#2d2d2d' },
+  'Bold & Edgy':        { bg: '#0f0f0f', text: '#ffffff', accent: '#ff3b3b' },
+  'Warm & Earthy':      { bg: '#f5ede0', text: '#2c1a0e', accent: '#b5651d' },
+  'Dark & Premium':     { bg: '#0d0d0d', text: '#e8d5a3', accent: '#d4af37' },
+  'Playful & Colorful': { bg: '#fff9f0', text: '#1a1a1a', accent: '#ff6b35' },
+  'Luxury & Refined':   { bg: '#1a1209', text: '#f0e6c8', accent: '#c9a84c' },
+  'Tech & Futuristic':  { bg: '#050d1a', text: '#00d4ff', accent: '#7b2fff' },
+  'Editorial':          { bg: '#fafafa', text: '#111111', accent: '#222222' },
+  'Vintage & Nostalgic':{ bg: '#f2e8d5', text: '#3b2a1a', accent: '#8b6f47' },
+};
 
 // ── NAV ──
 function show(id){
@@ -742,15 +764,49 @@ function sl(input,valId){
 }
 
 // ── FILES ──
-function uf(input,namesId,zoneId,key){
-  const names=Array.from(input.files).map(f=>f.name);
-  document.getElementById(namesId).textContent=names.length?'✓ '+names.join(', '):'';
-  document.getElementById(zoneId).classList.toggle('has',names.length>0);
-  D.files[key]=names;
+async function uf(input,namesId,zoneId,key){
+  const files = Array.from(input.files);
+  const names = files.map(f => f.name);
+  const nameEl = document.getElementById(namesId);
+  const zoneEl = document.getElementById(zoneId);
+
+  nameEl.textContent = '⏳ Mengupload...';
+  D.files[key] = names;
+  _uploadsPending += files.length;
+
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('token', window.BRAND_DNA_TOKEN || 'local');
+    fd.append('type', key);
+    try {
+      const res = await fetch('/api/upload-brand-asset', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.success) {
+        if (key === 'logo') {
+          D.files.logo_url = data.webpUrl;
+          D.files.logo_svg_url = data.svgUrl || null;
+        } else if (key === 'content') {
+          D.files.media_urls.push(data.webpUrl);
+        } else if (key === 'ref') {
+          D.files.ref_urls.push(data.webpUrl);
+        }
+      }
+    } catch (e) {
+      console.error('Upload gagal:', e);
+    }
+    _uploadsPending--;
+  }
+  nameEl.textContent = names.length ? '✓ ' + names.join(', ') : '';
+  zoneEl.classList.toggle('has', names.length > 0);
 }
 
 // ── RESULT ──
 function showResult(){
+  if (_uploadsPending > 0) {
+    alert('Masih ada file yang sedang diupload. Tunggu sebentar...');
+    return;
+  }
   collect('q14'); collect('q15');
 
   const toneStr = [
@@ -793,87 +849,131 @@ function showResult(){
     ]},
   ];
 
-  document.getElementById('dna-out').innerHTML = secs.map(s=>`
+  let html = secs.map(s=>`
     <div class="dsec">
       <div class="dsec-title">${s.title}</div>
       ${s.rows.map(([k,v])=>`<div class="drow"><div class="dkey">${k}</div><div class="dval">${v||''}</div></div>`).join('')}
     </div>
   `).join('');
 
-  const from = document.getElementById('q15');
-  if(from) from.classList.add('exit');
-  setTimeout(()=>{ show('screen-result'); }, 270);
-  document.getElementById('topbar-fill').style.width='100%';
+  // Add System Design Preview
+  const vibe = D.vibe[0] || 'Clean & Minimal';
+  const palette = vibeColors[vibe] || vibeColors['Clean & Minimal'];
+  
+  html += `
+    <div class="dsec">
+      <div class="dsec-title">Sistem Desain Website Preview</div>
+      <div style="margin-top:16px;">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Rekomendasi palet warna & tipografi berdasarkan vibe <strong>${vibe}</strong>:</p>
+        <div style="display:flex; gap:12px; margin-bottom:15px;">
+          <div style="width:50px;height:50px;border-radius:8px;background:${palette.bg};border:1px solid var(--border);position:relative;" title="Background"></div>
+          <div style="width:50px;height:50px;border-radius:8px;background:${palette.accent};" title="Accent"></div>
+          <div style="width:50px;height:50px;border-radius:8px;background:${palette.text};" title="Text"></div>
+        </div>
+        <div style="padding:20px; background:${palette.bg}; border-radius:12px; border:1px solid var(--border);">
+          <h3 style="font-family:'Outfit',sans-serif; font-size:24px; font-weight:800; color:${palette.text}; margin:0 0 10px 0;">Heading Utama Website</h3>
+          <p style="font-family:'Inter',sans-serif; font-size:14px; color:${palette.text}; opacity:0.8; margin:0 0 15px 0;">Ini adalah contoh teks paragraf menggunakan font Inter. Tekstur dan keterbacaan dioptimalkan untuk konten brand kamu.</p>
+          <button style="background:${palette.accent}; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-family:'Outfit',sans-serif; font-weight:700; font-size:14px; cursor:default;">Tombol Aksi Utama</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('dna-out').innerHTML = html;
+  show('screen-result');
+  const pct = Math.round(15/TOTAL*100);
+  document.getElementById('topbar-fill').style.width = pct+'%';
 }
 
-// ── COPY ──
-function copyBrief(){
-  let txt='BRAND DNA — WEBSITE BRIEF\n'+'═'.repeat(30)+'\n\n';
-  document.querySelectorAll('.dsec').forEach(sec=>{
-    txt+=`── ${sec.querySelector('.dsec-title').textContent.trim()} ──\n`;
-    sec.querySelectorAll('.drow').forEach(r=>{
-      const k=r.querySelector('.dkey').textContent.trim();
-      const v=r.querySelector('.dval').textContent.trim();
-      if(v&&v!=='—') txt+=`${k}: ${v}\n`;
-    });
-    txt+='\n';
-  });
-  navigator.clipboard.writeText(txt).then(()=>{
-    const btn=document.getElementById('copybtn');
-    btn.textContent='✓ Tersalin!';
-    setTimeout(()=>{ btn.innerHTML='<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px"><path stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Copy Brief'; },2000);
-  }).catch(()=>alert('Gunakan Print untuk menyimpan.'));
-}
-
-// ── SUBMIT ──
 async function submitBrandDna() {
   const btn = document.getElementById('submitBtn');
-  if(btn) {
-    btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v2m0 12v2m8-8h-2M6 12H4m14.14-5.66l-1.41 1.41M7.27 18.14l-1.41 1.41M18.14 18.14l-1.41-1.41M7.27 5.86L5.86 7.27"/></svg> Menyimpan...';
-    btn.disabled = true;
-  }
-  
+  const oldTxt = btn.innerHTML;
+  btn.innerHTML = '⏳ Menyimpan...';
+  btn.disabled = true;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = window.BRAND_DNA_TOKEN || '';
+
   try {
     const res = await fetch('/api/brand-blueprint/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token: window.BRAND_DNA_TOKEN || '',
-        answers: D
-      })
+      body: JSON.stringify({ token, answers: D })
     });
-    
     const data = await res.json();
-    if(data.success) {
-      if(btn) btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M5 13l4 4L19 7"/></svg> Tersimpan';
+    if (data.success) {
+      btn.innerHTML = '✓ Tersimpan';
       
-      // Delay sedikit agar UI tombol update sebelum window.print memblokir thread
-      setTimeout(() => {
-          window.print();
+      // Generate PDF using html2pdf.js
+      setTimeout(async () => {
+        const element = document.getElementById('dna-out');
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'font-family: "Inter", sans-serif; color: #111; background: #fff; padding: 40px; width: 800px;';
+        wrapper.innerHTML = `
+          <div style="border-bottom: 2px solid #111; padding-bottom: 20px; margin-bottom: 30px;">
+            <h1 style="font-family: 'Outfit', sans-serif; font-size: 32px; font-weight: 800; margin: 0;">Brand DNA & Website Brief</h1>
+            <p style="font-size: 14px; color: #666; margin: 5px 0 0;">Generated by AutoForge Prospecting Engine</p>
+          </div>
+          ${element.innerHTML}
+        `;
+        // Ensure colors in PDF are visible even if background was dark in web
+        wrapper.querySelectorAll('.dsec-title').forEach(t => {
+           t.style.color = '#333';
+           t.style.borderBottom = '1px solid #eee';
+        });
+        wrapper.querySelectorAll('.dkey').forEach(k => k.style.color = '#666');
+        wrapper.querySelectorAll('.dval').forEach(v => v.style.color = '#000');
+        wrapper.querySelectorAll('.drow').forEach(r => r.style.borderBottom = '1px solid #eee');
+
+        document.body.appendChild(wrapper);
+
+        const opt = {
+          margin: [15, 15, 15, 15],
+          filename: `BrandDNA-${D.brand_name || 'Brief'}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        await html2pdf().set(opt).from(wrapper).save();
+        document.body.removeChild(wrapper);
       }, 500);
-      
+
     } else {
-      throw new Error(data.error || 'Gagal mengirim');
-    }
-  } catch (e) {
-    alert(e.message);
-    if(btn) {
-      btn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg> Coba Lagi';
+      alert('Gagal simpan: ' + (data.error || 'Unknown error'));
+      btn.innerHTML = oldTxt;
       btn.disabled = false;
     }
+  } catch (e) {
+    console.error(e);
+    alert('Terjadi kesalahan koneksi.');
+    btn.innerHTML = oldTxt;
+    btn.disabled = false;
   }
 }
 
-// ── ENTER KEY ──
-document.addEventListener('keydown', e=>{
-  if(e.key!=='Enter') return;
-  const active=document.querySelector('.screen.active');
-  if(!active||active.id==='sh'||active.id==='screen-result') return;
-  const ta=active.querySelector('textarea');
-  if(ta&&document.activeElement===ta) return;
-  const btn=active.querySelector('.bnext');
-  if(btn) btn.click();
+function copyBrief() {
+  const txt = document.getElementById('dna-out').innerText;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById('copybtn');
+    const old = btn.innerHTML;
+    btn.innerHTML = '✓ Copied';
+    setTimeout(() => { btn.innerHTML = old; }, 2000);
+  });
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    const active = document.querySelector('.screen.active');
+    if (active && active.id !== 'sh' && active.id !== 'screen-result') {
+      const btn = active.querySelector('.bnext');
+      if (btn) btn.click();
+    }
+  }
 });
 </script>
+
 </body>
 </html>
