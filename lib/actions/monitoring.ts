@@ -78,6 +78,28 @@ export async function getLiveLeadsAction() {
 }
 
 // ─── Get all monitoring leads ─────────────────────────────────────────────────
+export async function getMonitoringLeads() {
+    const session = await getSession();
+    if (!session) return [];
+
+    return prisma.lead.findMany({
+        where: {
+            userId: session.userId,
+            status: 'LIVE',
+            // We include monitoring stages, deal, and fail
+            followupStage: { in: ['monitoring_1', 'monitoring_2', 'monitoring_3', 'closed_won', 'closed_lost', 'sent', 'clicked', 'qualified'] }
+        },
+        include: {
+            followupQueue: {
+                where: { status: { in: ['pending', 'scheduled'] } },
+                take: 1,
+                orderBy: { followupNumber: 'desc' }
+            }
+        },
+
+        orderBy: { updatedAt: 'desc' },
+    });
+}
 
 // ─── Get monitoring stats ─────────────────────────────────────────────────────
 export async function getMonitoringStats() {
