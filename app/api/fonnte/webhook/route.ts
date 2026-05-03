@@ -36,6 +36,7 @@ export async function POST(req: Request) {
         }
 
         console.log(`[WEBHOOK] Incoming message from ${sender}: "${message}"`);
+        console.log(`[WEBHOOK] Full Body:`, JSON.stringify(body));
 
         // Cari lead dengan nomor WA ini yang statusnya BAIT_SENT
         const leads = await prisma.lead.findMany({
@@ -44,14 +45,20 @@ export async function POST(req: Request) {
             }
         });
 
+        console.log(`[WEBHOOK] Found ${leads.length} leads with BAIT_SENT status in DB.`);
+
         // Find matching lead
         const lead = leads.find(l => {
             if (!l.wa) return false;
             const lClean = sanitizeWaNumber(l.wa);
+            if (!lClean) return false;
+            
             const core1 = lClean.length > 5 ? lClean.substring(lClean.length - 8) : lClean;
             const core2 = sender.length > 5 ? sender.substring(sender.length - 8) : sender;
             
-            return lClean === sender || lClean.endsWith(core2) || sender.endsWith(core1);
+            const match = lClean === sender || lClean.endsWith(core2) || sender.endsWith(core1);
+            if (match) console.log(`[WEBHOOK] Match found! Lead: ${l.name} (${l.wa}) matches Sender: ${sender}`);
+            return match;
         });
 
         if (!lead) {
@@ -73,28 +80,24 @@ export async function POST(req: Request) {
         }
 
         if (lead.outreachDraft) {
-            // Send the outreach draft automatically as a reply (using inboxid)
-            console.log(`[WEBHOOK] Sending outreach to ${lead.wa} (Threaded: ${!!inboxid})`);
-            const response = await sendMessage(lead.wa, lead.outreachDraft, 0, tokens, inboxid);
+            // PREPARE DIRECT REPLY (Fonnte supports returning JSON to reply instantly)
+            console.log(`[WEBHOOK] Direct Reply triggered for ${lead.name} (${lead.wa})`);
             
-            if (response.status) {
-                await prisma.lead.update({
-                    where: { id: lead.id },
-                    data: {
-                        blastStatus: 'REPLIED',
-                        lastLog: `Outreach auto-sent via Webhook (InboxID: ${inboxid || 'N/A'})`
-                    }
-                });
-                console.log(`[WEBHOOK] Outreach SENT successfully to ${lead.name}`);
-            } else {
-                console.error(`[WEBHOOK] Outreach FAILED for ${lead.name}:`, response);
-                await prisma.lead.update({
-                    where: { id: lead.id },
-                    data: {
-                        blastError: 'Failed auto-reply: ' + (response.reason || response.message)
-                    }
-                });
-            }
+            // Still update DB to mark as REPLIED
+            await prisma.lead.update({
+                where: { id: lead.id },
+                data: {
+                    blastStatus: 'REPLIED',
+                    lastLog: `Outreach auto-sent via Direct Webhook Reply (InboxID: ${inboxid || 'N/A'})`
+                }
+            });
+
+            // Return direct reply payload
+            return NextResponse.json({ 
+                reply: lead.outreachDraft,
+                delay: 1, // 1 second delay for natural feel
+                inboxid: inboxid 
+            });
         } else {
             console.warn(`[WEBHOOK] No outreachDraft found for lead ${lead.id}. Cannot auto-reply.`);
         }

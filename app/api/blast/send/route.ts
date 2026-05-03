@@ -88,7 +88,15 @@ async function processBackgroundBlast(leads: any[], userId: string, jobId: strin
   
   let tokens: string[] = [];
   if (user?.fonnteTokens && Array.isArray(user.fonnteTokens)) {
-    tokens = user.fonnteTokens as string[];
+    tokens = (user.fonnteTokens as string[]).filter(t => t && t.trim().length > 10);
+  }
+
+  // SYNC WEBHOOK FOR ALL TOKENS (Ensure Fonnte knows where to send replies)
+  if (tokens.length > 0) {
+    const { syncFonnteWebhook } = require('@/lib/fonnte');
+    for (const token of tokens) {
+        syncFonnteWebhook(token).catch(e => console.error(`[BLAST] Failed to sync webhook for token ${token.substring(0,8)}`, e));
+    }
   }
 
   for (let i = 0; i < leads.length; i++) {

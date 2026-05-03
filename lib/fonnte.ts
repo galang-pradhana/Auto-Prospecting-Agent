@@ -5,6 +5,12 @@ export interface FonnteResponse {
   [key: string]: any;
 }
 
+export interface FonnteDirectResponse {
+  reply: string;
+  delay?: number;
+  inboxid?: string;
+}
+
 import { sanitizeWaNumber } from '@/lib/utils';
 
 export function parseFonnteWebhook(body: any) {
@@ -51,9 +57,9 @@ export async function sendMessage(phone: string, message: string, delay?: number
     const formattedPhone = formatPhone(phone);
     let token = process.env.FONNTE_TOKEN;
     
-    // Token rotation logic
+    // Token rotation logic - strictly filter for non-empty tokens
     if (tokens && tokens.length > 0) {
-      const validTokens = tokens.filter(t => t && t.trim() !== '');
+      const validTokens = tokens.filter(t => t && typeof t === 'string' && t.trim().length > 10);
       if (validTokens.length > 0) {
         const randomIndex = Math.floor(Math.random() * validTokens.length);
         token = validTokens[randomIndex];
@@ -104,9 +110,9 @@ export async function scheduleMessage(phone: string, message: string, scheduledA
     const formattedPhone = formatPhone(phone);
     let token = process.env.FONNTE_TOKEN;
     
-    // Token rotation logic
+    // Token rotation logic - strictly filter for non-empty tokens
     if (tokens && tokens.length > 0) {
-      const validTokens = tokens.filter(t => t && t.trim() !== '');
+      const validTokens = tokens.filter(t => t && typeof t === 'string' && t.trim().length > 10);
       if (validTokens.length > 0) {
         const randomIndex = Math.floor(Math.random() * validTokens.length);
         token = validTokens[randomIndex];
@@ -147,6 +153,41 @@ export async function scheduleMessage(phone: string, message: string, scheduledA
     return {
       status: false,
       message: "Internal Server Error or Network Issue",
+      detail: error.message
+    };
+  }
+}
+
+/**
+ * Synchronizes the Webhook URL with Fonnte for a specific token
+ */
+export async function syncFonnteWebhook(token: string): Promise<FonnteResponse> {
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://auto-prospect.web.id';
+    const webhookUrl = `${appUrl}/api/fonnte/webhook`;
+    
+    console.log(`[Fonnte API] Syncing Webhook for token ${token.substring(0, 8)}... to ${webhookUrl}`);
+    
+    const formData = new FormData();
+    formData.append('webhook', webhookUrl);
+    formData.append('webhookstatus', webhookUrl); // Also catch status updates at the same URL
+    formData.append('autoread', 'true');
+    
+    const response = await fetch('https://api.fonnte.com/update-device', {
+      method: 'POST',
+      headers: {
+        'Authorization': token
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error("[Fonnte API] syncFonnteWebhook error:", error);
+    return {
+      status: false,
+      message: "Failed to sync webhook",
       detail: error.message
     };
   }
