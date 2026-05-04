@@ -142,16 +142,44 @@ export async function getLeadStats() {
     const session = await getSession();
     if (!session) return { total: 0, fresh: 0, enriched: 0, ready: 0, finish: 0, rejectedLeads: 0 };
 
-    const [total, fresh, enriched, ready, finish, user] = await Promise.all([
-        prisma.lead.count({ where: { userId: session.userId } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'FRESH' } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'ENRICHED' } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'READY' } }),
-        prisma.lead.count({ where: { userId: session.userId, status: 'FINISH' } }),
-        prisma.user.findUnique({ where: { id: session.userId }, select: { rejectedLeads: true } })
-    ]);
+    try {
+        // Optimized: Single query to get counts grouped by status instead of 5 parallel counts
+        const stats = await prisma.lead.groupBy({
+            by: ['status'],
+            where: { userId: session.userId },
+            _count: true
+        });
 
-    return { total, fresh, enriched, ready, finish, rejectedLeads: user?.rejectedLeads || 0 };
+        const user = await prisma.user.findUnique({ 
+            where: { id: session.userId }, 
+            select: { rejectedLeads: true } 
+        });
+
+        const counts: Record<string, number> = {
+            FRESH: 0,
+            ENRICHED: 0,
+            READY: 0,
+            FINISH: 0
+        };
+
+        let total = 0;
+        stats.forEach(item => {
+            counts[item.status] = item._count;
+            total += item._count;
+        });
+
+        return { 
+            total, 
+            fresh: counts.FRESH, 
+            enriched: counts.ENRICHED, 
+            ready: counts.READY, 
+            finish: counts.FINISH, 
+            rejectedLeads: user?.rejectedLeads || 0 
+        };
+    } catch (error) {
+        console.error('[getLeadStats Error]:', error);
+        return { total: 0, fresh: 0, enriched: 0, ready: 0, finish: 0, rejectedLeads: 0 };
+    }
 }
 
 export async function cleanupOldLeads() {

@@ -23,7 +23,7 @@ export default function GlobalJobIndicator({ className }: { className?: string }
         };
 
         fetchJobs();
-        const interval = setInterval(fetchJobs, 3000);
+        const interval = setInterval(fetchJobs, 12000); // Very relaxed polling for header indicator
         return () => clearInterval(interval);
     }, []);
 

@@ -82,7 +82,7 @@ export default function ActivityMonitor() {
             }
         };
 
-        const interval = setInterval(fetchJobs, 4000);
+        const interval = setInterval(fetchJobs, 8000);
         return () => clearInterval(interval);
     }, [completedJobIds]);
 

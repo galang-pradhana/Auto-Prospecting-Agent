@@ -431,7 +431,7 @@ export default function ScraperPage() {
       setHealth(h);
     };
     updateHealth();
-    const interval = setInterval(updateHealth, 5000);
+    const interval = setInterval(updateHealth, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -470,7 +470,7 @@ export default function ScraperPage() {
       // Also fetch sandbox
       const sandbox = await getLatestSandbox(sessionStartTime || undefined);
       setSandboxResults(sandbox);
-    }, 3000);
+    }, 6000);
     return () => clearInterval(interval);
   }, [sessionStartTime]);
 
@@ -511,7 +511,7 @@ export default function ScraperPage() {
       }
     };
 
-    const interval = setInterval(pollJob, 2000);
+    const interval = setInterval(pollJob, 4000);
     return () => clearInterval(interval);
   }, [activeJobId]);
 
