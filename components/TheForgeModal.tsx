@@ -274,6 +274,17 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
                                                     <p className="text-[10px] text-white/60 leading-relaxed font-medium italic">
                                                         "{blueprintData.answers?.tagline}"
                                                     </p>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const prompt = lead.masterWebsitePrompt || "";
+                                                            navigator.clipboard.writeText(prompt);
+                                                            showMessage('success', 'Master Prompt copied to clipboard!');
+                                                        }}
+                                                        className="w-full py-2 bg-orange-600/20 hover:bg-orange-600/40 border border-orange-500/20 rounded-lg text-[8px] font-black text-orange-400 uppercase tracking-widest flex items-center justify-center gap-2 transition-all mt-2"
+                                                    >
+                                                        <Copy size={10} /> Copy Master Prompt Template
+                                                    </button>
                                                 </motion.div>
                                             )}
                                         </div>

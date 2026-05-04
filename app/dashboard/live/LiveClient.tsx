@@ -619,18 +619,23 @@ function LeadCard({ lead, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal,
                     <button 
                         onClick={(e) => { 
                             e.stopPropagation(); 
-                            if (siteVersion === 'real' && !isRealAvailable) {
+                            const isReal = siteVersion === 'real';
+                            const isAvailable = isReal ? isRealAvailable : !!lead.htmlCode;
+                            
+                            // Jika real tapi belum ada, atau jika user ingin paksa generate ulang
+                            if (isReal && (!isAvailable || window.confirm("Regenerate website ini menggunakan data Blueprint terbaru?"))) {
+                                toast.loading("Starting Blueprint generation...", { id: 'gen-' + lead.id });
                                 fetch('/api/brand-blueprint/generate', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ leadId: lead.id, modelId })
                                 }).then(res => res.json()).then(data => {
                                     if (data.success) {
-                                        toast.success("Blueprint generation started!");
+                                        toast.success("Blueprint generation started!", { id: 'gen-' + lead.id });
                                     } else {
-                                        toast.error(data.message || "Gagal generate blueprint.");
+                                        toast.error(data.message || "Gagal generate blueprint.", { id: 'gen-' + lead.id });
                                     }
-                                }).catch(err => toast.error("Error: " + err.message));
+                                }).catch(err => toast.error("Error: " + err.message, { id: 'gen-' + lead.id }));
                                 return;
                             }
                             window.open(currentUrl, '_blank'); 
@@ -640,6 +645,32 @@ function LeadCard({ lead, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal,
                         <ExternalLink size={14} />
                         {siteVersion === 'real' && !isRealAvailable ? 'Generate AI' : 'Visit Site'}
                     </button>
+
+                    {siteVersion === 'real' && isRealAvailable && (
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm("Hapus versi sekarang dan buat ulang (Regenerate) dari data Blueprint terbaru?")) {
+                                    toast.loading("Regenerating Blueprint...", { id: 'regen-' + lead.id });
+                                    fetch('/api/brand-blueprint/generate', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ leadId: lead.id, modelId })
+                                    }).then(res => res.json()).then(data => {
+                                        if (data.success) {
+                                            toast.success("Regeneration started!", { id: 'regen-' + lead.id });
+                                        } else {
+                                            toast.error(data.message || "Gagal regenerate.", { id: 'regen-' + lead.id });
+                                        }
+                                    }).catch(err => toast.error("Error: " + err.message, { id: 'regen-' + lead.id }));
+                                }
+                            }}
+                            className="h-12 w-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-all group/regen"
+                            title="Regenerate from Blueprint"
+                        >
+                            <RefreshCw size={14} className="text-accent-gold group-hover/regen:rotate-180 transition-transform duration-500" />
+                        </button>
+                    )}
 
                     {siteVersion === 'real' && !isRealAvailable && (
                         <div className="relative group/select h-12">
