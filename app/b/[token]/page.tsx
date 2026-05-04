@@ -34,13 +34,22 @@ export default async function PublicBrandDnaPage({ params }: { params: { token: 
     let htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
     // Inject data into the HTML
+    const existingAnswers = submission.answers ? JSON.stringify(submission.answers) : 'null';
+
     // We'll replace the default values in the D object or inject a script to override them
     const injectScript = `
         <script>
             window.BRAND_DNA_TOKEN = "${token}";
+            window.EXISTING_ANSWERS = ${existingAnswers};
             window.addEventListener('DOMContentLoaded', () => {
-                // Pre-fill D object if needed
-                if (typeof D !== 'undefined') {
+                if (window.EXISTING_ANSWERS && typeof D !== 'undefined') {
+                    // Merge existing answers into D
+                    Object.assign(D, window.EXISTING_ANSWERS);
+                    if (typeof populateUIFromD === 'function') {
+                        populateUIFromD();
+                    }
+                } else if (typeof D !== 'undefined') {
+                    // Pre-fill D object if needed
                     D.brand_name = "${submission.lead.name.replace(/"/g, '\\"')}";
                     // Trigger UI update for the first screen if visible
                     const q1Input = document.querySelector('#q1 input');

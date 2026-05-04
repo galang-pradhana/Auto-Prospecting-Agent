@@ -6,6 +6,8 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { MobileDrawer } from '@/components/MobileDrawer';
 import FollowUpQueue from '@/components/FollowUpQueue';
 import ActivityMonitor from '@/components/ActivityMonitor';
+import { ImpersonateBanner } from '@/components/ImpersonateBanner';
+import { getImpersonationStatus } from '@/lib/actions/impersonate';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
     const user = await getCurrentUser();
@@ -15,14 +17,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const settings = await getUserSettings();
     const initialProvider = settings?.aiProvider || 'kie';
 
-    return (
-        <div className="flex h-screen bg-premium-900 text-white selection:bg-accent-gold/30">
-            {/* Sidebar (Desktop) */}
-            {/* Sidebar (Desktop) */}
-            <Sidebar initialProvider={initialProvider} />
+    const impersonationStatus = await getImpersonationStatus();
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+    return (
+        <div className="flex h-screen bg-premium-900 text-white selection:bg-accent-gold/30 flex-col">
+            <ImpersonateBanner impersonatedUser={impersonationStatus} />
+            <div className="flex flex-1 overflow-hidden">
+                {/* Sidebar (Desktop) */}
+                <Sidebar initialProvider={initialProvider} />
+
+                {/* Main Content */}
+                <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header (Responsive) */}
                 <DashboardHeader userName={user.name} initialProvider={initialProvider} />
 
@@ -32,6 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                         {children}
                     </div>
                 </main>
+            </div>
             </div>
             {/* Global Follow-up Notification Queue */}
             <FollowUpQueue />

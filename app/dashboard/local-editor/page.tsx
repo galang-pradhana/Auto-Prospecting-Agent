@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import { Loader2, RefreshCw, Trash2, Database, Search, ChevronLeft, ChevronRight, X, Save } from 'lucide-react';
+import { Loader2, RefreshCw, Trash2, Database, Search, ChevronLeft, ChevronRight, X, Save, Eye } from 'lucide-react';
+import { startImpersonation } from '@/lib/actions/impersonate';
 
 // ============================================================
 // TAB CONFIG — Tambah tabel baru cukup tambah entry di sini
@@ -113,6 +114,75 @@ const TABS: TabConfig[] = [
         ],
         filters: [
             { key: 'status', label: 'Status', options: ['DISCOVERED','VERIFIED','INTRODUCED','NEGOTIATING','CLOSED'] }
+        ]
+    },
+    {
+        id: 'prospectevent', label: 'Prospect Events', icon: '📡',
+        columns: [
+            { key: 'eventType', label: 'Event Type', editable: true, type: 'text', width: 'min-w-[150px]' },
+            { key: 'prospectId', label: 'Lead ID', editable: false, type: 'text', width: 'min-w-[150px]' },
+            { key: 'metadata', label: 'Metadata', editable: false, type: 'textarea', width: 'min-w-[200px]' },
+            { key: 'createdAt', label: 'Created At', editable: false, type: 'date' },
+        ],
+        filters: []
+    },
+    {
+        id: 'trackingtoken', label: 'Tracking Tokens', icon: '🔑',
+        columns: [
+            { key: 'token', label: 'Token', editable: true, type: 'text', width: 'min-w-[150px]' },
+            { key: 'prospectId', label: 'Lead ID', editable: false, type: 'text', width: 'min-w-[150px]' },
+            { key: 'createdAt', label: 'Created At', editable: false, type: 'date' },
+        ],
+        filters: []
+    },
+    {
+        id: 'followupqueue', label: 'Followup Queue', icon: '📅',
+        columns: [
+            { key: 'prospectId', label: 'Lead ID', editable: false, type: 'text', width: 'min-w-[150px]' },
+            { key: 'followupNumber', label: 'Followup #', editable: true, type: 'text', width: 'min-w-[100px]' },
+            { key: 'messageText', label: 'Message', editable: true, type: 'textarea', width: 'min-w-[250px]' },
+            { key: 'waLink', label: 'WA Link', editable: true, type: 'text', width: 'min-w-[200px]' },
+            { key: 'status', label: 'Status', editable: true, type: 'select', options: ['pending', 'sent', 'failed'] },
+            { key: 'queuedAt', label: 'Queued At', editable: false, type: 'date' },
+            { key: 'sentAt', label: 'Sent At', editable: false, type: 'date' },
+        ],
+        filters: [
+            { key: 'status', label: 'Status', options: ['pending', 'sent', 'failed'] }
+        ]
+    },
+    {
+        id: 'b2becosystemmap', label: 'B2B Ecosystem', icon: '🌐',
+        columns: [
+            { key: 'categoryFocus', label: 'Category Focus', editable: true, type: 'text', width: 'min-w-[150px]' },
+            { key: 'connectionType', label: 'Connection Type', editable: true, type: 'text', width: 'min-w-[150px]' },
+            { key: 'connectedCat', label: 'Connected Cat', editable: true, type: 'text', width: 'min-w-[150px]' },
+            { key: 'tierLevel', label: 'Tier', editable: true, type: 'text', width: 'min-w-[100px]' },
+            { key: 'strengthScore', label: 'Strength', editable: true, type: 'text', width: 'min-w-[100px]' },
+            { key: 'createdAt', label: 'Created At', editable: false, type: 'date' },
+        ],
+        filters: []
+    },
+    {
+        id: 'proposal', label: 'Proposals', icon: '📄',
+        columns: [
+            { key: 'leadId', label: 'Lead ID', editable: false, type: 'text', width: 'min-w-[150px]' },
+            { key: 'html', label: 'HTML', editable: true, type: 'textarea', width: 'min-w-[250px]' },
+            { key: 'styleId', label: 'Style ID', editable: true, type: 'text', width: 'min-w-[150px]' },
+            { key: 'createdAt', label: 'Created At', editable: false, type: 'date' },
+        ],
+        filters: []
+    },
+    {
+        id: 'branddnasubmission', label: 'Brand DNA', icon: '🧬',
+        columns: [
+            { key: 'leadId', label: 'Lead ID', editable: false, type: 'text', width: 'min-w-[150px]' },
+            { key: 'token', label: 'Token', editable: true, type: 'text', width: 'min-w-[150px]' },
+            { key: 'status', label: 'Status', editable: true, type: 'select', options: ['PENDING', 'SUBMITTED', 'VIEWED'] },
+            { key: 'submittedAt', label: 'Submitted At', editable: false, type: 'date' },
+            { key: 'createdAt', label: 'Created At', editable: false, type: 'date' },
+        ],
+        filters: [
+            { key: 'status', label: 'Status', options: ['PENDING', 'SUBMITTED', 'VIEWED'] }
         ]
     },
 ];
@@ -431,7 +501,7 @@ export default function LocalEditorPage() {
                                             </th>
                                         ))}
                                         {!tab.readOnly && (
-                                            <th className="p-3 text-[10px] font-black uppercase tracking-widest text-white/30">Hapus</th>
+                                            <th className="p-3 text-[10px] font-black uppercase tracking-widest text-white/30">Aksi</th>
                                         )}
                                     </tr>
                                 </thead>
@@ -444,7 +514,21 @@ export default function LocalEditorPage() {
                                                 </td>
                                             ))}
                                             {!tab.readOnly && (
-                                                <td className="p-2">
+                                                <td className="p-2 flex items-center gap-2">
+                                                    {activeTab === 'user' && (
+                                                        <button
+                                                            onClick={async () => {
+                                                                toast.loading('Masuk sebagai user...', { id: 'impersonate' });
+                                                                const res = await startImpersonation(row.id);
+                                                                if (res.error) toast.error(res.error, { id: 'impersonate' });
+                                                                else window.location.href = '/dashboard';
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-blue-400/60 hover:text-blue-400 hover:bg-blue-400/10 transition-all flex items-center gap-1"
+                                                            title="Impersonate (Masuk sebagai user ini)"
+                                                        >
+                                                            <Eye size={14} />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => handleDelete(row.id, row.name || row.title || row.id)}
                                                         className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-400/10 transition-all">

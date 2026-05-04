@@ -19,6 +19,12 @@ const MODEL_MAP: Record<string, {
     watemplate:   { model: prisma.waTemplate,      searchFields: ['title', 'category'],              orderBy: { createdAt: 'desc' } },
     systemprompt: { model: prisma.systemPrompt,    searchFields: ['name'],                           orderBy: { updatedAt: 'desc' } },
     b2bdeal:      { model: prisma.b2BDeal,         searchFields: ['categoryLink', 'notes'],          orderBy: { createdAt: 'desc' } },
+    prospectevent: { model: prisma.prospectEvent,  searchFields: ['eventType', 'prospectId'],        orderBy: { createdAt: 'desc' } },
+    trackingtoken: { model: prisma.trackingToken,  searchFields: ['token', 'prospectId'],            orderBy: { createdAt: 'desc' } },
+    followupqueue: { model: prisma.followupQueue,  searchFields: ['messageText', 'status'],          orderBy: { queuedAt: 'desc' } },
+    b2becosystemmap: { model: prisma.b2BEcosystemMap, searchFields: ['categoryFocus', 'connectedCat'], orderBy: { createdAt: 'desc' } },
+    proposal:      { model: prisma.proposal,       searchFields: ['leadId'],                         orderBy: { createdAt: 'desc' } },
+    branddnasubmission: { model: prisma.brandDnaSubmission, searchFields: ['token', 'leadId', 'status'], orderBy: { createdAt: 'desc' } },
 };
 
 const PAGE_SIZE = 50;

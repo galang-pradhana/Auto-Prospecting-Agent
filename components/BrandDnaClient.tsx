@@ -216,8 +216,9 @@ export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps
                                                             href={`/b/${lead.brandDna.token}`} 
                                                             target="_blank"
                                                             className="p-2 rounded-xl bg-accent-gold/10 text-accent-gold hover:bg-accent-gold hover:text-black transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                                                            title="Buka untuk melihat atau meneruskan pengisian data/file"
                                                         >
-                                                            <Eye size={14} /> View
+                                                            <Eye size={14} /> Buka / Teruskan
                                                         </a>
                                                     </>
                                                 ) : (

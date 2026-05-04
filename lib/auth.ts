@@ -24,18 +24,49 @@ function decodeSession(token: string): { userId: string } | null {
 
 // --- Public API ---
 
-export async function getSession(): Promise<{ userId: string } | null> {
+export async function getRealSession(): Promise<{ userId: string } | null> {
     const cookieStore = cookies();
     const token = cookieStore.get(SESSION_COOKIE)?.value;
     if (!token) return null;
     return decodeSession(token);
 }
 
+export async function getImpersonateSession(): Promise<{ userId: string } | null> {
+    const cookieStore = cookies();
+    const token = cookieStore.get('forge_impersonate')?.value;
+    if (!token) return null;
+    return { userId: token };
+}
+
+export async function getSession(): Promise<{ userId: string } | null> {
+    return getRealSession();
+}
+
 export async function getCurrentUser() {
-    const session = await getSession();
-    if (!session) return null;
+    const realSession = await getRealSession();
+    if (!realSession) return null;
+
+    let targetUserId = realSession.userId;
+    const ownerEmail = process.env.OWNER_EMAIL;
+
+    // If there is an OWNER_EMAIL configured, check if the real user is the owner
+    if (ownerEmail) {
+        const realUser = await prisma.user.findUnique({ 
+            where: { id: realSession.userId }, 
+            select: { email: true } 
+        });
+        
+        if (realUser?.email === ownerEmail) {
+            // Owner is logged in, check if they are impersonating someone
+            const impSession = await getImpersonateSession();
+            if (impSession?.userId) {
+                targetUserId = impSession.userId;
+            }
+        }
+    }
+
     return prisma.user.findUnique({
-        where: { id: session.userId },
+        where: { id: targetUserId },
         select: { 
             id: true, email: true, name: true, 
             kieAiApiKey: true, openrouterApiKey: true,
@@ -47,7 +78,8 @@ export async function getCurrentUser() {
 
 /**
  * Cek apakah user yang sedang login adalah Owner (Admin utama).
- * Owner ditentukan oleh env var OWNER_EMAIL di .env
+ * Owner ditentukan oleh env var OWNER_EMAIL di .env.
+ * Selalu mengecek Real Session, bukan Impersonated Session.
  */
 export async function isOwner(): Promise<boolean> {
     const ownerEmail = process.env.OWNER_EMAIL;
@@ -55,8 +87,14 @@ export async function isOwner(): Promise<boolean> {
         console.warn('[Auth] OWNER_EMAIL not set in .env — local-editor is locked for everyone.');
         return false;
     }
-    const user = await getCurrentUser();
-    return user?.email === ownerEmail;
+    const realSession = await getRealSession();
+    if (!realSession) return false;
+    
+    const realUser = await prisma.user.findUnique({ 
+        where: { id: realSession.userId },
+        select: { email: true }
+    });
+    return realUser?.email === ownerEmail;
 }
 
 export async function registerUser(formData: FormData) {
