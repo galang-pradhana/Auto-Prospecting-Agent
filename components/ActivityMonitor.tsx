@@ -64,14 +64,26 @@ export default function ActivityMonitor() {
                 if (data.success) {
                     const newJobs: Job[] = data.jobs;
                     
+                    // Load acknowledged jobs from localStorage on first run
+                    const ackJson = localStorage.getItem('ack_jobs');
+                    const ackSet = ackJson ? new Set(JSON.parse(ackJson)) : new Set<string>();
+
                     newJobs.forEach(job => {
-                        if (job.status !== 'RUNNING' && !completedJobIds.has(job.id)) {
+                        if (job.status !== 'RUNNING' && !completedJobIds.has(job.id) && !ackSet.has(job.id)) {
                             if (job.status === 'COMPLETED') {
                                 toast.success(`${job.type} Job Finished: ${job.message}`, { duration: 5000 });
                             } else {
                                 toast.error(`${job.type} Job Failed: ${job.message}`, { duration: 6000 });
                             }
-                            setCompletedJobIds(prev => new Set(prev).add(job.id));
+                            
+                            // Mark as completed in local state AND localStorage
+                            setCompletedJobIds(prev => {
+                                const next = new Set(prev).add(job.id);
+                                return next;
+                            });
+                            
+                            ackSet.add(job.id);
+                            localStorage.setItem('ack_jobs', JSON.stringify(Array.from(ackSet).slice(-50))); // Keep last 50
                         }
                     });
 

@@ -128,7 +128,13 @@ export function processSpintax(text: string): string {
     });
 }
 
-export function generateRandomBait(leadName: string, leadCity: string, leadCategory: string = "", leadRating: number = 0): string {
+export function generateRandomBait(
+    leadName: string,
+    leadCity: string,
+    leadCategory: string = "",
+    leadRating: number = 0,
+    identity?: { businessName?: string | null; businessWa?: string | null; businessIg?: string | null }
+): string {
     const templates = [
         "[1] — Social Proof + Pertanyaan\nHalo Pak/Bu [name] 👋\n\nKami lagi ngumpulin data bisnis [category] terbaik di [city] — dan \n[name] masuk list kami dengan [reviewRating]⭐ dari Google.\n\nBoleh kami tunjukin sesuatu yang mungkin menarik buat kalian? \nCuma butuh 1 menit kok 🙏",
         "[2] — Curiosity Gap\nHalo [name] 👋\n\nIseng-iseng kami cek bisnis [category] di [city] — \ndan [name] lumayan stand out dibanding yang lain.\n\nAda satu hal kecil yang kalau dibenerin, bisa bikin makin banyak \norang nemuin [name] pas lagi nyari [category]. \n\nBoleh kami share? 😊",
@@ -152,10 +158,21 @@ export function generateRandomBait(leadName: string, leadCity: string, leadCateg
     const categoryText = leadCategory || "bisnis";
     const ratingText = leadRating > 0 ? leadRating.toString() : "bagus";
     
-    return processSpintax(template
+    let finalMessage = processSpintax(template
         .replace(/\[name\]/g, nameText)
         .replace(/\[city\]/g, cityText)
         .replace(/\[category\]/g, categoryText)
         .replace(/\[reviewRating\]/g, ratingText));
+
+    // Append sender identity block if provided
+    if (identity?.businessName || identity?.businessWa || identity?.businessIg) {
+        const lines: string[] = [];
+        if (identity.businessName) lines.push(identity.businessName);
+        if (identity.businessWa)   lines.push(`WA: ${identity.businessWa}`);
+        if (identity.businessIg)   lines.push(`IG: @${identity.businessIg}`);
+        finalMessage += '\n\n' + lines.join('\n');
+    }
+
+    return finalMessage;
 }
 

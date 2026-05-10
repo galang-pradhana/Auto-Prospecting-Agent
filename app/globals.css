@@ -33,15 +33,239 @@ body {
   }
 }
 
-/* Quick Theme Hack for Dark-First Codebase */
+/* ── LIGHT THEME: Clean Purple SaaS ─────────────────────── */
 html.light {
-  filter: invert(1) hue-rotate(180deg);
-  background-color: #0f1115; /* Will be inverted to light gray */
+  filter: none;
+
+  /* ── Color Tokens ── */
+  --lt-bg:           #f4f4f8;          /* page background — very light lavender */
+  --lt-surface:      #ffffff;          /* card / sidebar / header background   */
+  --lt-surface-2:    #f9f9fc;          /* secondary surface, hover rows         */
+  --lt-border:       rgba(100, 80, 200, 0.08); /* subtle purple-tinted border  */
+  --lt-shadow:       0 2px 8px rgba(100, 80, 200, 0.07),
+                     0 1px 2px rgba(0,0,0,0.04);
+
+  --lt-text:         #1a1a2e;          /* primary text */
+  --lt-text-muted:   #6b7280;          /* secondary / label text */
+  --lt-text-faint:   #9ca3af;          /* placeholder / helper text */
+
+  --lt-accent:       #7c3aed;          /* purple primary */
+  --lt-accent-mid:   #8b5cf6;          /* lighter purple */
+  --lt-accent-light: #ede9fe;          /* purple tint bg */
+  --lt-accent-hover: #6d28d9;          /* darker purple for hover */
+
+  --lt-green:        #10b981;
+  --lt-red:          #ef4444;
+  --lt-amber:        #f59e0b;
+
+  /* Override Tailwind body vars */
+  --foreground-rgb:       26, 26, 46;
+  --background-start-rgb: 244, 244, 248;
+  --background-end-rgb:   244, 244, 248;
 }
 
-/* Revert media elements back to normal */
+/* ── Base ── */
+html.light body {
+  font-family: 'Inter', sans-serif;
+  background: var(--lt-bg);
+  color: var(--lt-text);
+}
+
+/* ── Sidebar ── */
+html.light aside {
+  background: var(--lt-surface) !important;
+  border-right: 1px solid var(--lt-border) !important;
+  box-shadow: 2px 0 16px rgba(100, 80, 200, 0.05) !important;
+}
+
+html.light aside * {
+  color: var(--lt-text-muted) !important;
+}
+
+html.light aside a:hover,
+html.light aside [class*="active"],
+html.light aside [class*="text-white"],
+html.light aside .text-white {
+  color: var(--lt-accent) !important;
+}
+
+/* Active link bg in sidebar */
+html.light aside [class*="bg-white/10"],
+html.light aside .bg-white\/10 {
+  background: var(--lt-accent-light) !important;
+  color: var(--lt-accent) !important;
+}
+
+/* Brand name / logo dot */
+html.light aside [class*="text-red"],
+html.light aside .text-red-400,
+html.light aside .text-red-500 {
+  color: var(--lt-accent) !important;
+}
+
+/* ── Header / Top Bar ── */
+html.light header {
+  background: var(--lt-surface) !important;
+  border-bottom: 1px solid var(--lt-border) !important;
+  box-shadow: 0 1px 8px rgba(100, 80, 200, 0.06) !important;
+}
+html.light header * {
+  color: var(--lt-text-muted) !important;
+}
+html.light header [class*="text-white"],
+html.light header .text-white {
+  color: var(--lt-text) !important;
+}
+
+/* ── Cards & Glass Panels ── */
+html.light .glass,
+html.light [class*="bg-white/"],
+html.light [class*="bg-zinc-8"],
+html.light [class*="bg-zinc-9"],
+html.light [class*="bg-gray-8"],
+html.light [class*="bg-gray-9"],
+html.light [class*="bg-neutral-8"],
+html.light [class*="bg-neutral-9"] {
+  background: var(--lt-surface) !important;
+  border: 1px solid var(--lt-border) !important;
+  box-shadow: var(--lt-shadow) !important;
+  backdrop-filter: none !important;
+}
+
+/* ── General dark bg overrides → surface ── */
+html.light [class*="bg-zinc-"],
+html.light [class*="bg-gray-"],
+html.light [class*="bg-neutral-"] {
+  background: var(--lt-surface) !important;
+}
+
+/* Main content wrapper bg */
+html.light main,
+html.light [class*="bg-[#0f"],
+html.light [class*="bg-[#1"],
+html.light [class*="bg-black"] {
+  background: var(--lt-bg) !important;
+}
+
+/* ── Typography ── */
+html.light .text-white,
+html.light [class*="text-white"],
+html.light h1, html.light h2, html.light h3,
+html.light h4, html.light h5, html.light h6 {
+  color: var(--lt-text) !important;
+}
+
+html.light .text-gray-400,
+html.light .text-gray-500,
+html.light .text-zinc-400,
+html.light .text-zinc-500,
+html.light .text-neutral-400,
+html.light .text-neutral-500,
+html.light p, html.light span, html.light label {
+  color: var(--lt-text-muted);
+}
+
+html.light .text-gray-300,
+html.light .text-zinc-300,
+html.light [class*="text-gray-3"] {
+  color: var(--lt-text-faint) !important;
+}
+
+/* ── Accent Purple overrides ── */
+/* Buttons & badges that were red/yellow → purple */
+html.light .text-accent-gold,
+html.light .text-yellow-400 {
+  color: var(--lt-accent) !important;
+}
+
+html.light .bg-accent-gold,
+html.light [class*="bg-red-"],
+html.light [class*="bg-yellow-"] {
+  background: var(--lt-accent) !important;
+  color: #fff !important;
+}
+
+/* Primary action buttons → purple */
+html.light button[class*="bg-red-"],
+html.light button[class*="bg-yellow-"],
+html.light a[class*="bg-red-"],
+html.light a[class*="bg-yellow-"] {
+  background: var(--lt-accent) !important;
+  color: #fff !important;
+  border-color: var(--lt-accent) !important;
+}
+html.light button[class*="bg-red-"]:hover,
+html.light button[class*="bg-yellow-"]:hover {
+  background: var(--lt-accent-hover) !important;
+}
+
+/* ── Status badges (keep green for live) ── */
+html.light [class*="text-green-"] {
+  color: var(--lt-green) !important;
+}
+html.light [class*="bg-green-"] {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: var(--lt-green) !important;
+}
+
+/* ── Borders ── */
+html.light [class*="border-white/"],
+html.light [class*="border-zinc-"],
+html.light [class*="border-gray-"] {
+  border-color: var(--lt-border) !important;
+}
+
+/* ── Inputs ── */
+html.light input,
+html.light textarea,
+html.light select {
+  background: var(--lt-surface) !important;
+  color: var(--lt-text) !important;
+  border-color: var(--lt-border) !important;
+}
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: var(--lt-text-faint) !important;
+}
+html.light input:focus,
+html.light textarea:focus,
+html.light select:focus {
+  border-color: var(--lt-accent) !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12) !important;
+  outline: none !important;
+}
+
+/* ── Tables ── */
+html.light thead th {
+  background: var(--lt-surface-2) !important;
+  color: var(--lt-text-muted) !important;
+  border-bottom: 1px solid var(--lt-border) !important;
+}
+html.light td,
+html.light th {
+  color: var(--lt-text) !important;
+  border-color: var(--lt-border) !important;
+}
+html.light tbody tr:hover {
+  background: var(--lt-accent-light) !important;
+}
+
+/* ── Tabs / Active indicators ── */
+html.light [class*="border-b-"][class*="white"],
+html.light [aria-selected="true"] {
+  border-color: var(--lt-accent) !important;
+  color: var(--lt-accent) !important;
+}
+
+/* ── Scrollbar ── */
+html.light ::-webkit-scrollbar { width: 6px; height: 6px; }
+html.light ::-webkit-scrollbar-track { background: var(--lt-bg); }
+html.light ::-webkit-scrollbar-thumb { background: #d0d0e8; border-radius: 6px; }
+html.light ::-webkit-scrollbar-thumb:hover { background: var(--lt-accent-mid); }
+
+/* ── Media — never invert ── */
 html.light img,
 html.light video,
 html.light iframe {
-  filter: invert(1) hue-rotate(180deg);
+  filter: none !important;
 }

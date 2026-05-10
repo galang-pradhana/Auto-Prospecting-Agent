@@ -232,8 +232,7 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
     const filteredLeads = useMemo(() => {
         return leads.filter(l => {
             if (siteVersion === 'real') {
-                const status = l.brandDna?.status;
-                if (status !== 'SUBMITTED' && status !== 'VIEWED') return false;
+                if (!l.brandDna) return false;
             }
 
             if (filterCategory !== 'ALL CATEGORIES' && l.category !== filterCategory) return false;
@@ -491,6 +490,18 @@ export default function LiveClient({ initialLeads, templates }: LiveClientProps)
                     isOpen={isEditModalOpen}
                     onClose={() => { setIsEditModalOpen(false); setEditingHtmlLead(null); }}
                     lead={editingHtmlLead}
+                    onSaveSuccess={(newHtml) => {
+                        // Update the local leads list so next time they open, it has the fresh HTML
+                        setLeads(prev => prev.map(l => l.id === editingHtmlLead.id ? {
+                            ...l,
+                            [siteVersion === 'real' ? 'prototypeHtml' : 'htmlCode']: newHtml
+                        } : l));
+                        // Also update the currently open lead state so if it stays open it holds the new HTML
+                        setEditingHtmlLead((prev: any) => ({
+                            ...prev,
+                            [siteVersion === 'real' ? 'prototypeHtml' : 'htmlCode']: newHtml
+                        }));
+                    }}
                 />
             )}
 
@@ -569,6 +580,55 @@ function LeadCard({ lead, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal,
     modelId: string;
     setModelId: (m: string) => void;
 }) {
+    const [regenerating, setRegenerating] = useState(false);
+    const [regenProgress, setRegenProgress] = useState('');
+    const router = useRouter();
+
+    const handleRegenerateBlueprint = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!lead.brandDna) {
+            toast.error('Klien belum submit Brand Blueprint!');
+            return;
+        }
+        setRegenerating(true);
+        setRegenProgress('Memulai...');
+        const toastId = `regen-${lead.id}`;
+        toast.loading('Membuat prototipe dari Brand DNA...', { id: toastId });
+        try {
+            const res = await fetch('/api/brand-blueprint/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadId: lead.id }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.jobId) throw new Error(data.message || 'Gagal memulai generate');
+
+            // Poll job status
+            const jobId = data.jobId;
+            const interval = setInterval(async () => {
+                try {
+                    const sRes = await fetch(`/api/jobs/status?id=${jobId}`);
+                    const sData = await sRes.json();
+                    const job = sData.job;
+                    if (!job) return;
+                    setRegenProgress(job.message || '');
+                    if (job.status === 'COMPLETED') {
+                        clearInterval(interval);
+                        setRegenerating(false);
+                        toast.success('Prototype Real berhasil di-generate!', { id: toastId });
+                        router.refresh();
+                    } else if (job.status === 'FAILED') {
+                        clearInterval(interval);
+                        setRegenerating(false);
+                        toast.error(job.message || 'Generate gagal', { id: toastId });
+                    }
+                } catch (e) { /* silent */ }
+            }, 3000);
+        } catch (err: any) {
+            toast.error(err.message || 'Generate gagal', { id: `regen-${lead.id}` });
+            setRegenerating(false);
+        }
+    };
     const isRealAvailable = lead.prototypeHtml && lead.prototypeHtml.length > 0;
     const currentUrl = `/${lead.slug || lead.id}${siteVersion === 'real' ? '?v=real' : ''}`;
     const currentHtml = siteVersion === 'real' ? lead.prototypeHtml : lead.htmlCode;
@@ -616,82 +676,43 @@ function LeadCard({ lead, siteVersion, onOpenDetail, onOpenEdit, onOpenProposal,
 
             <div className="pt-6 border-t border-white/5 flex flex-wrap gap-2">
                 <div className="flex-1 flex gap-2">
-                    <button 
-                        onClick={(e) => { 
-                            e.stopPropagation(); 
-                            const isReal = siteVersion === 'real';
-                            const isAvailable = isReal ? isRealAvailable : !!lead.htmlCode;
-                            
-                            // Jika real tapi belum ada, atau jika user ingin paksa generate ulang
-                            if (isReal && (!isAvailable || window.confirm("Regenerate website ini menggunakan data Blueprint terbaru?"))) {
-                                toast.loading("Starting Blueprint generation...", { id: 'gen-' + lead.id });
-                                fetch('/api/brand-blueprint/generate', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ leadId: lead.id, modelId })
-                                }).then(res => res.json()).then(data => {
-                                    if (data.success) {
-                                        toast.success("Blueprint generation started!", { id: 'gen-' + lead.id });
-                                    } else {
-                                        toast.error(data.message || "Gagal generate blueprint.", { id: 'gen-' + lead.id });
-                                    }
-                                }).catch(err => toast.error("Error: " + err.message, { id: 'gen-' + lead.id }));
-                                return;
-                            }
-                            window.open(currentUrl, '_blank'); 
-                        }}
-                        className={`flex-1 h-12 ${siteVersion === 'real' && !isRealAvailable ? 'bg-accent-gold hover:bg-yellow-600 text-black shadow-lg shadow-yellow-900/20' : 'bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-900/20'} font-black rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] uppercase tracking-widest active:scale-95`}
-                    >
-                        <ExternalLink size={14} />
-                        {siteVersion === 'real' && !isRealAvailable ? 'Generate AI' : 'Visit Site'}
-                    </button>
-
-                    {siteVersion === 'real' && isRealAvailable && (
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (window.confirm("Hapus versi sekarang dan buat ulang (Regenerate) dari data Blueprint terbaru?")) {
-                                    toast.loading("Regenerating Blueprint...", { id: 'regen-' + lead.id });
-                                    fetch('/api/brand-blueprint/generate', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ leadId: lead.id, modelId })
-                                    }).then(res => res.json()).then(data => {
-                                        if (data.success) {
-                                            toast.success("Regeneration started!", { id: 'regen-' + lead.id });
-                                        } else {
-                                            toast.error(data.message || "Gagal regenerate.", { id: 'regen-' + lead.id });
-                                        }
-                                    }).catch(err => toast.error("Error: " + err.message, { id: 'regen-' + lead.id }));
-                                }
-                            }}
-                            className="h-12 w-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center transition-all group/regen"
-                            title="Regenerate from Blueprint"
-                        >
-                            <RefreshCw size={14} className="text-accent-gold group-hover/regen:rotate-180 transition-transform duration-500" />
-                        </button>
-                    )}
-
-                    {siteVersion === 'real' && !isRealAvailable && (
-                        <div className="relative group/select h-12">
-                            <select 
-                                value={modelId}
-                                onChange={(e) => { e.stopPropagation(); setModelId(e.target.value); }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-full bg-white/5 border border-white/10 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest text-accent-gold outline-none focus:border-accent-gold/40 cursor-pointer appearance-none pr-8"
-                            >
-                                <optgroup label="Cross-Engine" className="bg-zinc-900">
-                                    <option value="gemini-3-1-pro">Gemini 3.1</option>
-                                    <option value="claude-sonnet-4-6">Claude 4.6</option>
-                                    <option value="gpt-5-2">GPT 5.2</option>
-                                </optgroup>
-                                <optgroup label="OpenRouter" className="bg-zinc-900">
-                                    <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
-                                    <option value="qwen3.6-plus">Qwen 3.6</option>
-                                </optgroup>
-                            </select>
-                            <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                    {siteVersion === 'real' && !isRealAvailable ? (
+                        <div className="flex-1 flex gap-2">
+                            {lead.brandDna ? (
+                                <button
+                                    onClick={handleRegenerateBlueprint}
+                                    disabled={regenerating}
+                                    className="flex-1 h-12 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-xl flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-purple-900/30 disabled:opacity-60"
+                                >
+                                    {regenerating
+                                        ? <><Loader2 size={13} className="animate-spin" /><span className="max-w-[100px] truncate">{regenProgress || 'Proses...'}</span></>
+                                        : <><Sparkles size={13} /><span>Generate Blueprint</span></>}
+                                </button>
+                            ) : (
+                                <div className="flex-1 flex gap-2">
+                                    <div className="flex-1 h-12 bg-rose-500/10 text-rose-400 font-black rounded-xl flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest border border-rose-500/20 cursor-not-allowed">
+                                        Belum Ada Brand DNA
+                                    </div>
+                                    <Link
+                                        href="/dashboard/brand-dna"
+                                        className="h-12 px-4 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 font-black rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] uppercase tracking-widest border border-purple-500/20 whitespace-nowrap"
+                                    >
+                                        → Brand DNA
+                                    </Link>
+                                </div>
+                            )}
                         </div>
+                    ) : (
+                        <button 
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                window.open(currentUrl, '_blank'); 
+                            }}
+                            className={`flex-1 h-12 bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-900/20 font-black rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] uppercase tracking-widest active:scale-95`}
+                        >
+                            <ExternalLink size={14} />
+                            Visit Site
+                        </button>
                     )}
                 </div>
                 
@@ -819,31 +840,35 @@ function LeadTable({ leads, siteVersion, onOpenDetail, onOpenEdit, onOpenProposa
                             </td>
                             <td className="py-3 px-4">
                                 <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                    <button onClick={() => {
-                                        const isRealAvailable = lead.prototypeHtml && lead.prototypeHtml.length > 0;
-                                        if (siteVersion === 'real' && !isRealAvailable) {
-                                            fetch('/api/brand-blueprint/generate', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ leadId: lead.id, modelId })
-                                            }).then(res => res.json()).then(data => {
-                                                if (data.success) {
-                                                    toast.success("Blueprint generation started!");
-                                                } else {
-                                                    toast.error(data.message || "Gagal generate blueprint.");
-                                                }
-                                            }).catch(err => toast.error("Error: " + err.message));
-                                            return;
-                                        }
-                                        window.open(`/${lead.slug || lead.id}${siteVersion === 'real' ? '?v=real' : ''}`, '_blank');
-                                    }}
-                                        className={`h-8 px-2.5 ${siteVersion === 'real' && (!lead.prototypeHtml || lead.prototypeHtml.length === 0) ? 'bg-accent-gold hover:bg-yellow-600 text-black' : 'bg-orange-600 hover:bg-orange-700 text-white'} rounded-lg text-[10px] font-black flex items-center gap-1 transition-all`}>
-                                        <ExternalLink size={11} /> {siteVersion === 'real' && (!lead.prototypeHtml || lead.prototypeHtml.length === 0) ? 'Gen AI' : 'Visit'}
-                                    </button>
-                                    <button onClick={() => onOpenEdit(lead)}
-                                        className="h-8 w-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center justify-center transition-all">
-                                        <Sliders size={12} className="text-accent-gold" />
-                                    </button>
+                                    {siteVersion === 'real' && (!lead.prototypeHtml || lead.prototypeHtml.length === 0) ? (
+                                        <>
+                                            {lead.brandDna ? (
+                                                <GenerateInlineButton leadId={lead.id} />
+                                            ) : (
+                                                <>
+                                                    <div className="h-8 px-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-not-allowed">
+                                                        No Brand DNA
+                                                    </div>
+                                                    <Link href="/dashboard/brand-dna" className="h-8 px-2.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-400 rounded-lg text-[10px] font-black flex items-center gap-1 transition-all">
+                                                        → Brand DNA
+                                                    </Link>
+                                                </>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button onClick={() => {
+                                                window.open(`/${lead.slug || lead.id}${siteVersion === 'real' ? '?v=real' : ''}`, '_blank');
+                                            }}
+                                                className="h-8 px-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 transition-all">
+                                                <ExternalLink size={11} /> Visit
+                                            </button>
+                                            <button onClick={() => onOpenEdit(lead)}
+                                                className="h-8 w-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center justify-center transition-all">
+                                                <Sliders size={12} className="text-accent-gold" />
+                                            </button>
+                                        </>
+                                    )}
                                     <button onClick={() => onOpenProposal(lead)}
                                         className="h-8 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10px] font-black flex items-center gap-1 transition-all">
                                         <FileText size={11} className="text-orange-500" /> Prop
@@ -867,5 +892,61 @@ function LeadTable({ leads, siteVersion, onOpenDetail, onOpenEdit, onOpenProposa
                 </tbody>
             </table>
         </div>
+    );
+}
+
+// ── Inline Generate Button for table view ──────────────────────────────────
+function GenerateInlineButton({ leadId }: { leadId: string }) {
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
+
+    const handleGenerate = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLoading(true);
+        const toastId = `regen-table-${leadId}`;
+        toast.loading('Generating Real Blueprint...', { id: toastId });
+        try {
+            const res = await fetch('/api/brand-blueprint/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadId }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.jobId) throw new Error(data.message || 'Gagal memulai generate');
+
+            const jobId = data.jobId;
+            const interval = setInterval(async () => {
+                try {
+                    const sRes = await fetch(`/api/jobs/status?id=${jobId}`);
+                    const sData = await sRes.json();
+                    const job = sData.job;
+                    if (!job) return;
+                    if (job.status === 'COMPLETED') {
+                        clearInterval(interval);
+                        setLoading(false);
+                        toast.success('Prototype Real berhasil!', { id: toastId });
+                        router.refresh();
+                    } else if (job.status === 'FAILED') {
+                        clearInterval(interval);
+                        setLoading(false);
+                        toast.error(job.message || 'Generate gagal', { id: toastId });
+                    }
+                } catch { /* silent */ }
+            }, 3000);
+        } catch (err: any) {
+            toast.error(err.message || 'Generate gagal', { id: toastId });
+            setLoading(false);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleGenerate}
+            disabled={loading}
+            className="h-8 px-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 transition-all disabled:opacity-60 shadow-lg shadow-purple-900/20"
+        >
+            {loading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+            {loading ? 'Gen...' : 'Generate'}
+        </button>
     );
 }

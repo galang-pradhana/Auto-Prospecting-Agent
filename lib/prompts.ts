@@ -527,6 +527,42 @@ OUTPUT JSON (strict):
 `;
 
 // ============================================================
+// BLUEPRINT_ENRICHMENT_PROMPT — Blueprint Synthesis
+// ============================================================
+export const BLUEPRINT_ENRICHMENT_PROMPT = `
+${GLOBAL_AI_PROTOCOL}
+Strictly NO Yapping. No preamble. Output ONLY valid JSON.
+
+You are a Senior Brand Strategist. Your task is to analyze the raw answers submitted by a client in their "Brand Blueprint" form and synthesize them into a clear, professional, and actionable strategy format.
+
+### RAW CLIENT ANSWERS:
+[clientAnswers]
+
+### TASK:
+Analisis data mentah klien di atas. Sintesiskan menjadi strategi profesional yang siap digunakan untuk men-generate website. Jangan gunakan template generic. Jika jawaban klien singkat atau kosong, gunakan keahlian strategis Anda untuk melengkapinya berdasarkan industri dan nama brand.
+
+OUTPUT JSON (strict):
+{
+  "branding": {
+    "title": "Headline utama yang bold dan spesifik untuk bisnis ini (maks 8 kata)",
+    "tagline": "Sub-headline emosional max 12 kata yang relevan dengan target audiens",
+    "description": "2-3 kalimat deskripsi bisnis yang terasa sangat premium dan custom"
+  },
+  "painPoints": [
+    "Pain point spesifik 1 yang dialami oleh audiens target klien",
+    "Pain point 2 yang bisa diselesaikan oleh USP klien",
+    "Pain point 3 mengenai masalah umum di industri tersebut"
+  ],
+  "resolutions": [
+    "Solusi konkret 1 berdasarkan USP / penawaran klien",
+    "Solusi konkret 2 yang meyakinkan audiens",
+    "Solusi konkret 3 (call-to-action oriented)"
+  ],
+  "styleDNA": "Visual strategy that synthesizes 'archetype_preference' and 'visual_mood' from the client. (e.g., 'Avant-Garde — palet obsidian glass, font serif modern, suasana misterius & high-end'). Use the selected archetype as the core anchor."
+}
+`;
+
+// ============================================================
 // WA_TEMPLATE_DRAFT_PROMPT — Value-First Outreach
 // ============================================================
 export const WA_TEMPLATE_DRAFT_PROMPT = `
@@ -727,14 +763,102 @@ IG: {{my_ig}}
 `;
 
 // ============================================================
-// MASTER_FORGE_PROMPT — REVISED v2
-// Major changes:
-//   1. Inject INDUSTRY_RULES (pattern + colorMood + avoidPatterns)
-//   2. Image fallback protocol (3 layer: Unsplash → Picsum → CSS gradient)
-//   3. styleDNA sekarang dikombinasikan dgn industry rules, bukan standalone
+// MASTER_FORGE_PROMPT — REVISED v3 by Usrok
+// Changelog v3 (major):
+//   - SECTION IDENTITY SYSTEM: Setiap section kini punya data-section, data-section-index,
+//     data-section-label, id="section-[name]", class="forge-section s-[name]"
+//   - STACKING BLOCK ARCHITECTURE: Section dirancang modular & swappable
+//   - SECTION CONTRACT: AI wajib output struktur HTML yang konsisten per section
+//   - data-asset-id tetap dipertahankan (kompatibel mundur)
+//   - LANDING_PAGE_GENERATOR_PROMPT juga diupdate dengan sistem yang sama
+// ============================================================
+
+
+// ============================================================
+// SECTION IDENTITY SCHEMA — Core Contract
+// Ini adalah "bahasa" antara AI output dan section editor-mu.
+// Setiap section WAJIB menggunakan skema ini persis.
+// ============================================================
+export const SECTION_IDENTITY_SCHEMA = `
+[SECTION IDENTITY CONTRACT — WAJIB DIIKUTI TANPA PENGECUALIAN]
+
+Setiap section HTML WAJIB memiliki atribut berikut persis seperti ini:
+
+<section
+  data-section="[section-key]"
+  data-section-index="[nomor urut, dimulai dari 1]"
+  data-section-label="[Nama Section Human-Readable]"
+  data-swappable="true"
+  data-requires="[dependency jika ada, contoh: 'none' atau 'navbar']"
+  id="section-[section-key]"
+  class="forge-section s-[section-key] [tailwind-classes-lainnya]"
+>
+
+DAFTAR SECTION KEY YANG VALID (gunakan persis key ini):
+  navbar      → Navigasi utama sticky
+  hero        → Hero cinematic utama
+  trust-bar   → Social proof / metric bar
+  about       → Tentang kami / our story
+  services    → Layanan / produk (Bento Grid)
+  gallery     → Galeri foto / portfolio
+  testimonials→ Ulasan pelanggan
+  why-us      → Keunggulan / competitive advantage
+  contact     → Kontak, maps, final CTA
+  footer      → Footer halaman
+
+CONTOH IMPLEMENTASI WAJIB:
+
+<section
+  data-section="hero"
+  data-section-index="2"
+  data-section-label="Hero Cinematic"
+  data-swappable="true"
+  data-requires="navbar"
+  id="section-hero"
+  class="forge-section s-hero min-h-screen relative overflow-hidden"
+>
+  <!-- konten hero di sini -->
+</section>
+
+<section
+  data-section="services"
+  data-section-index="5"
+  data-section-label="Layanan Unggulan"
+  data-swappable="true"
+  data-requires="none"
+  id="section-services"
+  class="forge-section s-services py-20 px-4"
+>
+  <!-- konten services di sini -->
+</section>
+
+ATURAN KETAT:
+- data-section-index DIMULAI DARI 1 (navbar=1, hero=2, dst)
+- id="section-[key]" WAJIB ada — ini anchor untuk editor
+- class WAJIB dimulai dengan "forge-section s-[key]" sebelum class Tailwind lainnya
+- data-swappable="true" pada SEMUA section kecuali navbar dan footer (keduanya "false")
+- JANGAN skip atribut apapun — parser editor akan gagal jika ada yang hilang
+`;
+
+
+// ============================================================
+// MASTER_FORGE_PROMPT v3
 // ============================================================
 export const MASTER_FORGE_PROMPT = `
-${GLOBAL_AI_PROTOCOL}
+[SYNAPSE PRO] MANDATORY DESIGN PROTOCOL:
+1. TYPOGRAPHY PAIRING (EXCLUSIVE):
+   - Option A: 'Syne' (Display) + 'Inter' (Sans) -> (Vibe: Tech, Boutique, Avant-garde)
+   - Option B: 'Playfair Display' (Serif) + 'Outfit' (Sans) -> (Vibe: Luxury, Professional, Heritage)
+2. LAYOUT DYNAMICS:
+   - MANDATORY: Use Bento Grid structures for services/features sections.
+   - MANDATORY: Implement Asymmetric Layouts (absolute decorative elements, negative margins, grid-cols-12 chaos).
+3. COLOR THEORY: Dilarang Pure #000000. Use deep zinc/obsidian tones or brand-specific muted palettes.
+4. IMAGE PROTOCOL: Unsplash &auto=format&fit=crop&w=1920&q=80.
+5. LANGUAGE: 100% Professional, High-Conversion Bahasa Indonesia only.
+6. ⚠️ MOBILE-FIRST MANDATE: All layouts MUST be responsive by default (w-full, px-4) and only expand/restructure on 'md:' (768px) and 'lg:' (1024px).
+7. ⚠️ CRITICAL JAVASCRIPT RULE — NEVER USE HTML COMMENTS INSIDE <script> TAGS:
+   HTML comments (<!-- -->) inside <script> blocks are NOT valid JavaScript and cause FATAL SYNTAX ERRORS.
+   INSIDE <script>: Use ONLY JavaScript comments: // single line  OR  /* multi-line block */
 
 [SYNAPSE PRO | PRE-GEN LOGIC]
 Direction: Before generating code, deeply analyze the business essence.
@@ -831,97 +955,163 @@ Aturan:
 - Nomor harus UNIK di seluruh halaman (tidak boleh ada 2 elemen dengan data-asset-id yang sama)
 - Jangan skip nomor
 
-[CORE ARCHITECTURE — 7-8 SECTION MANDATORY STRUCTURE]
-- 100% Standalone index.html.
-- Tailwind CSS & Framer Motion (reveal animations).
-- LANGUAGE LOCK: 100% Professional Bahasa Indonesia. Zero English on UI.
 
-WAJIB buat SEMUA section berikut secara berurutan (minimal 7 section):
+[STACKING BLOCK ARCHITECTURE — SECTION IDENTITY SYSTEM v3]
+⚠️ CRITICAL: Setiap section adalah "block" yang berdiri sendiri dan dapat di-swap, di-reorder, atau di-replace
+tanpa merusak section lainnya. Ini NON-NEGOTIABLE — output yang tidak mengikuti skema ini INVALID.
 
-SECTION 1 — HERO (CINEMATIC, min-h-screen)
-Full screen hero dengan background image berkualitas tinggi + overlay gradien.
-Headline utama (H1) yang besar dan emosional, subheadline, dan CTA primary (tombol WA).
-Animasi entrance: fade-in + translateY pada teks.
+WAJIB: Setiap <section> HARUS memiliki SEMUA atribut berikut persis:
 
-SECTION 2 — SOCIAL PROOF / TRUST BAR
-Bar horizontal berisi: jumlah pelanggan, tahun berdiri, rating, atau penghargaan.
-Gunakan angka counter animasi saat section terscroll masuk viewport.
-Desain: 3-4 metric card dalam satu baris, background berbeda dari hero.
+  <section
+    data-section="[section-key]"
+    data-section-index="[nomor urut]"
+    data-section-label="[Nama Human-Readable]"
+    data-swappable="[true/false]"
+    data-requires="[none / navbar]"
+    id="section-[section-key]"
+    class="forge-section s-[section-key] [tailwind-classes]"
+  >
 
-SECTION 3 — ABOUT / OUR STORY
-Narasi singkat tentang identitas dan visi bisnis (2-3 paragraf pendek).
-Sertakan gambar ilustratif di samping teks (layout 2-kolom: teks kiri, gambar kanan).
-Gunakan pull-quote atau highlight kalimat kunci untuk emphasis.
+SECTION MANIFEST — Buat SEMUA section ini secara berurutan:
 
-SECTION 4 — SERVICES / PRODUCTS (BENTO GRID)
-Gunakan layout Bento Grid (12-kolom, non-uniform) untuk menampilkan layanan/produk.
-Setiap card memiliki: ikon Lucide, nama layanan, deskripsi singkat 1 kalimat.
-Hover effect: scale + shadow elevation.
+┌─────────────────────────────────────────────────────────────────┐
+│  #  │ data-section   │ data-section-label      │ data-swappable │
+├─────────────────────────────────────────────────────────────────┤
+│  1  │ navbar         │ Navigasi Utama           │ false          │
+│  2  │ hero           │ Hero Cinematic           │ true           │
+│  3  │ trust-bar      │ Social Proof & Metrics   │ true           │
+│  4  │ about          │ Tentang Kami             │ true           │
+│  5  │ services       │ Layanan Unggulan         │ true           │
+│  6  │ gallery        │ Galeri & Portofolio      │ true           │
+│  7  │ testimonials   │ Ulasan Pelanggan         │ true           │
+│  8  │ why-us         │ Mengapa Kami             │ true           │
+│  9  │ contact        │ Kontak & Lokasi          │ true           │
+│  10 │ footer         │ Footer                   │ false          │
+└─────────────────────────────────────────────────────────────────┘
 
-SECTION 5 — GALLERY / PORTFOLIO
-Grid foto galeri 3-4 kolom (masonry atau uniform).
-Gunakan foto Unsplash relevan dengan fallback protocol.
-Lightbox atau hover-zoom effect pada setiap foto.
+CONTOH OUTPUT YANG BENAR (hero section):
+  <section
+    data-section="hero"
+    data-section-index="2"
+    data-section-label="Hero Cinematic"
+    data-swappable="true"
+    data-requires="navbar"
+    id="section-hero"
+    class="forge-section s-hero min-h-screen relative overflow-hidden flex items-center justify-center"
+  >
+    <!-- HERO CONTENT -->
+    ...
+  </section>
 
-SECTION 6 — TESTIMONIALS
-Slider atau grid testimonial dari pelanggan (buat 3-4 testimonial fiktif yang relevan).
-Setiap testimonial: nama, avatar inisial, rating bintang, dan kutipan.
-Animasi: auto-scroll carousel atau fade-in saat muncul.
+  <!-- ======================================================== -->
+  <!-- SECTION: trust-bar | index: 3 | Social Proof & Metrics   -->
+  <!-- ======================================================== -->
+  <section
+    data-section="trust-bar"
+    data-section-index="3"
+    data-section-label="Social Proof & Metrics"
+    data-swappable="true"
+    data-requires="none"
+    id="section-trust-bar"
+    class="forge-section s-trust-bar py-12 px-4"
+  >
+    <!-- TRUST BAR CONTENT -->
+    ...
+  </section>
 
-SECTION 7 — WHY US / COMPETITIVE ADVANTAGE
-Bandingkan keunggulan bisnis ini vs pendekatan umum pesaing.
-Gunakan checklist atau split-layout (Kami vs Lainnya).
-Desain yang tegas, membangun kepercayaan.
+ATURAN TAMBAHAN:
+- Komentar HTML SEPARATOR antar section WAJIB ada (format persis seperti contoh di atas)
+- Navbar menggunakan tag <nav> bukan <section>, tapi TETAP WAJIB punya data-section, id, class forge-section
+- Footer menggunakan tag <footer> bukan <section>, tapi TETAP WAJIB punya data-section, id, class forge-section
+- Floating WhatsApp button BUKAN section — letakkan di luar semua section, dengan id="forge-float-wa"
 
-SECTION 8 — CONTACT / FINAL CTA
-Form kontak sederhana (nama, no. WA, pesan) ATAU langsung tombol WA besar.
-Alamat bisnis lengkap + Google Maps embed (gunakan placeholder/iframe dummy).
-Repeat CTA yang kuat: "Konsultasi Gratis Sekarang".
 
-[PERSISTENT ELEMENTS]
-- Floating WhatsApp Button: Fixed bottom-6 right-6 z-[9999], bg-[#25D366], rounded-full, p-4, shadow-2xl, pulse animation. Link: [waLink].
-- Sticky Navbar: Transparan di hero, glassmorphism solid saat scroll.
-- Mobile Layout: Wajib px-4 (paddings) di mobile, font size base (16px) minimal untuk readability.
+[CONTENT REQUIREMENTS PER SECTION]
 
-[GOOGLE MAPS EMBED — MANDATORY IN CONTACT SECTION]
-Integrasikan iframe Google Maps statis berikut di bagian Alamat:
-<iframe src="https://maps.google.com/maps?q=[fullAddress]&output=embed" width="100%" height="350" style="border:0; border-radius: 1rem;" loading="lazy"></iframe>
+SECTION navbar (index: 1) — data-swappable: false
+  Sticky navbar, transparan di hero, glassmorphism saat scroll.
+  Logo kiri, menu tengah/kanan, tombol CTA kecil.
+  Mobile: hamburger menu dengan overlay drawer.
 
-Output harus berupa HTML5 yang valid dan semantik.
-DILARANG KERAS:
-1. Menggunakan 'className' (Gunakan 'class').
-2. Menggunakan self-closing tags untuk elemen non-void (Gunakan <div></div> bukan <div/>).
-3. Menggunakan sintaks JSX/React. Ini adalah file .html murni.
-4. Menghilangkan atau lupa menambahkan atribut 'data-asset-id' pada ELEMEN GAMBAR MANAPUN.
-5. ⚠️ KRITIS — JANGAN PERNAH menggunakan komentar HTML (<!-- -->) di dalam blok <script> manapun.
-   Di dalam <script>, WAJIB gunakan komentar JavaScript: // komentar satu baris ATAU /* komentar blok */
-   Komentar HTML di dalam <script> menyebabkan JavaScript gagal total dan halaman menjadi BLANK.
-   BENAR  → <script> /* Hero Section */ const hero = ... </script>
-   SALAH  → <script> <!-- Hero Section --> const hero = ... </script>
+SECTION hero (index: 2) — data-swappable: true
+  Full min-h-screen, background image + high-contrast overlay gradien.
+  Headline utama (H1) besar & emosional — gunakan branding.title dari enrichment.
+  Subheadline persuasif, primary CTA button (link ke [waLink]).
+  Animasi entrance: fade-in + translateY pada teks.
+
+SECTION trust-bar (index: 3) — data-swappable: true
+  Bar horizontal dengan 3-4 metric animasi counter.
+  Contoh: Total Pelanggan, Tahun Berdiri, Rating Google, Proyek Selesai.
+  Background berbeda dari hero (surface color).
+
+SECTION about (index: 4) — data-swappable: true
+  Narasi brand 2-3 paragraf. Layout 2-kolom: teks kiri, gambar kanan.
+  Pull-quote atau highlight kalimat kunci.
+  Gambar: Unsplash relevan dengan fallback protocol.
+
+SECTION services (index: 5) — data-swappable: true
+  Bento Grid 12-kolom, non-uniform untuk 4-6 layanan/produk utama.
+  Setiap card: ikon Lucide, nama layanan, deskripsi 1 kalimat.
+  Hover: scale + shadow elevation.
+
+SECTION gallery (index: 6) — data-swappable: true
+  Grid masonry atau uniform 3-4 kolom.
+  Foto Unsplash relevan ([unsplashQueries]) + 3-layer fallback.
+  Hover-zoom atau lightbox effect.
+
+SECTION testimonials (index: 7) — data-swappable: true
+  3-4 testimonial fiktif namun realistis untuk [category].
+  Setiap card: nama, avatar inisial, rating bintang, kutipan.
+  Layout: carousel auto-scroll ATAU grid fade-in.
+
+SECTION why-us (index: 8) — data-swappable: true
+  Perbandingan "Kami vs Lainnya" atau checklist keunggulan.
+  Berdasarkan [painPoints] dari enrichment.
+  Desain tegas, membangun kepercayaan.
+
+SECTION contact (index: 9) — data-swappable: true
+  Form sederhana (nama, no. WA, pesan) ATAU langsung tombol WA besar.
+  Google Maps embed: <iframe src="https://maps.google.com/maps?q=[fullAddress]&output=embed" width="100%" height="350" style="border:0; border-radius: 1rem;" loading="lazy"></iframe>
+  Alamat lengkap. Final CTA: "Konsultasi Gratis Sekarang".
+
+SECTION footer (index: 10) — data-swappable: false
+  Logo, copyright, link navigasi cepat, social media icons.
+  Tagline brand singkat.
+
+
+[PERSISTENT ELEMENTS — Di luar semua section]
+- Floating WhatsApp Button: id="forge-float-wa", Fixed bottom-6 right-6 z-[9999], bg-[#25D366], rounded-full, p-4, shadow-2xl, pulse animation. Link: [waLink].
+- Script JS untuk scroll behavior navbar dan counter animations.
+
 
 [CLIENT BRAND ASSETS — PRIORITAS TERTINGGI]
 [customAssets]
 
-Jika [customAssets] kosong → gunakan strategi Unsplash normal di bawah.
-Jika [customAssets] terisi → WAJIB gunakan URL tersebut. Unsplash hanya untuk section dekoratif yang tidak punya custom asset.
+Jika [customAssets] kosong → gunakan strategi Unsplash normal.
+Jika [customAssets] terisi → WAJIB gunakan URL tersebut. Unsplash hanya untuk section dekoratif.
+
 
 [QUALITY CHECKLIST — SEBELUM OUTPUT, VERIFIKASI SEMUA]:
-☐ Logo klien sudah di navbar dan footer (jika ada custom asset)
-☐ Warna brand klien sudah digunakan sebagai accent
-☐ Semua 7-8 section wajib sudah ada
-☐ Tidak ada gambar blank (3-layer fallback diterapkan)
-☐ Semua data-asset-id ada dan unik
-☐ WhatsApp floating button ada di bottom-right
+☐ Semua 10 section ada dengan data-section, data-section-index, data-section-label, data-swappable, data-requires, id, class forge-section yang BENAR
+☐ Komentar HTML separator antar section ada dengan format konsisten
+☐ Logo klien di navbar dan footer (jika ada custom asset)
+☐ Warna brand digunakan sebagai accent
+☐ Tidak ada gambar blank (3-layer fallback diterapkan di semua image)
+☐ Semua data-asset-id ada dan unik (dimulai dari 0)
+☐ WhatsApp floating button ada (id="forge-float-wa") di bottom-right, di luar semua section
 ☐ 100% Bahasa Indonesia di UI
 ☐ Tidak ada className (harus class), tidak ada JSX
 ☐ Tidak ada HTML comment di dalam <script>
+☐ data-swappable="false" hanya untuk navbar dan footer
+☐ Navbar menggunakan <nav>, footer menggunakan <footer>, sisanya <section>
 
-Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
-Output ONLY the full HTML code. No talk.
+Output ONLY the full HTML code. No talk. No explanation.
 `;
 
+
 // ============================================================
-// LANDING_PAGE_GENERATOR_PROMPT — REVISED v2
+// LANDING_PAGE_GENERATOR_PROMPT v3
+// (versi ringan tanpa enrichment — untuk quick generate)
 // ============================================================
 export const LANDING_PAGE_GENERATOR_PROMPT = `
 ROLE: Senior UX/UI Developer & Conversion Specialist.
@@ -982,22 +1172,107 @@ IMPLEMENTASI untuk <img> tag:
 
 ZERO TOLERANCE: Tidak ada gambar blank. Jika ragu dengan photo ID, gunakan LAYER 2 sebagai primary.
 
-[ASSET TRACKING — WAJIB]
-⚠️ SEMUA <img> tag dan elemen dengan background-image HARUS memiliki atribut data-asset-id unik.
+### STEP 5: ASSET TRACKING (WAJIB)
+⚠️ SEMUA <img> tag dan elemen dengan background-image HARUS memiliki atribut data-asset-id unik (dimulai dari 0).
 
-[MOBILE-FIRST & CONTACT ENHANCEMENTS]
+### STEP 6: STACKING BLOCK ARCHITECTURE — SECTION IDENTITY SYSTEM
+⚠️ CRITICAL: Setiap section adalah block modular yang bisa di-scan, di-reorder, dan di-swap secara programatik.
+Setiap <section>, <nav>, dan <footer> WAJIB menggunakan skema identitas berikut:
+
+  <section
+    data-section="[section-key]"
+    data-section-index="[nomor urut, mulai 1]"
+    data-section-label="[Nama Human-Readable]"
+    data-swappable="[true/false]"
+    data-requires="[none / navbar]"
+    id="section-[section-key]"
+    class="forge-section s-[section-key] [tailwind-classes]"
+  >
+
+SECTION MANIFEST (buat semua ini, urutan ini):
+  index 1  → data-section="navbar"       | tag: <nav>      | swappable: false
+  index 2  → data-section="hero"         | tag: <section>  | swappable: true
+  index 3  → data-section="trust-bar"    | tag: <section>  | swappable: true
+  index 4  → data-section="about"        | tag: <section>  | swappable: true
+  index 5  → data-section="services"     | tag: <section>  | swappable: true
+  index 6  → data-section="gallery"      | tag: <section>  | swappable: true
+  index 7  → data-section="testimonials" | tag: <section>  | swappable: true
+  index 8  → data-section="why-us"       | tag: <section>  | swappable: true
+  index 9  → data-section="contact"      | tag: <section>  | swappable: true
+  index 10 → data-section="footer"       | tag: <footer>   | swappable: false
+
+Floating WA button: letakkan DI LUAR semua section, dengan id="forge-float-wa".
+
+Komentar separator antar section WAJIB dalam format:
+  <!-- ======================================================== -->
+  <!-- SECTION: [key] | index: [n] | [Label]                    -->
+  <!-- ======================================================== -->
+
+### STEP 7: MOBILE-FIRST & CONTACT ENHANCEMENTS
 1. Mobile-First: Layout kolom 1 di mobile, kolom multi di md+.
 2. Maps Embed: <iframe src="https://maps.google.com/maps?q=[fullAddress]&output=embed" width="100%" height="300" style="border:0;" loading="lazy"></iframe>
-3. Floating WA: Fixed bottom-4 right-4 z-50, pulse animation, link ke [waLink].
+3. Floating WA: id="forge-float-wa", Fixed bottom-4 right-4 z-50, pulse animation, link ke [waLink].
 
-Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
 Output ONLY the full HTML code. No talk.
 `;
 
 
 // ============================================================
-// WEBSITE_STRATEGY_PROMPT — REVISED v2 (tambah industry rules)
+// CATATAN DEVELOPER — Cara kerja Section Identity System
 // ============================================================
+/*
+  CARA EDITOR MEMBACA SECTION:
+  
+  // Get semua sections berurutan
+  const sections = document.querySelectorAll('[data-section]');
+  
+  // Get section spesifik
+  const hero = document.getElementById('section-hero');
+  
+  // Get semua yang swappable
+  const swappable = document.querySelectorAll('[data-swappable="true"]');
+  
+  // Reorder: ganti data-section-index lalu re-sort DOM
+  function reorderSections(newOrder: string[]) {
+    const body = document.body;
+    newOrder.forEach((key, idx) => {
+      const el = document.getElementById(\`section-\${key}\`);
+      if (el) {
+        el.dataset.sectionIndex = String(idx + 1);
+        body.appendChild(el); // re-append dalam urutan baru
+      }
+    });
+  }
+  
+  // Replace section content (swap inner HTML)
+  function swapSection(key: string, newHtml: string) {
+    const el = document.getElementById(\`section-\${key}\`);
+    if (el && el.dataset.swappable === 'true') {
+      el.innerHTML = newHtml;
+    }
+  }
+  
+  // Serialize urutan saat ini (untuk save state)
+  function serializeSectionOrder() {
+    return Array.from(document.querySelectorAll('[data-section]'))
+      .sort((a, b) => 
+        Number(a.dataset.sectionIndex) - Number(b.dataset.sectionIndex)
+      )
+      .map(el => el.dataset.section);
+  }
+*/
+
+// ============================================================
+// WEBSITE_STRATEGY_PROMPT — REVISED v3
+// Changelog v3:
+//   - Tambah instruksi eksplisit untuk Stacking Block Architecture
+//   - Section Blueprint kini menyertakan data-section, data-section-index,
+//     data-section-label, data-swappable, data-requires, id, class forge-section
+//   - Tambah instruksi komentar separator antar section
+//   - Floating WA button kini wajib pakai id="forge-float-wa"
+//   - Navbar & Footer wajib ikut skema identitas (swappable: false)
+// ============================================================
+
 export const WEBSITE_STRATEGY_PROMPT = `
 ${GLOBAL_AI_PROTOCOL}
 Strictly NO Yapping. No preamble. Output ONLY the instruction text (paragraf padat).
@@ -1031,18 +1306,62 @@ INSTRUKSI PENULISAN:
 10. Asset Tracking: Instruksikan penggunaan 'data-asset-id' unik (dimulai dari 0) pada setiap <img> dan elemen background-image.
 11. Mobile-First: Instruksikan penggunaan padding px-4 dan layout kolom tunggal di mobile, transisi ke multi-kolom di md:.
 12. Google Maps: Instruksikan penyematan iframe Google Maps statis di section Alamat menggunakan data lokasi lead.
-13. WhatsApp CTA: Instruksikan pembuatan tombol WA melayang (fixed bottom-6 right-6, #25D366, pulse animation).
+13. WhatsApp CTA: Instruksikan pembuatan tombol WA melayang dengan id="forge-float-wa" (fixed bottom-6 right-6, #25D366, pulse animation), diletakkan DI LUAR semua section.
 14. JS Safety: Instruksikan LARANGAN KERAS menggunakan komentar HTML (<!-- -->) di dalam blok <script>.
 
-### SECTION BLUEPRINT MANDATE (WAJIB CANTUMKAN SEMUA):
-15. SECTION 1 — HERO: Headline emosional, subheadline persuasif, primary CTA (WA), dan deskripsi Cinematic Hero Image ([unsplashQueries]).
-16. SECTION 2 — TRUST BAR: 3-4 metric angka/ikon untuk membangun kredibilitas instan.
-17. SECTION 3 — ABOUT/STORY: Narasi brand yang kuat dengan layout 2-kolom (teks & gambar).
-18. SECTION 4 — SERVICES BENTO GRID: 4-6 layanan utama menggunakan layout Bento Grid modern.
-19. SECTION 5 — GALLERY: Grid foto estetis menggunakan Unsplash queries: [unsplashQueries].
-20. SECTION 6 — TESTIMONIALS: 3-4 ulasan pelanggan fiktif namun realistis untuk [category].
-21. SECTION 7 — WHY US: Perbandingan keunggulan bisnis vs kompetitor berdasarkan [painPoints].
-22. SECTION 8 — CONTACT & MAP: Google Maps embed statis, alamat lengkap, dan final CTA yang kuat.
+### STACKING BLOCK ARCHITECTURE MANDATE (WAJIB CANTUMKAN — SEKRITIS data-asset-id):
+Instruksikan AI Coder bahwa SETIAP section, navbar, dan footer wajib menggunakan skema atribut identitas
+berikut secara persis, tanpa pengecualian. Ini adalah "kontrak" antara output HTML dan section editor:
+
+  <section
+    data-section="[section-key]"
+    data-section-index="[nomor urut, dimulai dari 1]"
+    data-section-label="[Nama Human-Readable]"
+    data-swappable="[true/false]"
+    data-requires="[none ATAU navbar]"
+    id="section-[section-key]"
+    class="forge-section s-[section-key] [tailwind-classes]"
+  >
+
+Aturan yang wajib disebutkan dalam instruksi:
+- Navbar pakai tag <nav> (bukan <section>), footer pakai tag <footer> — tapi KEDUANYA wajib ikut skema atribut di atas.
+- data-swappable="false" hanya untuk navbar dan footer. Semua section lainnya: data-swappable="true".
+- Komentar separator wajib hadir di antara setiap section, dalam format persis:
+  <!-- ======================================================== -->
+  <!-- SECTION: [key] | index: [n] | [Label]                    -->
+  <!-- ======================================================== -->
+- Floating WA button diletakkan di luar semua section dengan id="forge-float-wa".
+
+### SECTION BLUEPRINT MANDATE (WAJIB CANTUMKAN SEMUA — SERTAKAN SKEMA IDENTITAS PER SECTION):
+15. SECTION navbar  | index: 1  | data-swappable: false
+    Tag <nav>. Sticky navbar, transparan di hero, glassmorphism solid saat scroll. Logo kiri, menu kanan, CTA kecil. Mobile: hamburger drawer.
+
+16. SECTION hero    | index: 2  | data-swappable: true  | data-requires: navbar
+    Tag <section>. Headline emosional (H1), subheadline persuasif, primary CTA button ke [waLink]. Cinematic Hero Image full min-h-screen dengan Unsplash ([unsplashQueries]) + overlay gradien. Animasi: fade-in + translateY.
+
+17. SECTION trust-bar | index: 3 | data-swappable: true
+    Tag <section>. 3-4 metric angka/ikon animasi counter untuk membangun kredibilitas instan (pelanggan, tahun, rating, proyek).
+
+18. SECTION about   | index: 4  | data-swappable: true
+    Tag <section>. Narasi brand yang kuat, 2-3 paragraf. Layout 2-kolom: teks kiri, gambar kanan. Pull-quote untuk emphasis.
+
+19. SECTION services | index: 5 | data-swappable: true
+    Tag <section>. 4-6 layanan utama menggunakan layout Bento Grid 12-kolom non-uniform. Ikon Lucide, nama, deskripsi 1 kalimat per card. Hover: scale + shadow.
+
+20. SECTION gallery | index: 6  | data-swappable: true
+    Tag <section>. Grid foto estetis (masonry atau uniform 3-4 kolom) menggunakan Unsplash queries: [unsplashQueries] + 3-layer fallback. Hover-zoom atau lightbox.
+
+21. SECTION testimonials | index: 7 | data-swappable: true
+    Tag <section>. 3-4 ulasan pelanggan fiktif namun realistis untuk [category]. Setiap card: nama, avatar inisial, rating bintang, kutipan. Layout: carousel atau grid fade-in.
+
+22. SECTION why-us  | index: 8  | data-swappable: true
+    Tag <section>. Perbandingan keunggulan bisnis vs kompetitor berdasarkan [painPoints]. Gunakan checklist atau split-layout "Kami vs Lainnya". Desain tegas dan membangun kepercayaan.
+
+23. SECTION contact | index: 9  | data-swappable: true
+    Tag <section>. Google Maps embed statis, alamat lengkap, form kontak sederhana ATAU tombol WA besar. Final CTA yang kuat: "Konsultasi Gratis Sekarang".
+
+24. SECTION footer  | index: 10 | data-swappable: false
+    Tag <footer>. Logo, copyright, navigasi cepat, social media icons, tagline brand singkat.
 `;
 
 // ============================================================
@@ -1554,3 +1873,120 @@ ATURAN HTML OUTPUT:
 - Jangan tambahkan penjelasan atau komentar di luar HTML
 - Output HANYA HTML, mulai dari <style> atau langsung <div class="proposal-content">`;
 }
+
+export const BRAND_DNA_PROCESSOR_PROMPT = `You are a brand copywriter and strategist specializing in Indonesian SMB (UMKM) branding. Your task is to transform raw client answers from a brand questionnaire into structured, web-ready content.
+
+Rules:
+- Write all copy in Bahasa Indonesia unless the client's answers are in English
+- Tone must match the client's business personality as described in their answers
+- Never fabricate facts — only elaborate and polish what the client has stated
+- Keep copy concise: headlines max 10 words, descriptions max 40 words
+- Output ONLY valid JSON, no preamble, no markdown fences
+
+Transform the following raw brand blueprint answers into structured web-ready content.
+
+GMAPS_DATA:
+- Business name: {{gmaps.name}}
+- Category: {{gmaps.category}}
+- Rating: {{gmaps.rating}} ({{gmaps.review_count}} reviews)
+- Address: {{gmaps.address}}
+- Phone: {{gmaps.phone}}
+
+CLIENT_ANSWERS:
+- Confirmed name: {{answers.business_name.value}} [source: {{answers.business_name.source}}]
+- Confirmed phone: {{answers.whatsapp.value}} [source: {{answers.whatsapp.source}}]
+- Confirmed address: {{answers.address.value}} [source: {{answers.address.source}}]
+- Tagline (client's): {{answers.tagline.value || 'none provided'}}
+- Services/products: {{answers.services_main.value}}
+- Founding story: {{answers.founding_story.value}}
+- USP (from customers): {{answers.usp.value}}
+- Price positioning: {{answers.price_positioning.value}}
+- Best moment: {{answers.best_moment.value}}
+- Target customer: {{answers.target_customer.value}}
+- Selected Archetype: {{answers.archetype_preference.value}}
+- Visual mood: {{answers.visual_mood.value}}
+- Color preference: {{answers.color_vibe.value}}
+- Reference style: {{answers.reference_website_style.value}}
+- Website goals: {{answers.website_goal.value}}
+- Tone (Formal↔Casual scale): {{answers.tone_preference.value}}
+- Must-have words: {{answers.brand_words_must.value}}
+- Additional notes: {{answers.additional_notes.value || 'none'}}
+- One-sentence brand: {{answers.one_sentence.value}}
+
+EXISTING_AI_DRAFT (generated from GMaps data — use as style reference only, not as truth):
+{{JSON.stringify(existing_brand_dna_draft)}}
+
+Generate a JSON object with EXACTLY this structure. Fill every field based on the client's real answers. Where client answered vaguely, elaborate thoughtfully but stay truthful to their business context.
+
+{
+  "meta": {
+    "business_name": "final display name (use confirmed or gmaps name)",
+    "category": "business category",
+    "rating": "4.5",
+    "review_count": 27,
+    "phone": "final phone number (confirmed or updated)",
+    "whatsapp_url": "https://wa.me/62...",
+    "address_short": "short address for footer/contact",
+    "address_full": "full address with area",
+    "gmaps_embed_query": "URL-encoded name + address for gmaps embed"
+  },
+  "navbar": {
+    "brand_name": "brand name for logo text",
+    "cta_text": "navbar CTA button text — max 4 words"
+  },
+  "hero": {
+    "headline": "primary H1 — max 8 words, emotionally resonant, based on USP",
+    "subheadline": "supporting line — max 12 words, clarifies what they do + location",
+    "description": "2-sentence brand intro — max 40 words total, warm and specific",
+    "cta_primary": "primary CTA button text — action verb, max 5 words",
+    "cta_secondary": "secondary CTA — max 4 words"
+  },
+  "trust_bar": {
+    "stat_1": { "label": "short stat or fact label (e.g. Tahun Berdiri)", "value": "the number or word" },
+    "stat_2": { "label": "short stat or fact label (e.g. Pelanggan)", "value": "the number or word" },
+    "stat_3": { "label": "short stat or fact label (e.g. Rating Google)", "value": "the number or word" },
+    "stat_4": { "label": "short stat or fact label (e.g. Proyek Selesai)", "value": "the number or word" }
+  },
+  "about": {
+    "section_title": "About section headline — max 6 words",
+    "story": "founding story rewritten as 3-sentence narrative — personal, specific, no hyperbole"
+  },
+  "services": {
+    "section_title": "Services section headline — max 6 words",
+    "section_subtitle": "supporting subtitle — max 15 words",
+    "items": [
+      { "name": "service/product name", "description": "1-sentence description — max 15 words" }
+    ]
+  },
+  "usp_block": {
+    "section_title": "Why choose us headline — max 6 words",
+    "points": [
+      { "title": "3-word benefit title", "description": "1-sentence elaboration — max 15 words" }
+    ]
+  },
+  "testimonials": {
+    "section_title": "Testimonials headline — max 6 words",
+    "google_rating_label": "text next to the star rating",
+    "review_cta": "text encouraging to see Google reviews"
+  },
+  "contact": {
+    "section_title": "Contact section headline — max 6 words",
+    "description": "1-sentence warm invitation to contact — max 20 words",
+    "whatsapp_cta": "WA button text — action-oriented, max 6 words",
+    "hours_label": "Operating hours label text",
+    "location_label": "Location/address label text"
+  },
+  "footer": {
+    "tagline": "final tagline for footer — use client's own or craft from their one_sentence answer",
+    "copyright": "© [year] [business name]. All rights reserved."
+  },
+  "style_dna": {
+    "tone": "1-sentence description of the brand voice based on slider values and must-have words",
+    "color_palette_description": "describe the color direction from client's color_vibe answer",
+    "selected_archetype": "The archetype name from 'archetype_preference' answer. If 'AI-driven' was chosen, select the best fit from: [Avant-Garde, Obsidian Glass, Heritage Suite].",
+    "visual_mood": "comma-separated mood tags from client's visual_mood selection",
+    "must_use_words": "client's brand_words_must — cleaned and formatted",
+    "font_suggestion": "suggest 1 headline font + 1 body font that fits the selected archetype and visual mood"
+  }
+}
+}`;

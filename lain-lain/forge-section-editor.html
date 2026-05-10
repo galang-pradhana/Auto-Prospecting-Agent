@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forge Section Editor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0B0C10;
+      --surface:  #13141A;
+      --panel:    #1A1B23;
+      --border:   #2A2B35;
+      --border2:  #363744;
+      --text:     #E8E9F0;
+      --muted:    #6B6C7E;
+      --accent:   #6C63FF;
+      --accent2:  #A78BFA;
+      --green:    #22C55E;
+      --yellow:   #F59E0B;
+      --red:      #EF4444;
+      --cyan:     #06B6D4;
+      --radius:   10px;
+      --font-ui:  'Inter', sans-serif;
+      --font-head:'Syne', sans-serif;
+      --font-mono:'JetBrains Mono', monospace;
+    }
+
+    html, body, #root {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      overflow: hidden;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    /* Animations */
+    @keyframes fadeIn  { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+    @keyframes slideIn { from { opacity:0; transform:translateX(-8px) } to { opacity:1; transform:none } }
+    @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:.5} }
+    @keyframes spin    { to { transform: rotate(360deg) } }
+    @keyframes glow    { 0%,100%{box-shadow:0 0 0 0 rgba(108,99,255,.4)} 50%{box-shadow:0 0 0 6px rgba(108,99,255,0)} }
+
+    .fade-in  { animation: fadeIn .25s ease both; }
+    .slide-in { animation: slideIn .2s ease both; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useRef, useCallback, useEffect } = React;
+
+/* ─────────────────────────────────────────────
+   CONSTANTS & HELPERS
+───────────────────────────────────────────── */
+const SECTION_ICONS = {
+  navbar:       '◈',
+  hero:         '◉',
+  'trust-bar':  '◎',
+  about:        '❋',
+  services:     '⊞',
+  gallery:      '⊟',
+  testimonials: '◐',
+  'why-us':     '◈',
+  contact:      '⊕',
+  footer:       '▣',
+};
+
+const SECTION_COLORS = {
+  navbar:       '#6C63FF',
+  hero:         '#EC4899',
+  'trust-bar':  '#F59E0B',
+  about:        '#06B6D4',
+  services:     '#8B5CF6',
+  gallery:      '#10B981',
+  testimonials: '#F97316',
+  'why-us':     '#3B82F6',
+  contact:      '#22C55E',
+  footer:       '#6B7280',
+};
+
+function parseSectionsFromHtml(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const elements = doc.querySelectorAll('[data-section]');
+  const sections = [];
+  elements.forEach(el => {
+    const key   = el.getAttribute('data-section');
+    const index = parseInt(el.getAttribute('data-section-index') || '0');
+    const label = el.getAttribute('data-section-label') || key;
+    const swap  = el.getAttribute('data-swappable') !== 'false';
+    const req   = el.getAttribute('data-requires') || 'none';
+    const tag   = el.tagName.toLowerCase();
+    sections.push({
+      id:        `sec-${key}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+      key, index, label, swappable: swap, requires: req, tag,
+      html:      el.outerHTML,
+      visible:   true,
+    });
+  });
+  sections.sort((a,b) => a.index - b.index);
+  return sections;
+}
+
+function rebuildHtml(sections, originalHtml) {
+  // Rebuild with new order: inject forge-float-wa and scripts from original
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(originalHtml, 'text/html');
+
+  // Get non-section nodes (head, float button, scripts)
+  const floatWa = doc.getElementById('forge-float-wa');
+  const scripts  = Array.from(doc.querySelectorAll('body > script'));
+  const headHtml = doc.head.innerHTML;
+
+  const bodyContent = sections
+    .filter(s => s.visible)
+    .map((s, i) => {
+      // Update index in outerHTML
+      return s.html.replace(
+        /data-section-index="[^"]*"/,
+        `data-section-index="${i+1}"`
+      );
+    })
+    .join('\n\n');
+
+  const floatStr  = floatWa ? floatWa.outerHTML : '';
+  const scriptStr = scripts.map(s => s.outerHTML).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>${headHtml}</head>
+<body>
+${bodyContent}
+
+${floatStr}
+${scriptStr}
+</body>
+</html>`;
+}
+
+/* ─────────────────────────────────────────────
+   BADGE COMPONENT
+───────────────────────────────────────────── */
+function Badge({ children, color = '#6C63FF' }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 8px', borderRadius: 99,
+      background: color + '20', color: color,
+      fontSize: 10, fontWeight: 600, letterSpacing: '.06em',
+      textTransform: 'uppercase', fontFamily: 'var(--font-mono)',
+      border: `1px solid ${color}30`,
+    }}>{children}</span>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   SECTION CARD (in panel list)
+───────────────────────────────────────────── */
+function SectionCard({ section, index, isSelected, isDragging, onSelect, onToggle,
+  onDragStart, onDragOver, onDrop }) {
+  const color = SECTION_COLORS[section.key] || '#6C63FF';
+  const icon  = SECTION_ICONS[section.key] || '◆';
+
+  return (
+    <div
+      draggable={section.swappable}
+      onDragStart={e => onDragStart(e, index)}
+      onDragOver={e => onDragOver(e, index)}
+      onDrop={e => onDrop(e, index)}
+      onClick={() => onSelect(section)}
+      className="slide-in"
+      style={{
+        position: 'relative',
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 12px',
+        background: isSelected ? color + '15' : (isDragging ? 'var(--border)' : 'var(--panel)'),
+        border: `1px solid ${isSelected ? color + '60' : 'var(--border)'}`,
+        borderLeft: `3px solid ${section.visible ? color : 'var(--border2)'}`,
+        borderRadius: 8,
+        cursor: section.swappable ? 'grab' : 'pointer',
+        opacity: section.visible ? 1 : .45,
+        transition: 'all .15s ease',
+        userSelect: 'none',
+        animationDelay: `${index * 0.03}s`,
+      }}
+    >
+      {/* Drag handle */}
+      {section.swappable && (
+        <div style={{ color: 'var(--border2)', fontSize: 13, flexShrink: 0, lineHeight: 1 }}>
+          ⣿
+        </div>
+      )}
+
+      {/* Icon */}
+      <div style={{
+        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+        background: color + '20', color,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 14, fontFamily: 'var(--font-mono)',
+      }}>
+        {icon}
+      </div>
+
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: 'var(--font-head)', fontWeight: 600, fontSize: 13,
+          color: section.visible ? 'var(--text)' : 'var(--muted)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {section.label}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)',
+          }}>
+            #{index + 1} · {section.key}
+          </span>
+          {!section.swappable && (
+            <span style={{ fontSize: 10, color: 'var(--muted)' }}>🔒</span>
+          )}
+        </div>
+      </div>
+
+      {/* Toggle visibility */}
+      <button
+        onClick={e => { e.stopPropagation(); onToggle(section.id); }}
+        title={section.visible ? 'Sembunyikan' : 'Tampilkan'}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: section.visible ? color : 'var(--muted)',
+          fontSize: 14, padding: 4, borderRadius: 4,
+          transition: 'color .15s',
+          flexShrink: 0,
+        }}
+      >
+        {section.visible ? '◉' : '◎'}
+      </button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   DETAIL PANEL (right side)
+───────────────────────────────────────────── */
+function DetailPanel({ section, onHtmlChange }) {
+  const [tab, setTab] = useState('info');
+  const color = SECTION_COLORS[section?.key] || '#6C63FF';
+
+  if (!section) return (
+    <div style={{
+      height: '100%', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 12,
+      color: 'var(--muted)',
+    }}>
+      <div style={{ fontSize: 40 }}>◈</div>
+      <div style={{ fontFamily: 'var(--font-head)', fontSize: 16 }}>Pilih section untuk inspect</div>
+      <div style={{ fontSize: 12, textAlign: 'center', maxWidth: 200, lineHeight: 1.6 }}>
+        Klik section di panel kiri atau impor HTML untuk mulai
+      </div>
+    </div>
+  );
+
+  const attrs = [
+    { k: 'data-section',       v: section.key },
+    { k: 'data-section-index', v: section.index },
+    { k: 'data-section-label', v: section.label },
+    { k: 'data-swappable',     v: String(section.swappable) },
+    { k: 'data-requires',      v: section.requires },
+    { k: 'id',                 v: `section-${section.key}` },
+    { k: 'class (prefix)',     v: `forge-section s-${section.key}` },
+    { k: 'HTML tag',           v: section.tag },
+  ];
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }} className="fade-in">
+      {/* Header */}
+      <div style={{
+        padding: '14px 16px', borderBottom: '1px solid var(--border)',
+        background: color + '10',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: color + '25', color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, fontFamily: 'var(--font-mono)',
+          }}>
+            {SECTION_ICONS[section.key] || '◆'}
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>
+              {section.label}
+            </div>
+            <div style={{ display: 'flex', gap: 5, marginTop: 3 }}>
+              <Badge color={color}>{section.key}</Badge>
+              <Badge color={section.swappable ? '#22C55E' : '#6B7280'}>
+                {section.swappable ? 'swappable' : 'locked'}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{
+        display: 'flex', borderBottom: '1px solid var(--border)',
+        padding: '0 16px',
+      }}>
+        {['info', 'html'].map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '10px 14px', fontSize: 12, fontWeight: 600,
+            letterSpacing: '.04em', textTransform: 'uppercase',
+            color: tab === t ? color : 'var(--muted)',
+            borderBottom: `2px solid ${tab === t ? color : 'transparent'}`,
+            transition: 'all .15s',
+          }}>{t}</button>
+        ))}
+      </div>
+
+      {/* Tab: Info */}
+      {tab === 'info' && (
+        <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>
+            Atribut Identitas
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {attrs.map(({ k, v }) => (
+              <div key={k} style={{
+                display: 'flex', alignItems: 'center',
+                padding: '7px 10px', borderRadius: 6,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+              }}>
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)',
+                  minWidth: 130, flexShrink: 0,
+                }}>{k}</span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 11, color,
+                  fontWeight: 500,
+                }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 16, padding: 12, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              Query Selector
+            </div>
+            {[
+              `#section-${section.key}`,
+              `[data-section="${section.key}"]`,
+              `.forge-section.s-${section.key}`,
+            ].map(sel => (
+              <div key={sel} onClick={() => navigator.clipboard?.writeText(sel)} style={{
+                fontFamily: 'var(--font-mono)', fontSize: 10.5, color: '#A78BFA',
+                padding: '4px 6px', borderRadius: 4, cursor: 'copy',
+                marginBottom: 3, transition: 'background .1s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                title="Klik untuk copy"
+              >{sel}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: HTML */}
+      {tab === 'html' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 16, gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              Inner HTML
+            </span>
+            <button
+              onClick={() => navigator.clipboard?.writeText(section.html)}
+              style={{
+                background: color + '20', border: `1px solid ${color}40`, color,
+                borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+                fontSize: 11, fontWeight: 600,
+              }}
+            >
+              Copy
+            </button>
+          </div>
+          <textarea
+            value={section.html}
+            onChange={e => onHtmlChange(section.id, e.target.value)}
+            spellCheck={false}
+            style={{
+              flex: 1, background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 8, color: '#A78BFA', fontFamily: 'var(--font-mono)',
+              fontSize: 11, lineHeight: 1.7, padding: 12, resize: 'none',
+              outline: 'none', transition: 'border-color .15s',
+            }}
+            onFocus={e => e.target.style.borderColor = color}
+            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   PREVIEW FRAME
+───────────────────────────────────────────── */
+function PreviewFrame({ html, selectedKey }) {
+  const iframeRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!iframeRef.current || !html) return;
+    setLoaded(false);
+    const doc = iframeRef.current.contentDocument;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    const timer = setTimeout(() => setLoaded(true), 400);
+    return () => clearTimeout(timer);
+  }, [html]);
+
+  useEffect(() => {
+    if (!iframeRef.current || !selectedKey || !loaded) return;
+    try {
+      const doc = iframeRef.current.contentDocument;
+      const el = doc.getElementById(`section-${selectedKey}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch {}
+  }, [selectedKey, loaded]);
+
+  return (
+    <div style={{ position: 'relative', height: '100%' }}>
+      {!loaded && html && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 10,
+          background: 'var(--surface)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 10, color: 'var(--muted)', fontSize: 13,
+        }}>
+          <div style={{ width: 16, height: 16, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .6s linear infinite' }} />
+          Rendering preview...
+        </div>
+      )}
+      {html ? (
+        <iframe
+          ref={iframeRef}
+          title="forge-preview"
+          style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
+          sandbox="allow-scripts allow-same-origin"
+        />
+      ) : (
+        <div style={{
+          height: '100%', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 12, color: 'var(--muted)',
+          background: 'repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.01) 20px,rgba(255,255,255,.01) 40px)',
+        }}>
+          <div style={{ fontSize: 48, opacity: .3 }}>⬚</div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 18, opacity: .5 }}>
+            Import HTML untuk mulai
+          </div>
+          <div style={{ fontSize: 12, opacity: .4, textAlign: 'center', lineHeight: 1.6 }}>
+            Paste HTML hasil Forge AI ke panel kiri<br />atau gunakan tombol "Import HTML"
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   IMPORT MODAL
+───────────────────────────────────────────── */
+function ImportModal({ onClose, onImport }) {
+  const [val, setVal] = useState('');
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="fade-in" style={{
+        background: 'var(--panel)', borderRadius: 14,
+        border: '1px solid var(--border2)',
+        width: '100%', maxWidth: 640,
+        display: 'flex', flexDirection: 'column',
+        maxHeight: '80vh', overflow: 'hidden',
+        boxShadow: '0 32px 64px rgba(0,0,0,.6)',
+      }}>
+        <div style={{
+          padding: '16px 20px', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 15 }}>
+              Import HTML Forge
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+              Paste hasil output HTML dari AI (yang sudah pakai data-section schema)
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', color: 'var(--muted)',
+            cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4,
+          }}>×</button>
+        </div>
+
+        <textarea
+          autoFocus
+          placeholder={'<!DOCTYPE html>\n<html lang="id">\n...\n<!-- Paste HTML output Forge AI di sini -->\n...'}
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          style={{
+            flex: 1, background: 'var(--surface)', border: 'none', outline: 'none',
+            color: '#A78BFA', fontFamily: 'var(--font-mono)', fontSize: 11.5,
+            lineHeight: 1.7, padding: '14px 20px', resize: 'none',
+            minHeight: 280,
+          }}
+        />
+
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid var(--border)',
+          display: 'flex', gap: 10, justifyContent: 'flex-end',
+        }}>
+          <button onClick={onClose} style={{
+            background: 'none', border: '1px solid var(--border2)',
+            color: 'var(--muted)', borderRadius: 8, padding: '8px 18px',
+            cursor: 'pointer', fontSize: 13,
+          }}>Batal</button>
+          <button
+            disabled={!val.trim()}
+            onClick={() => { onImport(val); onClose(); }}
+            style={{
+              background: 'var(--accent)', border: 'none', color: '#fff',
+              borderRadius: 8, padding: '8px 20px', cursor: val.trim() ? 'pointer' : 'not-allowed',
+              fontSize: 13, fontWeight: 600, opacity: val.trim() ? 1 : .5,
+              transition: 'opacity .15s',
+            }}>
+            Parse & Import
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   TOAST
+───────────────────────────────────────────── */
+function Toast({ msg, type = 'success', onDone }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 2500);
+    return () => clearTimeout(t);
+  }, []);
+
+  const colors = { success: '#22C55E', error: '#EF4444', info: '#6C63FF' };
+  return (
+    <div className="fade-in" style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: 'var(--panel)', border: `1px solid ${colors[type]}60`,
+      borderLeft: `3px solid ${colors[type]}`,
+      borderRadius: 10, padding: '10px 16px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      color: 'var(--text)', fontSize: 13,
+      boxShadow: '0 8px 32px rgba(0,0,0,.4)',
+      maxWidth: 320,
+    }}>
+      <span style={{ color: colors[type], fontSize: 16 }}>
+        {type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}
+      </span>
+      {msg}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   MAIN APP
+───────────────────────────────────────────── */
+function App() {
+  const [sections, setSections]     = useState([]);
+  const [rawHtml, setRawHtml]       = useState('');
+  const [selected, setSelected]     = useState(null);
+  const [showImport, setShowImport] = useState(false);
+  const [toast, setToast]           = useState(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewMode, setPreviewMode] = useState('desktop'); // desktop | mobile
+  const dragIdx = useRef(null);
+
+  const showToast = (msg, type = 'success') => setToast({ msg, type });
+
+  /* Parse HTML on import */
+  const handleImport = useCallback((html) => {
+    const parsed = parseSectionsFromHtml(html);
+    if (!parsed.length) {
+      showToast('Tidak ada elemen [data-section] yang ditemukan. Pastikan HTML menggunakan Stacking Block schema.', 'error');
+      return;
+    }
+    setSections(parsed);
+    setRawHtml(html);
+    setPreviewHtml(html);
+    setSelected(null);
+    showToast(`${parsed.length} section berhasil diparse!`);
+  }, []);
+
+  /* Rebuild preview whenever sections change */
+  const rebuildPreview = useCallback((secs, original) => {
+    if (!original) return;
+    const rebuilt = rebuildHtml(secs, original);
+    setPreviewHtml(rebuilt);
+  }, []);
+
+  /* Toggle visibility */
+  const handleToggle = useCallback((id) => {
+    setSections(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, visible: !s.visible } : s);
+      rebuildPreview(next, rawHtml);
+      return next;
+    });
+  }, [rawHtml, rebuildPreview]);
+
+  /* Edit HTML directly */
+  const handleHtmlChange = useCallback((id, html) => {
+    setSections(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, html } : s);
+      setSelected(next.find(s => s.id === id) || null);
+      rebuildPreview(next, rawHtml);
+      return next;
+    });
+  }, [rawHtml, rebuildPreview]);
+
+  /* Drag & Drop */
+  const handleDragStart = (e, idx) => {
+    if (!sections[idx].swappable) { e.preventDefault(); return; }
+    dragIdx.current = idx;
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetIdx) => {
+    e.preventDefault();
+    const from = dragIdx.current;
+    if (from === null || from === targetIdx) return;
+
+    // Don't allow dragging locked items
+    if (!sections[from].swappable) return;
+    // Don't allow dropping on locked items (navbar idx 0, footer last)
+    if (!sections[targetIdx].swappable) return;
+
+    setSections(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(targetIdx, 0, moved);
+      const reindexed = next.map((s, i) => ({ ...s, index: i + 1 }));
+      rebuildPreview(reindexed, rawHtml);
+      return reindexed;
+    });
+
+    dragIdx.current = null;
+    showToast('Section berhasil direorder!', 'info');
+  };
+
+  /* Export final HTML */
+  const handleExport = () => {
+    if (!previewHtml) return;
+    const blob = new Blob([previewHtml], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'forge-output.html';
+    a.click();
+    showToast('HTML berhasil diexport!');
+  };
+
+  /* Copy HTML */
+  const handleCopy = () => {
+    if (!previewHtml) return;
+    navigator.clipboard?.writeText(previewHtml);
+    showToast('HTML disalin ke clipboard!');
+  };
+
+  const swappableCount = sections.filter(s => s.swappable && s.visible).length;
+  const totalVisible   = sections.filter(s => s.visible).length;
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+
+      {/* ── TOP BAR ── */}
+      <div style={{
+        height: 52, flexShrink: 0,
+        background: 'var(--surface)', borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10,
+      }}>
+        {/* Logo */}
+        <div style={{
+          fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 17,
+          color: 'var(--accent)', letterSpacing: '-.02em', marginRight: 6,
+        }}>
+          ◈ Forge
+          <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12, marginLeft: 6 }}>
+            Section Editor
+          </span>
+        </div>
+
+        {/* Stats */}
+        {sections.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, marginLeft: 4 }}>
+            <Badge color="#6C63FF">{sections.length} sections</Badge>
+            <Badge color="#22C55E">{totalVisible} visible</Badge>
+            <Badge color="#F59E0B">{swappableCount} swappable</Badge>
+          </div>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        {/* Preview mode toggle */}
+        {sections.length > 0 && (
+          <div style={{
+            display: 'flex', background: 'var(--bg)', borderRadius: 8,
+            border: '1px solid var(--border)', overflow: 'hidden',
+          }}>
+            {['desktop', 'mobile'].map(m => (
+              <button key={m} onClick={() => setPreviewMode(m)} style={{
+                background: previewMode === m ? 'var(--accent)' : 'none',
+                border: 'none', color: previewMode === m ? '#fff' : 'var(--muted)',
+                padding: '5px 12px', cursor: 'pointer', fontSize: 11,
+                fontWeight: 600, transition: 'all .15s',
+              }}>
+                {m === 'desktop' ? '⬛ Desktop' : '▯ Mobile'}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Actions */}
+        <button onClick={() => setShowImport(true)} style={{
+          background: 'var(--accent)', border: 'none', color: '#fff',
+          borderRadius: 8, padding: '6px 14px', cursor: 'pointer',
+          fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          ⬆ Import HTML
+        </button>
+        {sections.length > 0 && <>
+          <button onClick={handleCopy} style={{
+            background: 'var(--panel)', border: '1px solid var(--border2)',
+            color: 'var(--text)', borderRadius: 8, padding: '6px 12px',
+            cursor: 'pointer', fontSize: 12, fontWeight: 500,
+          }}>
+            ⎘ Copy
+          </button>
+          <button onClick={handleExport} style={{
+            background: '#22C55E20', border: '1px solid #22C55E50',
+            color: '#22C55E', borderRadius: 8, padding: '6px 14px',
+            cursor: 'pointer', fontSize: 12, fontWeight: 600,
+          }}>
+            ⬇ Export
+          </button>
+        </>}
+      </div>
+
+      {/* ── MAIN LAYOUT ── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+
+        {/* LEFT: Section List Panel */}
+        <div style={{
+          width: 280, flexShrink: 0,
+          background: 'var(--surface)', borderRight: '1px solid var(--border)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
+          <div style={{
+            padding: '12px 14px 8px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '.1em',
+              textTransform: 'uppercase', color: 'var(--muted)',
+            }}>
+              Section Blocks
+            </span>
+            {sections.length > 0 && (
+              <span style={{ fontSize: 10, color: 'var(--muted)' }}>
+                drag ⣿ untuk reorder
+              </span>
+            )}
+          </div>
+
+          <div style={{ flex: 1, overflow: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {sections.length === 0 ? (
+              <div style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 10, color: 'var(--muted)', padding: 20, textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 32, opacity: .3 }}>⬚</div>
+                <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+                  Belum ada section.<br/>
+                  Klik <strong style={{ color: 'var(--accent)' }}>Import HTML</strong> untuk mulai.
+                </div>
+              </div>
+            ) : sections.map((s, i) => (
+              <SectionCard
+                key={s.id}
+                section={s}
+                index={i}
+                isSelected={selected?.id === s.id}
+                onSelect={sec => setSelected(sec)}
+                onToggle={handleToggle}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              />
+            ))}
+          </div>
+
+          {/* Legend */}
+          {sections.length > 0 && (
+            <div style={{
+              padding: '10px 14px', borderTop: '1px solid var(--border)',
+              display: 'flex', flexDirection: 'column', gap: 4,
+            }}>
+              <div style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>
+                Legend
+              </div>
+              {[
+                { icon: '◉', color: 'var(--green)', label: 'Section visible' },
+                { icon: '◎', color: 'var(--muted)', label: 'Section hidden' },
+                { icon: '🔒', color: 'var(--muted)', label: 'Locked (no drag)' },
+              ].map(({ icon, color, label }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
+                  <span style={{ color, fontSize: 13 }}>{icon}</span> {label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* CENTER: Preview */}
+        <div style={{
+          flex: 1, overflow: 'hidden',
+          display: 'flex', flexDirection: 'column',
+          background: 'var(--bg)',
+        }}>
+          <div style={{
+            padding: '8px 12px', borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'var(--surface)',
+          }}>
+            <div style={{ display: 'flex', gap: 5 }}>
+              {['#EF4444','#F59E0B','#22C55E'].map(c => (
+                <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
+              ))}
+            </div>
+            <div style={{
+              flex: 1, background: 'var(--bg)', borderRadius: 6,
+              padding: '3px 10px', fontSize: 11, color: 'var(--muted)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              forge://preview{selected ? `#section-${selected.key}` : ''}
+            </div>
+          </div>
+
+          {/* Iframe wrapper */}
+          <div style={{
+            flex: 1, overflow: 'auto',
+            display: 'flex', justifyContent: 'center',
+            padding: previewMode === 'mobile' ? '16px' : '0',
+            background: previewMode === 'mobile' ? 'var(--bg)' : 'transparent',
+          }}>
+            <div style={{
+              width: previewMode === 'mobile' ? 390 : '100%',
+              height: previewMode === 'mobile' ? '100%' : '100%',
+              borderRadius: previewMode === 'mobile' ? 20 : 0,
+              overflow: 'hidden',
+              boxShadow: previewMode === 'mobile' ? '0 0 0 8px var(--border2), 0 32px 64px rgba(0,0,0,.5)' : 'none',
+            }}>
+              <PreviewFrame html={previewHtml} selectedKey={selected?.key} />
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: Detail Panel */}
+        <div style={{
+          width: 300, flexShrink: 0,
+          background: 'var(--surface)', borderLeft: '1px solid var(--border)',
+          overflow: 'hidden', display: 'flex', flexDirection: 'column',
+        }}>
+          <DetailPanel section={selected} onHtmlChange={handleHtmlChange} />
+        </div>
+      </div>
+
+      {/* MODALS & OVERLAYS */}
+      {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
+      {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

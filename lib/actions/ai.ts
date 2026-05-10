@@ -22,7 +22,9 @@ import {
     buildForgeData,
     getGreetingTime,
     PROPOSAL_GENERATOR_PROMPT,
+    BRAND_DNA_PROCESSOR_PROMPT
 } from '@/lib/prompts';
+import { patchHtmlWithBrandData } from '@/lib/html-patcher';
 import { getEffectivePrompt } from './prompt';
 import { getUserSettings } from './user-settings';
 
@@ -192,7 +194,7 @@ export async function callAI(prompt: string, tier: 'fast' | 'pro' = 'fast') {
         return callKieAI(prompt);
     } else {
         // Use reliable models: claude-3.5-sonnet for pro, deepseek-v4-pro for fast
-        const model = tier === 'pro' ? 'anthropic/claude-3.5-sonnet' : 'deepseek/deepseek-v4-pro';
+        const model = tier === 'pro' ? 'anthropic/claude-3.5-sonnet' : 'deepseek-v4-pro';
         console.log(`[callAI] Provider: openrouter, Tier: ${tier}, Model: ${model}`);
         return callOpenRouter(prompt, model);
     }
@@ -241,7 +243,7 @@ const HTML_MODEL_CONFIG: Record<string, {
     'deepseek-v4-pro': {
         kieUrl:       null,
         kieFormat:    'openai',
-        openrouterId: 'deepseek/deepseek-v4-pro',
+        openrouterId: 'deepseek-v4-pro',
         label:        'DeepSeek V4 Pro',
         orOnly:       true,
     },
@@ -697,6 +699,10 @@ export async function generateForgeCode(leadId: string, jobId?: string, modelId?
         const hasBlueprint = !!answers;
         const hasCustomAssets = !!(logoUrl || mediaUrls.length > 0);
 
+        const promptTemplate = await getEffectivePrompt('MASTER_FORGE_PROMPT');
+        const forgeData = buildForgeData(lead);
+        const fullAddress = `${lead.address || 'Bali'}, ${lead.city || ''}, ${lead.province || ''}`.trim().replace(/,\s*,/g, ',');
+
         const customAssetsBlock = hasCustomAssets ? `
 [CLIENT CUSTOM ASSETS — MANDATORY, PRIORITAS TERTINGGI]
 Klien telah menyediakan aset visual nyata berikut ini. WAJIB gunakan aset ini. Jangan ganti dengan Unsplash, placeholder, atau gambar lain.
@@ -730,6 +736,15 @@ ${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
 - Notes: ${answers.notes || ''}
 ` : '';
 
+        const noAssetDesignBlock = (hasBlueprint && !hasCustomAssets) ? `
+[BRAND COLOR & DESIGN DIRECTIVE — WAJIB DITERAPKAN]
+Klien tidak menyediakan gambar/logo. Gunakan Unsplash untuk visual.
+WAJIB terapkan identitas brand via warna dan tipografi:
+- Primary Color / Vibe: ${answers.colors || answers.vibe?.join(', ') || 'modern professional'}
+- Gunakan warna tersebut sebagai accent, button, navbar, footer, section backgrounds.
+- Buat inisial logo dari nama brand di navbar jika tidak ada logo URL.
+` : '';
+
         const finalPrompt = promptTemplate
             .replace('[selectedArchetype]', forgeData.selectedArchetype)
             .replace('[brandName]', answers?.brand_name || lead.name)
@@ -740,7 +755,7 @@ ${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
             .replace('[waLink]', `https://wa.me/${sanitizeWaNumber(lead.wa)}`)
             .replace('[phone]', lead.wa)
             .replace('[styleDNA]', answers?.colors || lead.styleDNA || 'Modern, Professional and Premium')
-            .replace('[customAssets]', customAssetsBlock)
+            .replace('[customAssets]', customAssetsBlock + "\n" + noAssetDesignBlock)
             .replace('[painPoints]', hasBlueprint ? blueprintContext : (lead.painPoints || 'Kurangnya digital presence yang profesional'))
             .replace('[resolvingIdea]', answers?.tagline || lead.resolvingIdea || 'Website premium yang konversi tinggi')
             .replace('[industryPattern]', forgeData.industryPattern)
@@ -762,7 +777,10 @@ ${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
         // Persist job start to DB for crash recovery visibility
         await prisma.lead.update({
             where: { id: leadId },
-            data: { lastLog: `RUNNING: Forge process started at ${new Date().toISOString()}` }
+            data: { 
+                lastLog: `RUNNING: Forge process started at ${new Date().toISOString()}`,
+                masterWebsitePrompt: finalPrompt // Override dengan prompt akhir yang sudah di-assemble
+            }
         });
 
         const htmlContent = await callAIForHTML(systemPrompt + "\n\n" + finalPrompt, modelId);
@@ -794,15 +812,22 @@ ${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
             finalSlug = `${baseSlug}-${Math.floor(Math.random() * 10000)}`;
         }
 
+        const updateData: any = {
+            slug: finalSlug,
+            status: 'LIVE',
+            isPro: false,
+            lastLog: `Success via AI at ${new Date().toISOString()}`
+        };
+
+        if (hasBlueprint) {
+            updateData.prototypeHtml = cleanHtml;
+        } else {
+            updateData.htmlCode = cleanHtml;
+        }
+
         await prisma.lead.update({
             where: { id: leadId },
-            data: {
-                htmlCode: cleanHtml,
-                slug: finalSlug,
-                status: 'LIVE',
-                isPro: false,
-                lastLog: `Success via AI at ${new Date().toISOString()}`
-            }
+            data: updateData
         });
 
         revalidatePath('/dashboard/enriched');
@@ -858,6 +883,29 @@ export async function generateBlueprintCode(leadId: string, answers: any, jobId?
         const mediaUrls = (submission?.mediaFiles as string[] | null) || [];
         const hasCustomAssets = !!(logoUrl || mediaUrls.length > 0);
 
+        // Flatten structured answers if they exist
+        const rawAnswers = (submission?.answers as any) || answers || {};
+        const getVal = (key: string, fallback: string = '') => {
+            if (rawAnswers[key] && typeof rawAnswers[key] === 'object' && 'value' in rawAnswers[key]) {
+                return rawAnswers[key].value || fallback;
+            }
+            return rawAnswers[key] || fallback;
+        };
+
+        const flattenedAnswers = {
+            tagline: getVal('tagline'),
+            founding_story: getVal('founding_story'),
+            usp: getVal('usp'),
+            services_main: getVal('services_main'),
+            price_positioning: getVal('price_positioning'),
+            target_customer: getVal('target_customer'),
+            visual_mood: getVal('visual_mood'),
+            color_vibe: getVal('color_vibe'),
+            brand_words_must: getVal('brand_words_must'),
+            one_sentence: getVal('one_sentence'),
+            tone_preference: getVal('tone_preference')
+        };
+
         const customAssetsBlock = hasCustomAssets ? `
 [CLIENT CUSTOM ASSETS — MANDATORY, PRIORITAS TERTINGGI]
 Klien telah menyediakan aset visual nyata berikut ini. WAJIB gunakan aset ini. Jangan ganti dengan Unsplash, placeholder, atau gambar lain.
@@ -874,63 +922,89 @@ ${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
 ⚠️ Aset di atas adalah GAMBAR NYATA dari klien. Embed semua ke dalam HTML output.
 ` : '';
 
-        // Convert answers into readable format for AI
-        const blueprintContext = `
-[BRAND BLUEPRINT CLIENT ANSWERS — GUNAKAN SEBAGAI DESIGN BRIEF]
-- Brand Name: ${answers.brand_name || lead.name}
-- One-liner: ${answers.oneliner || ''}
-- Tagline/Description: ${answers.tagline || ''}
-- Target Audience: ${answers.target || ''}
-- USP: ${answers.usp || ''}
-- Vibe: ${answers.vibe ? answers.vibe.join(', ') : ''}
-- Tone: ${JSON.stringify(answers.tone || {})}
-- Keywords: ${answers.kw ? answers.kw.join(', ') : ''} ${answers.kw_extra || ''}
-- Goal: ${answers.wg ? answers.wg.join(', ') : ''}
-- Colors: ${answers.colors || ''}
-- Pages Needed: ${answers.pg ? answers.pg.join(', ') : ''}
-- Web Refs: ${answers.webref || ''}
-- Notes: ${answers.notes || ''}
-        `;
+        const noAssetDesignBlock = (!hasCustomAssets) ? `
+[BRAND COLOR & DESIGN DIRECTIVE — WAJIB DITERAPKAN]
+Klien tidak menyediakan gambar/logo. Gunakan Unsplash untuk visual.
+WAJIB terapkan identitas brand via warna dan tipografi:
+- Primary Color / Vibe: ${flattenedAnswers.color_vibe || lead.styleDNA || 'modern professional'}
+- Visual Mood: ${flattenedAnswers.visual_mood || 'Clean & Professional'}
+- Gunakan warna tersebut sebagai accent, button, navbar, footer, section backgrounds.
+- Buat inisial logo dari nama brand di navbar jika tidak ada logo URL.
+` : '';
 
-        const finalPrompt = promptTemplate
-            .replace('[selectedArchetype]', forgeData.selectedArchetype)
-            .replace('[brandName]', answers.brand_name || lead.name)
-            .replace('[name]', answers.brand_name || lead.name)
-            .replace('[category]', lead.category)
-            .replace('[fullAddress]', fullAddress)
-            .replace('[address]', lead.address || 'Bali')
-            .replace('[waLink]', `https://wa.me/${sanitizeWaNumber(lead.wa)}`)
-            .replace('[phone]', lead.wa)
-            .replace('[styleDNA]', answers.colors || lead.styleDNA || 'Modern, Professional and Premium')
-            .replace('[customAssets]', customAssetsBlock)
-            .replace('[painPoints]', blueprintContext)
-            .replace('[resolvingIdea]', answers.tagline || lead.resolvingIdea || 'Website premium yang konversi tinggi')
-            .replace('[industryPattern]', forgeData.industryPattern)
-            .replace('[industryStylePriority]', forgeData.industryStylePriority)
-            .replace('[industryColorMood]', forgeData.industryColorMood)
-            .replace('[industryKeyEffects]', forgeData.industryKeyEffects)
-            .replace('[industryAvoidPatterns]', forgeData.industryAvoidPatterns)
-            .replace('[unsplashQueries]', hasCustomAssets 
-                ? `${forgeData.unsplashQueries} — HANYA untuk section dekoratif yang tidak punya custom asset di atas` 
-                : forgeData.unsplashQueries);
+        // Build a more comprehensive styleDNA
+        const styleDNAMatrix = `
+        - Vibe Utama: ${flattenedAnswers.visual_mood || lead.styleDNA || 'Modern & Professional'}
+        - Warna Kunci: ${flattenedAnswers.color_vibe || 'Muted Slate & Deep Obsidian'}
+        - Tone Suara: ${flattenedAnswers.tone_preference || 'Formal & Trusted'}
+        - Kata Kunci Brand: ${flattenedAnswers.brand_words_must || 'Premium, Authentic, Reliable'}
+        `.trim();
+
+        // Instead of generating full HTML, use BRAND_DNA_PROCESSOR_PROMPT to get JSON
+        const processorPrompt = BRAND_DNA_PROCESSOR_PROMPT
+            .replace('{{gmaps.name}}', lead.name)
+            .replace('{{gmaps.category}}', lead.category)
+            .replace('{{gmaps.rating}}', lead.rating?.toString() || '0')
+            .replace('{{gmaps.review_count}}', lead.reviewCount?.toString() || '0')
+            .replace('{{gmaps.address}}', fullAddress)
+            .replace('{{gmaps.phone}}', lead.wa || '')
+            .replace('{{answers.business_name.value}}', flattenedAnswers.tagline || lead.name)
+            .replace('{{answers.business_name.source}}', 'client')
+            .replace('{{answers.whatsapp.value}}', lead.wa || '')
+            .replace('{{answers.whatsapp.source}}', 'client')
+            .replace('{{answers.address.value}}', fullAddress)
+            .replace('{{answers.address.source}}', 'client')
+            .replace('{{answers.tagline.value || \'none provided\'}}', flattenedAnswers.tagline || 'none provided')
+            .replace('{{answers.services_main.value}}', flattenedAnswers.services_main || '')
+            .replace('{{answers.founding_story.value}}', flattenedAnswers.founding_story || '')
+            .replace('{{answers.usp.value}}', flattenedAnswers.usp || '')
+            .replace('{{answers.price_positioning.value}}', flattenedAnswers.price_positioning || '')
+            .replace('{{answers.best_moment.value}}', flattenedAnswers.best_moment || '')
+            .replace('{{answers.target_customer.value}}', flattenedAnswers.target_customer || '')
+            .replace('{{answers.visual_mood.value}}', flattenedAnswers.visual_mood || '')
+            .replace('{{answers.color_vibe.value}}', flattenedAnswers.color_vibe || '')
+            .replace('{{answers.website_goal.value}}', flattenedAnswers.website_goal || '')
+            .replace('{{answers.tone_preference.value}}', flattenedAnswers.tone_preference || '')
+            .replace('{{answers.brand_words_must.value}}', flattenedAnswers.brand_words_must || '')
+            .replace('{{answers.additional_notes.value || \'none\'}}', flattenedAnswers.additional_notes || 'none')
+            .replace('{{answers.one_sentence.value}}', flattenedAnswers.one_sentence || '')
+            .replace('{{JSON.stringify(existing_brand_dna_draft)}}', JSON.stringify(lead.brandData || {}));
 
         if (jobId) {
             JobRegistry.updateJob(jobId, {
                 progress: 50,
-                message: `Generating Blueprint HTML for ${lead.name}...`
+                message: `Synthesizing Brand DNA JSON for ${lead.name}...`
             });
         }
 
-        // Persist job start to DB for crash recovery visibility
         await prisma.lead.update({
             where: { id: leadId },
-            data: { lastLog: `RUNNING: Blueprint process started at ${new Date().toISOString()}` }
+            data: { 
+                lastLog: `RUNNING: Blueprint patch process started at ${new Date().toISOString()}`
+            }
         });
 
-        const htmlContent = await callAIForHTML(systemPrompt + "\n\n" + finalPrompt, modelId);
-        
-        if (!htmlContent || htmlContent.length < 500) throw new Error("Output AI korup atau terlalu pendek.");
+        // Call AI to get the JSON payload
+        const jsonContentRaw = await callAI(processorPrompt, 'fast');
+        const cleanJsonStr = jsonContentRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+        const brandDNA = JSON.parse(cleanJsonStr);
 
+        if (jobId) {
+            JobRegistry.updateJob(jobId, {
+                progress: 70,
+                message: `Patching dummy HTML with Brand DNA data...`
+            });
+        }
+
+        // Get the dummy HTML from lead.htmlCode
+        const dummyHtml = lead.htmlCode;
+        if (!dummyHtml) {
+            throw new Error("Dummy HTML (htmlCode) is missing. Cannot patch without a base template.");
+        }
+
+        // Patch the HTML
+        const patchedHtml = patchHtmlWithBrandData(dummyHtml, brandDNA);
+        
         if (jobId) {
             JobRegistry.updateJob(jobId, {
                 progress: 90,
@@ -938,31 +1012,21 @@ ${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
             });
         }
 
-        // Clean & Update
-        const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '').trim();
-        
-        const hasHtmlStructure = cleanHtml.includes('<html') || cleanHtml.includes('<!DOCTYPE');
-        const isLongEnough = cleanHtml.length >= 1500;
-        
-        if (!hasHtmlStructure || !isLongEnough) {
-            throw new Error("Output AI tidak valid atau terlalu pendek (min 1500 chars). Pastikan AI menghasilkan full HTML.");
-        }
-
         await prisma.lead.update({
             where: { id: leadId },
             data: {
-                prototypeHtml: cleanHtml,
-                lastLog: `Blueprint Generated via AI at ${new Date().toISOString()}`
+                prototypeHtml: patchedHtml,
+                lastLog: `Blueprint Patched via AI at ${new Date().toISOString()}`
             }
         });
 
-        await logActivity(leadId, 'BLUEPRINT_GENERATED', 'Brand Blueprint AI generation success');
+        await logActivity(leadId, 'BLUEPRINT_GENERATED', 'Brand Blueprint AI patching success');
 
         if (jobId) {
             JobRegistry.updateJob(jobId, {
                 status: 'COMPLETED',
                 progress: 100,
-                message: `Blueprint generated successfully.`,
+                message: `Blueprint generated and patched successfully.`,
                 data: { success: true }
             });
         }
@@ -970,7 +1034,7 @@ ${mediaUrls.map((u, i) => `  ${i + 1}. ${u}`).join('\n')}
         revalidatePath('/dashboard/live');
         revalidatePath(`/${lead.slug || lead.id}`);
 
-        return { success: true, message: 'Code generated successfully' };
+        return { success: true, message: 'Code generated and patched successfully' };
     } catch (error: any) {
         console.error("[Generate Blueprint Error]:", error);
         
@@ -1258,7 +1322,17 @@ export async function generateOutreachDraft(leadId: string, persona: string = 'p
         const personaDefinition = OUTREACH_PERSONAS[persona] || OUTREACH_PERSONAS['professional'];
 
         // STEP 1: Generate bait FIRST — so we know which angle to continue from
-        const baitDraft = generateRandomBait(lead.name, lead.city || "", lead.category, lead.rating);
+        const baitDraft = generateRandomBait(
+            lead.name,
+            lead.city || "",
+            lead.category,
+            lead.rating,
+            {
+                businessName: user.businessName,
+                businessWa: user.businessWa,
+                businessIg: user.businessIg,
+            }
+        );
 
         // STEP 2: Inject the bait into the prompt so AI writes Pesan 2 that flows naturally
         const finalPrompt = OUTREACH_GENERATOR_PROMPT

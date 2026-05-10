@@ -1,0 +1,211 @@
+
+[SYSTEM ENFORCEMENT — CRITICAL]
+MANDATORY: Bahasa Indonesia & Cinematic Hero.
+ASSET TRACKING: SEMUA elemen gambar (<img> dan background-image) WAJIB memiliki atribut 'data-asset-id' yang unik (mulai dari 0).
+VIOLATION = INVALID OUTPUT.
+
+Contoh: 
+<img src="..." data-asset-id="0" />
+<div data-asset-id="1" style="background-image: url(...)"></div>
+
+---
+
+
+[SYNAPSE PRO] MANDATORY DESIGN PROTOCOL:
+1. TYPOGRAPHY PAIRING (EXCLUSIVE):
+   - Option A: 'Syne' (Display) + 'Inter' (Sans) -> (Vibe: Tech, Boutique, Avant-garde)
+   - Option B: 'Playfair Display' (Serif) + 'Outfit' (Sans) -> (Vibe: Luxury, Professional, Heritage)
+2. LAYOUT DYNAMICS:
+   - MANDATORY: Use Bento Grid structures for services/features sections.
+   - MANDATORY: Implement Asymmetric Layouts (absolute decorative elements, negative margins, grid-cols-12 chaos).
+3. COLOR THEORY: 禁止 Pure #000000. Use deep zinc/obsidian tones or brand-specific muted palettes.
+4. IMAGE PROTOCOL: Unsplash &auto=format&fit=crop&w=1920&q=80.
+5. LANGUAGE: 100% Professional, High-Conversion Bahasa Indonesia only.
+6. ⚠️ MOBILE-FIRST MANDATE: All layouts MUST be responsive by default (w-full, px-4) and only expand/restructure on 'md:' (768px) and 'lg:' (1024px).
+7. ⚠️ CRITICAL JAVASCRIPT RULE — NEVER USE HTML COMMENTS INSIDE <script> TAGS:
+   HTML comments (<!-- -->) inside <script> blocks are NOT valid JavaScript and cause FATAL SYNTAX ERRORS.
+   INSIDE <script>: Use ONLY JavaScript comments: // single line  OR  /* multi-line block */
+
+
+[SYNAPSE PRO | PRE-GEN LOGIC]
+Direction: Before generating code, deeply analyze the business essence.
+Goal: Transform Toko Kain data into a UNIQUE visual identity — no two businesses should look the same.
+
+[ARCHETYPE DIRECTIVE — SYSTEM ASSIGNED, DO NOT OVERRIDE]
+Use this specific archetype for this generation:
+ARCHETYPE 03: The Heritage Suite
+
+Archetype definitions:
+- ARCHETYPE 01 "The Avant-Garde Editorial": Typography Syne/Inter. High whitespace, large text, asymmetric overlaps. Vibe: modern, bold, editorial.
+- ARCHETYPE 02 "The Obsidian Glass": Typography Syne/Inter. Dark mode, heavy glassmorphism, accent gold/emerald, glowing borders. Vibe: premium, industrial, tech.
+- ARCHETYPE 03 "The Heritage Suite": Typography Playfair/Outfit. Clean, serif-driven, elegant lines, sophisticated muted tones. Vibe: trusted, refined, heritage.
+
+[INDUSTRY INTELLIGENCE — DARI UI/UX PRO MAX REASONING ENGINE]
+Berdasarkan kategori "[category]", terapkan aturan industri berikut SECARA KETAT:
+
+Landing Page Pattern: Product Hero → Category Grid → Featured Products → Testimonial → Shop CTA
+Visual Style Priority: Conversion-Optimized + Social Proof-Focused — clean, trust-building, product-first
+Color Mood: Brand-specific — clean white dengan accent color yang sesuai kategori produk
+Key Effects: Product card hover zoom, smooth category filter, add-to-cart micro-interactions
+
+⛔ ANTI-PATTERNS — WAJIB DIHINDARI UNTUK INDUSTRI INI:
+Terlalu artistik sehingga product tenggelam, dark mode untuk produk sehari-hari
+
+PENTING: Anti-patterns di atas bukan saran — ini LARANGAN KERAS. Jika styleDNA dari enrichment
+bertentangan dengan anti-pattern industri, PRIORITASKAN anti-pattern industri.
+
+[STRICT BUSINESS DATA]
+- Brand Name: Soraya Bedsheet
+- Category: [category]
+- Real Address: Jalan Tuanku Tambusai Wonorejo, Sukajadi, Kp. Melayu, Kec. Pekanbaru Kota, Kota Pekanbaru, Riau 28122, Pekanbaru, Riau
+- WhatsApp Link: https://wa.me/6281275999578
+- Style DNA: Earthy & regal Melayu — palet cokelat tembakau dalam, emas antik, dan krem, diimbangi tipografi serif elegan Playfair Display untuk judul dan Outfit untuk navigasi. Dekorasi motif geometris songket sebagai elemen latar transparan, foto produk close-up yang menangkap serat kain, serta aksen emas pada tombol mengundang sentuhan mewah lokal.
+- Core Pain Points: Calon pembeli di Pekanbaru dan sekitar Riau kesulitan menemukan koleksi kain tradisional dan modern dalam satu tempat yang terpercaya, sehingga sering harus berkeliling ke beberapa toko atau mengandalkan foto yang tidak representatif., Meski memiliki 1.089 ulasan positif, toko ini belum memiliki showcase digital yang mampu meyakinkan pembeli dari luar kecamatan Sukajadi — potensi omzet besar dari kabupaten tetangga terhambat karena minim eksistensi online., Tidak adanya katalog online interaktif membuat pelanggan sulit mengecek stok terkini, variasi motif, dan harga tanpa harus datang langsung, apalagi bagi pembeli B2B yang perlu efisiensi waktu.
+- Winning Solution: Website premium yang konversi tinggi
+
+[HERO SECTION REQUIREMENTS: SYNAPSE-LEVEL]
+- Cinematic Hero: Full min-h-screen, high-contrast overlay.
+- Unsplash queries untuk kategori ini: professional business office | modern workspace | business professional
+- Primary URL: https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=1920&q=80
+  (GANTI dengan query yang relevan untuk [category])
+- Content: Headline must be professional, punchy Bahasa Indonesia — USE the branding.title from enrichment data.
+
+[IMAGE FAILSAFE PROTOCOL — MANDATORY, NO EXCEPTION]
+Setiap elemen gambar di halaman WAJIB menggunakan sistem 3-layer fallback berikut:
+
+LAYER 1 — Unsplash Primary:
+  Format URL: https://images.unsplash.com/photo-[ID]?auto=format&fit=crop&w=[WIDTH]&q=80
+  Gunakan photo ID yang relevan dengan query: [unsplashQueries]
+
+LAYER 2 — Unsplash Source (URL-based, lebih reliable):
+  Format: https://source.unsplash.com/[WIDTH]x[HEIGHT]/?[query-keyword]
+  Contoh: https://source.unsplash.com/1920x1080/?salon,interior
+
+LAYER 3 — CSS Gradient Fallback (TIDAK BOLEH BLANK):
+  Jika kedua Unsplash gagal, background HARUS menampilkan gradient yang sesuai archetype:
+  - ARCHETYPE 01: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)
+  - ARCHETYPE 02: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #2d2d2d 100%)
+  - ARCHETYPE 03: linear-gradient(135deg, #f5f0eb 0%, #e8e0d5 50%, #d4c5b0 100%)
+
+IMPLEMENTASI WAJIB untuk setiap background-image di HTML:
+  background-image: url('UNSPLASH_URL'), url('SOURCE_UNSPLASH_FALLBACK');
+  background-color: [ARCHETYPE_GRADIENT_COLOR_AS_FINAL_FALLBACK];
+
+IMPLEMENTASI WAJIB untuk setiap <img> tag di HTML:
+  <img 
+    src="UNSPLASH_PRIMARY_URL" 
+    onerror="this.onerror=null; this.src='SOURCE_UNSPLASH_FALLBACK_URL'; this.onerror=function(){this.style.display='none'; this.parentElement.style.background='GRADIENT_FALLBACK'}"
+    loading="lazy"
+    alt="[DESKRIPSI_RELEVAN]"
+  />
+
+UNTUK CARD / SECTION IMAGES — tambahkan inline style:
+  style="background-image: url('PRIMARY'), url('FALLBACK'); background-color: [SOLID_COLOR];"
+
+ZERO TOLERANCE: Tidak boleh ada satu pun gambar/background yang blank atau broken di output.
+
+
+[ASSET TRACKING SYSTEM — CRITICAL, NON-NEGOTIABLE]
+⚠️ VIOLATION = OUTPUT INVALID AND WILL BE REJECTED ⚠️
+SEMUA elemen gambar (TANPA TERKECUALI) WAJIB memiliki atribut 'data-asset-id' yang unik.
+Penomoran dimulai dari 0 (integer), increment satu per satu untuk setiap elemen gambar.
+
+CONTOH WAJIB — Gunakan format PERSIS seperti ini:
+  <img src="..." data-asset-id="0" alt="Hero Image" loading="lazy" />
+  <div data-asset-id="1" style="background-image: url('...')">...</div>
+  <section data-asset-id="2" style="background-image: url('...'); background-size: cover;">...</section>
+  <img src="..." data-asset-id="3" alt="Product Image" />
+
+Aturan:
+- <img> tag → tambahkan data-asset-id LANGSUNG di tag <img>
+- Elemen dengan background-image CSS → tambahkan data-asset-id di elemen HTML-nya
+- Nomor harus UNIK di seluruh halaman (tidak boleh ada 2 elemen dengan data-asset-id yang sama)
+- Jangan skip nomor
+
+[CORE ARCHITECTURE — 7-8 SECTION MANDATORY STRUCTURE]
+- 100% Standalone index.html.
+- Tailwind CSS & Framer Motion (reveal animations).
+- LANGUAGE LOCK: 100% Professional Bahasa Indonesia. Zero English on UI.
+
+WAJIB buat SEMUA section berikut secara berurutan (minimal 7 section):
+
+SECTION 1 — HERO (CINEMATIC, min-h-screen)
+Full screen hero dengan background image berkualitas tinggi + overlay gradien.
+Headline utama (H1) yang besar dan emosional, subheadline, dan CTA primary (tombol WA).
+Animasi entrance: fade-in + translateY pada teks.
+
+SECTION 2 — SOCIAL PROOF / TRUST BAR
+Bar horizontal berisi: jumlah pelanggan, tahun berdiri, rating, atau penghargaan.
+Gunakan angka counter animasi saat section terscroll masuk viewport.
+Desain: 3-4 metric card dalam satu baris, background berbeda dari hero.
+
+SECTION 3 — ABOUT / OUR STORY
+Narasi singkat tentang identitas dan visi bisnis (2-3 paragraf pendek).
+Sertakan gambar ilustratif di samping teks (layout 2-kolom: teks kiri, gambar kanan).
+Gunakan pull-quote atau highlight kalimat kunci untuk emphasis.
+
+SECTION 4 — SERVICES / PRODUCTS (BENTO GRID)
+Gunakan layout Bento Grid (12-kolom, non-uniform) untuk menampilkan layanan/produk.
+Setiap card memiliki: ikon Lucide, nama layanan, deskripsi singkat 1 kalimat.
+Hover effect: scale + shadow elevation.
+
+SECTION 5 — GALLERY / PORTFOLIO
+Grid foto galeri 3-4 kolom (masonry atau uniform).
+Gunakan foto Unsplash relevan dengan fallback protocol.
+Lightbox atau hover-zoom effect pada setiap foto.
+
+SECTION 6 — TESTIMONIALS
+Slider atau grid testimonial dari pelanggan (buat 3-4 testimonial fiktif yang relevan).
+Setiap testimonial: nama, avatar inisial, rating bintang, dan kutipan.
+Animasi: auto-scroll carousel atau fade-in saat muncul.
+
+SECTION 7 — WHY US / COMPETITIVE ADVANTAGE
+Bandingkan keunggulan bisnis ini vs pendekatan umum pesaing.
+Gunakan checklist atau split-layout (Kami vs Lainnya).
+Desain yang tegas, membangun kepercayaan.
+
+SECTION 8 — CONTACT / FINAL CTA
+Form kontak sederhana (nama, no. WA, pesan) ATAU langsung tombol WA besar.
+Alamat bisnis lengkap + Google Maps embed (gunakan placeholder/iframe dummy).
+Repeat CTA yang kuat: "Konsultasi Gratis Sekarang".
+
+[PERSISTENT ELEMENTS]
+- Floating WhatsApp Button: Fixed bottom-6 right-6 z-[9999], bg-[#25D366], rounded-full, p-4, shadow-2xl, pulse animation. Link: [waLink].
+- Sticky Navbar: Transparan di hero, glassmorphism solid saat scroll.
+- Mobile Layout: Wajib px-4 (paddings) di mobile, font size base (16px) minimal untuk readability.
+
+[GOOGLE MAPS EMBED — MANDATORY IN CONTACT SECTION]
+Integrasikan iframe Google Maps statis berikut di bagian Alamat:
+<iframe src="https://maps.google.com/maps?q=[fullAddress]&output=embed" width="100%" height="350" style="border:0; border-radius: 1rem;" loading="lazy"></iframe>
+
+Output harus berupa HTML5 yang valid dan semantik.
+DILARANG KERAS:
+1. Menggunakan 'className' (Gunakan 'class').
+2. Menggunakan self-closing tags untuk elemen non-void (Gunakan <div></div> bukan <div/>).
+3. Menggunakan sintaks JSX/React. Ini adalah file .html murni.
+4. Menghilangkan atau lupa menambahkan atribut 'data-asset-id' pada ELEMEN GAMBAR MANAPUN.
+5. ⚠️ KRITIS — JANGAN PERNAH menggunakan komentar HTML (<!-- -->) di dalam blok <script> manapun.
+   Di dalam <script>, WAJIB gunakan komentar JavaScript: // komentar satu baris ATAU /* komentar blok */
+   Komentar HTML di dalam <script> menyebabkan JavaScript gagal total dan halaman menjadi BLANK.
+   BENAR  → <script> /* Hero Section */ const hero = ... </script>
+   SALAH  → <script> <!-- Hero Section --> const hero = ... </script>
+
+[CLIENT BRAND ASSETS — PRIORITAS TERTINGGI]
+\n
+
+Jika [customAssets] kosong → gunakan strategi Unsplash normal di bawah.
+Jika [customAssets] terisi → WAJIB gunakan URL tersebut. Unsplash hanya untuk section dekoratif yang tidak punya custom asset.
+
+[QUALITY CHECKLIST — SEBELUM OUTPUT, VERIFIKASI SEMUA]:
+☐ Logo klien sudah di navbar dan footer (jika ada custom asset)
+☐ Warna brand klien sudah digunakan sebagai accent
+☐ Semua 7-8 section wajib sudah ada
+☐ Tidak ada gambar blank (3-layer fallback diterapkan)
+☐ Semua data-asset-id ada dan unik
+☐ WhatsApp floating button ada di bottom-right
+☐ 100% Bahasa Indonesia di UI
+☐ Tidak ada className (harus class), tidak ada JSX
+☐ Tidak ada HTML comment di dalam <script>
+
+Sertakan komentar HTML yang jelas di antara section utama (contoh: <!-- Hero Section -->). Pastikan semua atribut style menggunakan Tailwind CSS jika memungkinkan, dan hindari struktur DOM yang terlalu dalam.
+Output ONLY the full HTML code. No talk.

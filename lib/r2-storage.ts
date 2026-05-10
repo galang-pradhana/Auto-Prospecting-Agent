@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
 const R2 = new S3Client({
   region: 'auto',
@@ -39,4 +39,28 @@ export async function uploadToR2(
   // Return public URL (ensure no double slashes if publicUrl ends with /)
   const baseUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
   return `${baseUrl}/${key}`;
+}
+
+/**
+ * Lists files in a Cloudflare R2 folder with a specific prefix.
+ * @param prefix The folder path/prefix to search
+ * @returns Array of public URLs
+ */
+export async function listR2Files(prefix: string): Promise<string[]> {
+  const bucketName = process.env.R2_BUCKET_NAME;
+  const publicUrl = process.env.R2_PUBLIC_URL;
+
+  if (!bucketName || !publicUrl) {
+    throw new Error('R2 configuration missing (R2_BUCKET_NAME or R2_PUBLIC_URL)');
+  }
+
+  const response = await R2.send(new ListObjectsV2Command({
+    Bucket: bucketName,
+    Prefix: prefix,
+  }));
+
+  const baseUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
+  return (response.Contents || [])
+    .filter(obj => obj.Key && !obj.Key.endsWith('/')) // Exclude folder objects
+    .map(obj => `${baseUrl}/${obj.Key}`);
 }

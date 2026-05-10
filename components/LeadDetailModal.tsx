@@ -277,7 +277,12 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onDraftSave }: 
                                                     <div className="p-2 bg-accent-gold/10 rounded-xl border border-accent-gold/20">
                                                         <Code2 className="text-accent-gold" size={18} />
                                                     </div>
-                                                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Master Website Prompt</h3>
+                                                    <div className="flex flex-col">
+                                                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Master Website Prompt</h3>
+                                                        <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
+                                                            {lead.prototypeHtml ? 'Blueprint Final Prompt' : 'Master Website Prompt (Dummy)'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <button 
                                                     onClick={handleCopy}

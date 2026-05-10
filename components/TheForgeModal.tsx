@@ -275,15 +275,25 @@ export default function TheForgeModal({ isOpen, onClose, lead }: TheForgeModalPr
                                                         "{blueprintData.answers?.tagline}"
                                                     </p>
                                                     <button 
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                             e.stopPropagation();
-                                                            const prompt = lead.masterWebsitePrompt || "";
-                                                            navigator.clipboard.writeText(prompt);
-                                                            showMessage('success', 'Master Prompt copied to clipboard!');
+                                                            try {
+                                                                showMessage('success', 'Generating prompt preview...');
+                                                                const res = await fetch(`/api/leads/${lead.id}/prompt-preview`);
+                                                                const data = await res.json();
+                                                                if (data.success && data.prompt) {
+                                                                    navigator.clipboard.writeText(data.prompt);
+                                                                    showMessage('success', 'Final Prompt copied to clipboard!');
+                                                                } else {
+                                                                    showMessage('error', data.message || 'Failed to generate prompt preview');
+                                                                }
+                                                            } catch (err) {
+                                                                showMessage('error', 'Failed to fetch prompt preview');
+                                                            }
                                                         }}
                                                         className="w-full py-2 bg-orange-600/20 hover:bg-orange-600/40 border border-orange-500/20 rounded-lg text-[8px] font-black text-orange-400 uppercase tracking-widest flex items-center justify-center gap-2 transition-all mt-2"
                                                     >
-                                                        <Copy size={10} /> Copy Master Prompt Template
+                                                        <Copy size={10} /> Preview & Copy Final Prompt
                                                     </button>
                                                 </motion.div>
                                             )}

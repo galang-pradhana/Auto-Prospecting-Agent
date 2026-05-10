@@ -8,6 +8,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { getBrandDnaLeads, generateBrandDnaLink } from '@/lib/actions/brand-dna';
 import { DISTRICTS_BY_CITY } from '@/lib/districts';
+import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 interface BrandDnaClientProps {
     initialLeads: any[];
@@ -15,6 +17,7 @@ interface BrandDnaClientProps {
 }
 
 export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps) {
+    const router = useRouter();
     const [leads, setLeads] = useState(initialLeads);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +26,7 @@ export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps
     const [selectedDistrict, setSelectedDistrict] = useState('');
     
     const [generatingId, setGeneratingId] = useState<string | null>(null);
+    const [assemblingId, setAssemblingId] = useState<string | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     const availableCities = Array.from(new Set(initialLeads.map(l => l.city).filter(Boolean)));
@@ -56,6 +60,50 @@ export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps
         }
     };
 
+    const handleAssemblePrompt = async (leadId: string) => {
+        setAssemblingId(leadId);
+        toast.loading('Initiating AI Strategy Synthesis...', { id: `assemble-${leadId}` });
+        try {
+            const res = await fetch('/api/brand-blueprint/assemble', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ leadId }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to initiate synthesis');
+            }
+            
+            // Poll for completion
+            pollAssembleStatus(leadId);
+
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to assemble prompt', { id: `assemble-${leadId}` });
+            setAssemblingId(null);
+        }
+    };
+
+    const pollAssembleStatus = (leadId: string) => {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/jobs/active?leadId=${leadId}`);
+                const data = await res.json();
+                
+                if (data.hasActiveJob) return;
+
+                clearInterval(interval);
+                setAssemblingId(null);
+                toast.success('Strategy synthesis complete!', { id: `assemble-${leadId}` });
+                router.refresh();
+                handleSearch(); // Refresh data
+                
+            } catch (e) {
+                console.error("Polling error", e);
+            }
+        }, 3000);
+    };
+
     const copyToClipboard = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
         setCopiedId(id);
@@ -83,8 +131,8 @@ export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps
                         onChange={(e) => setSelectedCategory(e.target.value)}
                         className="bg-zinc-900 border border-white/5 rounded-2xl px-4 py-3.5 outline-none focus:border-accent-gold/40 transition-all text-sm font-semibold text-white/60 appearance-none cursor-pointer"
                     >
-                        <option value="">Semua Kategori</option>
-                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                        <option value="" className="bg-[#111111] text-white">Semua Kategori</option>
+                        {categories.map(c => <option key={c} value={c} className="bg-[#111111] text-white">{c}</option>)}
                     </select>
 
                     <select 
@@ -95,8 +143,8 @@ export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps
                         }}
                         className="bg-zinc-900 border border-white/5 rounded-2xl px-4 py-3.5 outline-none focus:border-accent-gold/40 transition-all text-sm font-semibold text-white/60 appearance-none cursor-pointer"
                     >
-                        <option value="">Semua Kota</option>
-                        {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
+                        <option value="" className="bg-[#111111] text-white">Semua Kota</option>
+                        {availableCities.map(c => <option key={c} value={c} className="bg-[#111111] text-white">{c}</option>)}
                     </select>
 
                     <select 
@@ -105,8 +153,8 @@ export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps
                         disabled={!selectedCity}
                         className="bg-zinc-900 border border-white/5 rounded-2xl px-4 py-3.5 outline-none focus:border-accent-gold/40 transition-all text-sm font-semibold text-white/60 appearance-none cursor-pointer disabled:opacity-30"
                     >
-                        <option value="">Semua Kecamatan</option>
-                        {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
+                        <option value="" className="bg-[#111111] text-white">Semua Kecamatan</option>
+                        {availableDistricts.map(d => <option key={d} value={d} className="bg-[#111111] text-white">{d}</option>)}
                     </select>
                 </div>
 
@@ -212,6 +260,23 @@ export function BrandDnaClient({ initialLeads, categories }: BrandDnaClientProps
                                                             {copiedId === lead.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                                                             {copiedId === lead.id ? 'Tersalin' : 'Copy'}
                                                         </button>
+                                                        
+                                                        {lead.brandDna && (
+                                                            <button 
+                                                                onClick={() => handleAssemblePrompt(lead.id)}
+                                                                disabled={assemblingId === lead.id}
+                                                                className={`p-2 rounded-xl flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                                                    lead.masterWebsitePrompt 
+                                                                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                                                                    : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:scale-105'
+                                                                }`}
+                                                                title="Generate Master Strategy Prompt"
+                                                            >
+                                                                {assemblingId === lead.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles size={14} />}
+                                                                {lead.masterWebsitePrompt ? 'Regenerate Strategy' : 'Synthesize Strategy'}
+                                                            </button>
+                                                        )}
+
                                                         <a 
                                                             href={`/b/${lead.brandDna.token}`} 
                                                             target="_blank"

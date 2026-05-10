@@ -57,9 +57,9 @@
   .time-estimate { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 32px; }
   .time-estimate::before { content: '⏱'; }
 
-  .btn-start, .btn-submit { display: inline-flex; align-items: center; gap: 12px; background: var(--ink); color: var(--paper); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; padding: 18px 36px; border: none; cursor: pointer; border-radius: 2px; transition: all 0.2s; }
-  .btn-start:hover, .btn-submit:hover { background: var(--accent); transform: translateY(-2px); }
-  .btn-start svg, .btn-submit svg { width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2; }
+  .btn-start { display: inline-flex; align-items: center; gap: 12px; background: var(--ink); color: var(--paper); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; padding: 18px 36px; border: none; cursor: pointer; border-radius: 2px; transition: all 0.2s; }
+  .btn-start:hover { background: var(--accent); transform: translateY(-2px); }
+  .btn-start svg { width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2; }
 
   /* ─── SECTIONS ─── */
   .section { display: none; padding: 50px 0 40px; animation: fadeSlide 0.5s ease both; }
@@ -165,42 +165,7 @@
     .gmaps-fields { grid-template-columns: 1fr; }
     .summary-item { grid-template-columns: 1fr; gap: 3px; }
   }
-
-  /* ── UPLOAD ZONES ── */
-  .uzones { display: flex; flex-direction: column; gap: 12px; }
-  .uzone {
-    border: 1.5px dashed var(--line); border-radius: 4px;
-    padding: 22px 20px; cursor: pointer; transition: all 0.2s;
-    position: relative; display: flex; align-items: center; gap: 16px;
-  }
-  .uzone:hover { border-color: var(--muted); }
-  .uzone.has { border-color: var(--accent); border-style: solid; background: #fff0ee; }
-  .uzone input {
-    position: absolute; inset: 0; opacity: 0; cursor: pointer;
-    width: 100%; height: 100%;
-  }
-  .uzone-ico { font-size: 24px; flex-shrink: 0; }
-  .uzone-text h4 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-  .uzone-text p { font-size: 12px; color: var(--muted); }
-  .uzone-names { font-size: 11.5px; color: var(--accent); margin-top: 4px; font-family: 'DM Mono', monospace; }
-
-  /* ── ARCHETYPE CARDS ── */
-  .archetype-card {
-    flex-direction: row;
-    align-items: flex-start;
-    padding: 14px 16px;
-    gap: 12px;
-  }
-  .archetype-card .opt-check {
-    margin-top: 2px;
-    border-radius: 50%; /* radio style */
-  }
-  .archetype-card.selected {
-    border-color: var(--accent);
-    background: #fdf5f3;
-  }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -254,17 +219,12 @@
     </div>
   </div>
 
-  <div class="time-estimate">Estimasi pengisian: 8–10 menit · 5 bagian ringkas</div>
+  <div class="time-estimate">Estimasi pengisian: 8–10 menit · 4 bagian ringkas</div>
 
-  <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-    <button class="btn-start" onclick="startForm()">
-      Mulai Konfirmasi
-      <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-    </button>
-    <button class="btn-start" style="background: var(--accent-warm); color: var(--ink);" onclick="magicAutofill()">
-      ✨ Lengkapi via AI
-    </button>
-  </div>
+  <button class="btn-start" onclick="startForm()">
+    Mulai Konfirmasi
+    <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </button>
 </div>
 
 <!-- ══════════ SECTION 1: KONFIRMASI DATA DASAR ══════════ -->
@@ -346,7 +306,7 @@
     <button class="btn btn-prev" onclick="goSection(0)">
       <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
     </button>
-    <div class="nav-step">Bagian <strong>1</strong> dari <strong>5</strong></div>
+    <div class="nav-step">Bagian <strong>1</strong> dari <strong>4</strong></div>
     <button class="btn btn-next" onclick="goSection(2)">
       Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
     </button>
@@ -405,7 +365,7 @@
     <button class="btn btn-prev" onclick="goSection(1)">
       <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
     </button>
-    <div class="nav-step">Bagian <strong>2</strong> dari <strong>5</strong></div>
+    <div class="nav-step">Bagian <strong>2</strong> dari <strong>4</strong></div>
     <button class="btn btn-next" onclick="goSection(3)">
       Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
     </button>
@@ -433,51 +393,9 @@
       <textarea placeholder="Biasanya yang datang adalah... / Pelanggan terbanyak kami adalah..." oninput="markAnswered(this, 'target_customer')"></textarea>
     </div>
 
-    <!-- Archetype Selector -->
-    <div class="q-block" data-id="archetype_preference">
-      <div class="q-label">Q 3.2 <span class="badge-new">baru</span></div>
-      <div class="q-text">Pilih karakter visual website yang paling sesuai dengan bisnis kamu.</div>
-      <div class="q-hint">Ini menentukan keseluruhan gaya: layout, font, dan tone warna.</div>
-      <div class="options-grid" style="grid-template-columns: 1fr;">
-        <label class="opt-label archetype-card">
-          <input type="radio" name="design_archetype" onchange="toggleOpt(this)">
-          <span class="opt-check"></span>
-          <div style="flex: 1;">
-            <div style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; margin-bottom: 3px;">The Avant-Garde Editorial</div>
-            <div style="font-size: 11px; color: var(--muted);">Modern, bold, whitespace luas. Font tegas (Syne). Cocok: kafe, studio foto, butik, desainer.</div>
-          </div>
-        </label>
-        <label class="opt-label archetype-card">
-          <input type="radio" name="design_archetype" onchange="toggleOpt(this)">
-          <span class="opt-check"></span>
-          <div style="flex: 1;">
-            <div style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; margin-bottom: 3px;">The Obsidian Glass</div>
-            <div style="font-size: 11px; color: var(--muted);">Premium, dark, glassmorphism, accent emas/hijau. Cocok: bengkel, teknologi, dealer, videografer.</div>
-          </div>
-        </label>
-        <label class="opt-label archetype-card">
-          <input type="radio" name="design_archetype" onchange="toggleOpt(this)">
-          <span class="opt-check"></span>
-          <div style="flex: 1;">
-            <div style="font-family: 'Playfair Display', serif; font-weight: 700; font-size: 13px; margin-bottom: 3px;">The Heritage Suite</div>
-            <div style="font-size: 11px; color: var(--muted);">Elegan, serif, garis bersih, tone muted. Cocok: klinik, salon, law firm, properti, katering.</div>
-          </div>
-        </label>
-        <label class="opt-label archetype-card">
-          <input type="radio" name="design_archetype" onchange="toggleOpt(this)">
-          <span class="opt-check"></span>
-          <div style="flex: 1;">
-            <div style="font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; margin-bottom: 3px;">Biarkan AI Pilihkan</div>
-            <div style="font-size: 11px; color: var(--muted);">AI akan otomatis memilih archetype terbaik berdasarkan industri dan jawaban kamu.</div>
-          </div>
-        </label>
-      </div>
-    </div>
-
-    <!-- Mood Selector -->
     <div class="q-block" data-id="visual_mood">
-      <div class="q-label">Q 3.3 <span class="badge-new">baru</span></div>
-      <div class="q-text">Feel / suasana yang ingin kamu hadirkan di website — pilih semua yang sesuai.</div>
+      <div class="q-label">Q 3.2 <span class="badge-new">baru</span></div>
+      <div class="q-text">Tampilan website yang kamu inginkan — pilih yang paling cocok.</div>
       <div class="options-grid">
         <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Hangat & natural</label>
         <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Bersih & minimalis</label>
@@ -485,20 +403,18 @@
         <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Ceria & berwarna</label>
         <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Tradisional / Lokal</label>
         <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Modern & profesional</label>
-        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Dramatis & bold</label>
-        <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Lembut & feminin</label>
       </div>
     </div>
 
     <div class="q-block" data-id="color_vibe">
-      <div class="q-label">Q 3.4 <span class="badge-new">baru</span></div>
+      <div class="q-label">Q 3.3 <span class="badge-new">baru</span></div>
       <div class="q-text">Warna apa yang paling mewakili bisnis kamu? (Boleh nama warna biasa, tidak perlu kode hex)</div>
       <div class="q-hint">Contoh: "hijau daun, krem, emas" — sesuai feel produk atau lokasi bisnis kamu.</div>
       <input type="text" placeholder="Misal: hijau segar, putih bersih, sentuhan emas..." oninput="markAnswered(this, 'color_vibe')">
     </div>
 
     <div class="q-block" data-id="website_goal">
-      <div class="q-label">Q 3.5 <span class="badge-new">baru</span></div>
+      <div class="q-label">Q 3.4 <span class="badge-new">baru</span></div>
       <div class="q-text">Tujuan utama website ini untuk bisnis kamu — apa yang paling penting?</div>
       <div class="options-grid cols-2">
         <label class="opt-label"><input type="checkbox" onchange="toggleOpt(this)"><span class="opt-check"></span>Tampil profesional ke pelanggan</label>
@@ -510,20 +426,13 @@
       </div>
     </div>
 
-    <div class="q-block" data-id="reference_website_style">
-      <div class="q-label">Q 3.6 <span class="badge-new">baru</span></div>
-      <div class="q-text">Punya referensi website yang kamu suka? (Atau website kompetitor)</div>
-      <div class="q-hint">Cukup sebutkan link atau nama websitenya saja. Ini membantu kami memahami selera visual kamu.</div>
-      <input type="text" placeholder="Misal: apple.com, zara.com, atau kompetitor lokal..." oninput="markAnswered(this, 'reference_website_style')">
-    </div>
-
   </div>
 
   <div class="nav-footer">
     <button class="btn btn-prev" onclick="goSection(2)">
       <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
     </button>
-    <div class="nav-step">Bagian <strong>3</strong> dari <strong>5</strong></div>
+    <div class="nav-step">Bagian <strong>3</strong> dari <strong>4</strong></div>
     <button class="btn btn-next" onclick="goSection(4)">
       Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
     </button>
@@ -594,63 +503,7 @@
     <button class="btn btn-prev" onclick="goSection(3)">
       <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
     </button>
-    <div class="nav-step">Bagian <strong>4</strong> dari <strong>5</strong></div>
-    <button class="btn btn-next" onclick="goSection(5)">
-      Next <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-    </button>
-  </div>
-</div>
-
-
-<!-- ══════════ SECTION 5: UPLOAD ASET ══════════ -->
-<div class="section" id="sec-5">
-  <div class="section-header">
-    <div class="section-number">05</div>
-    <div class="section-title-group">
-      <div class="section-eyebrow">Aset Brand</div>
-      <h2>Upload materi<br><em>brand kamu.</em></h2>
-      <p class="section-desc">Punya logo atau referensi foto? Upload di sini.</p>
-      <div class="section-time">⏱ ~1 menit</div>
-    </div>
-  </div>
-
-  <div class="questions">
-    <div class="uzones">
-      <div class="uzone" id="uz1">
-        <input type="file" multiple accept="image/*,.pdf,.svg,.ai,.eps" onchange="uf(this,'un1','uz1','logo')">
-        <div class="uzone-ico">🎨</div>
-        <div class="uzone-text">
-          <h4>Logo & Brand Identity</h4>
-          <p>SVG, AI, EPS, PNG, PDF</p>
-          <div class="uzone-names" id="un1"></div>
-        </div>
-      </div>
-      <div class="uzone" id="uz2">
-        <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt" onchange="uf(this,'un2','uz2','content')">
-        <div class="uzone-ico">📁</div>
-        <div class="uzone-text">
-          <h4>Konten & Materi Website</h4>
-          <p>Foto produk, teks, dokumen</p>
-          <div class="uzone-names" id="un2"></div>
-        </div>
-      </div>
-      <div class="uzone" id="uz3">
-        <input type="file" multiple accept="image/*,.pdf" onchange="uf(this,'un3','uz3','ref')">
-        <div class="uzone-ico">💡</div>
-        <div class="uzone-text">
-          <h4>Referensi Visual / Moodboard</h4>
-          <p>Screenshot, inspirasi tampilan</p>
-          <div class="uzone-names" id="un3"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="nav-footer">
-    <button class="btn btn-prev" onclick="goSection(4)">
-      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
-    </button>
-    <div class="nav-step">Bagian <strong>5</strong> dari <strong>5</strong></div>
+    <div class="nav-step">Bagian <strong>4</strong> dari <strong>4</strong></div>
     <button class="btn btn-submit" onclick="generateSummary()">
       Selesai — Lihat Ringkasan
       <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -667,9 +520,11 @@
   </div>
   <div id="summary-content"></div>
   <div class="export-actions">
-      <button class="btn-submit" onclick="submitData()">
-        Simpan & Selesai
-      </button>
+    <button class="btn btn-submit" onclick="submitData()">
+      Kirim ke Tim →
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+    <button class="btn btn-next" onclick="copyJSON()">Salin Data (JSON)</button>
   </div>
 </div>
 
@@ -702,174 +557,9 @@ document.getElementById('conf-wa').textContent = GMAPS.phone || '—';
 document.getElementById('conf-addr').textContent = GMAPS.address || '—';
 
 // ─── State ───
-const TOTAL = 5;
+const TOTAL = 4;
 let currentSection = 0;
 const confirmed = {}; // field → {confirmed: bool, value: string, source: 'gmaps'|'updated'|'new'}
-
-
-let _uploadsPending = 0;
-const D_FILES = { logo: [], content: [], ref: [], logo_url: null, logo_svg_url: null, media_urls: [], ref_urls: [] };
-
-// ─── RESUME SESSION ───
-function resumeSession() {
-  let existing = window.EXISTING_ANSWERS;
-  
-  // Try localStorage first (more recent progress)
-  const localKey = `brand_dna_${window.BRAND_DNA_TOKEN}`;
-  const localData = localStorage.getItem(localKey);
-  if (localData) {
-    try {
-      const parsed = JSON.parse(localData);
-      // Merge: local progress takes priority over initial server data
-      existing = { ...(existing || {}), ...parsed };
-    } catch(e) {}
-  }
-
-  if (!existing || Object.keys(existing).length === 0) return;
-
-  console.log("Resuming session with:", existing);
-  
-  // Merge into confirmed state
-  Object.keys(existing).forEach(key => {
-    if (key === 'files') {
-      Object.assign(D_FILES, existing.files);
-      // Restore file UI
-      if (D_FILES.logo.length) document.getElementById('logo-names').textContent = '✓ ' + D_FILES.logo.join(', ');
-      if (D_FILES.content.length) document.getElementById('content-names').textContent = '✓ ' + D_FILES.content.join(', ');
-      if (D_FILES.ref.length) document.getElementById('ref-names').textContent = '✓ ' + D_FILES.ref.join(', ');
-      return;
-    }
-    
-    confirmed[key] = existing[key];
-    const val = existing[key].value;
-    const block = document.querySelector(`.q-block[data-id="${key}"]`);
-    
-    if (!block) return;
-
-    // 1. Text / Textarea
-    const input = block.querySelector('input[type="text"], textarea');
-    if (input) {
-      input.value = val;
-      block.classList.add('answered');
-    }
-
-    // 2. Radios / Checkboxes
-    const options = block.querySelectorAll('input[type="radio"], input[type="checkbox"]');
-    if (options.length) {
-      const selectedVals = val.split(', ').map(v => v.trim());
-      options.forEach(opt => {
-        const labelText = opt.closest('.opt-label').textContent.trim();
-        if (selectedVals.includes(labelText)) {
-          opt.checked = true;
-          opt.closest('.opt-label').classList.add('selected');
-        }
-      });
-      block.classList.add('answered');
-    }
-
-    // 3. Confirm Blocks (GMaps)
-    if (existing[key].source === 'gmaps' || existing[key].confirmed === true) {
-      const yesBtn = block.querySelector('.confirm-btn.yes');
-      if (yesBtn) {
-        yesBtn.classList.add('active');
-        block.classList.add('confirmed');
-      }
-    } else if (existing[key].source === 'updated') {
-      const noBtn = block.querySelector('.confirm-btn.no');
-      const override = document.getElementById('override-' + key);
-      if (noBtn) noBtn.classList.add('active');
-      if (override) {
-        override.classList.add('show');
-        const ovInput = override.querySelector('input, textarea');
-        if (ovInput) ovInput.value = val;
-      }
-    }
-
-    // 4. Sliders
-    if (key === 'tone_preference') {
-      // Format: Formal↔Santai: 5/10 | Serius↔Hangat: 5/10
-      const matches = val.match(/\d+/g);
-      if (matches && matches.length >= 2) {
-        const s1 = document.querySelector('input[oninput*="sv1"]');
-        const s2 = document.querySelector('input[oninput*="sv2"]');
-        if (s1) { s1.value = matches[0]; document.getElementById('sv1').textContent = matches[0]; }
-        if (s2) { s2.value = matches[1]; document.getElementById('sv2').textContent = matches[1]; }
-      }
-    }
-  });
-
-  // Change hero button text to "Lanjutkan"
-  const startBtn = document.querySelector('.btn-start');
-  if (startBtn) startBtn.innerHTML = 'Lanjutkan Konfirmasi <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-}
-
-async function magicAutofill() {
-  const btn = document.querySelector('button[onclick="magicAutofill()"]');
-  const oldText = btn.innerHTML;
-  btn.innerHTML = '⏳ Menghitung Strategi...';
-  btn.disabled = true;
-
-  try {
-    const res = await fetch('/api/brand-blueprint/autofill', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        leadId: window.LEAD_ID, 
-        currentAnswers: window._collectedData || collectData() 
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      window.EXISTING_ANSWERS = data.answers;
-      resumeSession();
-      alert('Strategi AI berhasil diterapkan! Silakan cek dan sesuaikan.');
-      startForm();
-    }
-  } catch (e) {
-    console.error(e);
-    alert('Gagal menggunakan AI Autofill.');
-  } finally {
-    btn.innerHTML = oldText;
-    btn.disabled = false;
-  }
-}
-
-async function uf(input,namesId,zoneId,key){
-  const files = Array.from(input.files);
-  const names = files.map(f => f.name);
-  const nameEl = document.getElementById(namesId);
-  const zoneEl = document.getElementById(zoneId);
-
-  nameEl.textContent = '⏳ Mengupload...';
-  D_FILES[key] = names;
-  _uploadsPending += files.length;
-
-  for (const file of files) {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('token', window.BRAND_DNA_TOKEN || 'local');
-    fd.append('type', key);
-    try {
-      const res = await fetch('/api/upload-brand-asset', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (data.success) {
-        if (key === 'logo') {
-          D_FILES.logo_url = data.webpUrl;
-          D_FILES.logo_svg_url = data.svgUrl || null;
-        } else if (key === 'content') {
-          D_FILES.media_urls.push(data.webpUrl);
-        } else if (key === 'ref') {
-          D_FILES.ref_urls.push(data.webpUrl);
-        }
-      }
-    } catch (e) {
-      console.error('Upload gagal:', e);
-    }
-    _uploadsPending--;
-  }
-  nameEl.textContent = names.length ? '✓ ' + names.join(', ') : '';
-  zoneEl.classList.toggle('has', names.length > 0);
-}
 
 // ─── Timer ───
 let timerSeconds = 600;
@@ -994,17 +684,12 @@ function collectData() {
 
   // gmaps passthrough
   data['_gmaps_raw'] = { value: JSON.stringify(GMAPS), source: 'gmaps' };
-  data['files'] = D_FILES;
 
   return data;
 }
 
 // ─── Summary ───
 function generateSummary() {
-  if (_uploadsPending > 0) {
-    alert('Masih ada file yang sedang diupload. Tunggu sebentar...');
-    return;
-  }
   if (timerInterval) clearInterval(timerInterval);
   const data = collectData();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -1023,21 +708,17 @@ function generateSummary() {
   const sections = [
     { title: 'Data Dasar', keys: ['business_name','whatsapp','address','tagline','services_main'] },
     { title: 'Cerita & Keunggulan', keys: ['founding_story','usp','price_positioning','best_moment'] },
-    { title: 'Pelanggan & Visual', keys: ['target_customer','archetype_preference','visual_mood','color_vibe','reference_website_style','website_goal'] },
+    { title: 'Pelanggan & Visual', keys: ['target_customer','visual_mood','color_vibe','website_goal'] },
     { title: 'Karakter & Tone', keys: ['tone_preference','brand_words_must','additional_notes','one_sentence'] },
-
-    { title: 'Assets & Catatan', keys: ['files'] },
-
   ];
 
   const fieldLabels = {
     business_name:'Nama Bisnis', whatsapp:'No. WhatsApp', address:'Alamat', tagline:'Tagline',
     services_main:'Layanan Utama', founding_story:'Cerita Berdiri', usp:'Keunggulan Utama',
     price_positioning:'Posisi Harga', best_moment:'Momen Terbaik', target_customer:'Target Pelanggan',
-    archetype_preference: 'Archetype Design', visual_mood:'Mood Visual', color_vibe:'Warna Brand', 
-    reference_website_style: 'Referensi Website', website_goal:'Tujuan Website',
+    visual_mood:'Mood Visual', color_vibe:'Warna Brand', website_goal:'Tujuan Website',
     tone_preference:'Tone', brand_words_must:'Kata Wajib', additional_notes:'Catatan Tambahan',
-    one_sentence:'Satu Kalimat Brand', files:'Aset Diupload'
+    one_sentence:'Satu Kalimat Brand'
   };
 
   const html = sections.map(s => `
@@ -1046,17 +727,7 @@ function generateSummary() {
       ${s.keys.map(k => {
         const d = data[k];
         if (!d && !data[k]) return '';
-        let val = '';
-        if (k === 'files' && data.files) {
-          const f = data.files;
-          val = [
-            f.logo.length ? `Logo (${f.logo.length} file)` : '',
-            f.content.length ? `Konten (${f.content.length} file)` : '',
-            f.ref.length ? `Referensi (${f.ref.length} file)` : ''
-          ].filter(Boolean).join(', ') || '—';
-        } else {
-          val = d ? d.value : '';
-        }
+        const val = d ? d.value : '';
         const src = d ? d.source : 'new';
         return `<div class="summary-item">
           <div class="summary-item-key">${fieldLabels[k] || k}${sourceLabel(src)}</div>
@@ -1073,88 +744,22 @@ function generateSummary() {
   window._collectedData = data;
 }
 
-
-async function submitData() {
-  const btn = document.querySelector('.btn-submit[onclick="submitData()"]');
-  if(!btn) return;
-  const oldTxt = btn.innerHTML;
-  btn.innerHTML = '⏳ Menyimpan...';
-  btn.disabled = true;
-
-  const token = window.BRAND_DNA_TOKEN || '';
-  const payload = window._collectedData;
-
-  try {
-    const res = await fetch('/api/brand-blueprint/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, answers: payload })
-    });
-    const data = await res.json();
-    if (data.success) {
-      btn.innerHTML = '✓ Tersimpan';
-      localStorage.removeItem(`brand_dna_${window.BRAND_DNA_TOKEN}`);
-      
-      // Generate PDF
-      setTimeout(async () => {
-        const element = document.getElementById('summary-content');
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'font-family: "DM Mono", monospace; color: #0d0d0d; background: #fff; padding: 40px; width: 800px;';
-        wrapper.innerHTML = `
-          <div style="border-bottom: 2px solid #0d0d0d; padding-bottom: 20px; margin-bottom: 30px;">
-            <h1 style="font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; margin: 0; color: #0d0d0d;">Brand DNA & Website Brief</h1>
-            <p style="font-size: 14px; color: #8a8070; margin: 5px 0 0;">Generated by AutoForge Prospecting Engine</p>
-          </div>
-          ${element.innerHTML}
-        `;
-        
-        wrapper.querySelectorAll('.summary-section-title').forEach(t => {
-           t.style.color = '#c8402a';
-           t.style.borderBottom = '1px solid #eee';
-        });
-        wrapper.querySelectorAll('.summary-item-key').forEach(k => k.style.color = '#8a8070');
-        wrapper.querySelectorAll('.summary-item-val').forEach(v => v.style.color = '#0d0d0d');
-        wrapper.querySelectorAll('.summary-item').forEach(r => r.style.borderBottom = '1px solid #eee');
-
-        document.body.appendChild(wrapper);
-
-        const opt = {
-          margin: [15, 15, 15, 15],
-          filename: `BrandDNA-${window._collectedData.business_name?.value || 'Brief'}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-        };
-
-        await html2pdf().set(opt).from(wrapper).save();
-        document.body.removeChild(wrapper);
-      }, 500);
-
-    } else {
-      alert('Gagal simpan: ' + (data.error || 'Unknown error'));
-      btn.innerHTML = oldTxt;
-      btn.disabled = false;
-    }
-  } catch (e) {
-    console.error(e);
-    alert('Terjadi kesalahan koneksi.');
-    btn.innerHTML = oldTxt;
-    btn.disabled = false;
-  }
+function submitData() {
+  // Dalam Next.js: POST ke /api/leads/[id]/brand-dna
+  const payload = {
+    brand_dna_real: window._collectedData,
+    submitted_at: new Date().toISOString()
+  };
+  console.log('Payload ke API:', JSON.stringify(payload, null, 2));
+  alert('Data terkirim! Tim kami akan memproses dalam 24 jam.');
 }
 
-// Auto-save logic
-setInterval(() => {
-  if (window.BRAND_DNA_TOKEN) {
-    const data = collectData();
-    localStorage.setItem(`brand_dna_${window.BRAND_DNA_TOKEN}`, JSON.stringify(data));
-  }
-}, 5000);
+function copyJSON() {
+  const payload = JSON.stringify(window._collectedData, null, 2);
+  navigator.clipboard.writeText(payload).then(() => alert('JSON berhasil disalin!')).catch(() => alert('Gunakan tombol Kirim ke Tim.'));
+}
 
 updateProgress();
-resumeSession();
-window._collectedData = collectData();
 </script>
 </body>
 </html>
